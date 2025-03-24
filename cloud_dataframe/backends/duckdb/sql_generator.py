@@ -374,11 +374,11 @@ def _generate_group_by(df: DataFrame) -> str:
     Returns:
         The generated SQL string for the GROUP BY clause
     """
-    if not df.group_by or not df.group_by.columns:
+    if not df.group_by_clause or not df.group_by_clause.columns:
         return ""
     
     group_by_cols = []
-    for col in df.group_by.columns:
+    for col in df.group_by_clause.columns:
         col_sql = _generate_expression(col)
         group_by_cols.append(col_sql)
     
@@ -412,12 +412,12 @@ def _generate_order_by(df: DataFrame) -> str:
     Returns:
         The generated SQL string for the ORDER BY clause
     """
-    if not df.order_by:
+    if not df.order_by_clauses:
         return ""
     
     order_by_parts = []
     
-    for clause in df.order_by:
+    for clause in df.order_by_clauses:
         expr_sql = _generate_expression(clause.expression)
         direction_sql = clause.direction.value
         order_by_parts.append(f"{expr_sql} {direction_sql}")

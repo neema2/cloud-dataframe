@@ -38,7 +38,7 @@ class TestDuckDBSQLGeneration(unittest.TestCase):
     
     def test_simple_select(self):
         """Test generating SQL for a simple SELECT query."""
-        df = DataFrame.from_table("employees")
+        df = DataFrame.from_("employees")
         sql = df.to_sql(dialect="duckdb")
         
         print(f"Generated SQL: {sql}")
@@ -50,7 +50,7 @@ class TestDuckDBSQLGeneration(unittest.TestCase):
         df = DataFrame.create_select(
             as_column(col("id"), "id"),
             as_column(col("name"), "name")
-        ).from_table("employees")
+        ).from_("employees")
         
         sql = df.to_sql(dialect="duckdb")
         expected_sql = "SELECT id AS id, name AS name\nFROM employees"
@@ -58,7 +58,7 @@ class TestDuckDBSQLGeneration(unittest.TestCase):
     
     def test_filter(self):
         """Test generating SQL for a filtered query."""
-        df = DataFrame.from_table("employees").filter(
+        df = DataFrame.from_("employees").filter(
             BinaryOperation(
                 left=col("salary"),
                 operator=">",
@@ -72,8 +72,8 @@ class TestDuckDBSQLGeneration(unittest.TestCase):
     
     def test_group_by(self):
         """Test generating SQL for a GROUP BY query."""
-        df = DataFrame.from_table("employees") \
-            .group_by_columns("department") \
+        df = DataFrame.from_("employees") \
+            .group_by("department") \
             .select(
                 as_column(col("department"), "department"),
                 as_column(count("*"), "employee_count"),
@@ -86,8 +86,8 @@ class TestDuckDBSQLGeneration(unittest.TestCase):
     
     def test_order_by(self):
         """Test generating SQL for an ORDER BY query."""
-        df = DataFrame.from_table("employees") \
-            .order_by_columns("salary", desc=True)
+        df = DataFrame.from_("employees") \
+            .order_by("salary", desc=True)
         
         sql = df.to_sql(dialect="duckdb")
         expected_sql = "SELECT *\nFROM employees\nORDER BY salary DESC"
@@ -95,7 +95,7 @@ class TestDuckDBSQLGeneration(unittest.TestCase):
     
     def test_limit_offset(self):
         """Test generating SQL for a query with LIMIT and OFFSET."""
-        df = DataFrame.from_table("employees") \
+        df = DataFrame.from_("employees") \
             .limit(10) \
             .offset(5)
         
@@ -105,7 +105,7 @@ class TestDuckDBSQLGeneration(unittest.TestCase):
     
     def test_distinct(self):
         """Test generating SQL for a DISTINCT query."""
-        df = DataFrame.from_table("employees") \
+        df = DataFrame.from_("employees") \
             .distinct_rows() \
             .select(
                 as_column(col("department"), "department")
@@ -117,8 +117,8 @@ class TestDuckDBSQLGeneration(unittest.TestCase):
     
     def test_join(self):
         """Test generating SQL for a JOIN query."""
-        employees = DataFrame.from_table("employees", alias="e")
-        departments = DataFrame.from_table("departments", alias="d")
+        employees = DataFrame.from_("employees", alias="e")
+        departments = DataFrame.from_("departments", alias="d")
         
         joined_df = employees.join(
             departments,
@@ -135,8 +135,8 @@ class TestDuckDBSQLGeneration(unittest.TestCase):
     
     def test_left_join(self):
         """Test generating SQL for a LEFT JOIN query."""
-        employees = DataFrame.from_table("employees", alias="e")
-        departments = DataFrame.from_table("departments", alias="d")
+        employees = DataFrame.from_("employees", alias="e")
+        departments = DataFrame.from_("departments", alias="d")
         
         joined_df = employees.left_join(
             departments,
@@ -153,14 +153,14 @@ class TestDuckDBSQLGeneration(unittest.TestCase):
     
     def test_with_cte(self):
         """Test generating SQL for a query with a CTE."""
-        dept_counts = DataFrame.from_table("employees") \
-            .group_by_columns("department_id") \
+        dept_counts = DataFrame.from_("employees") \
+            .group_by("department_id") \
             .select(
                 as_column(col("department_id"), "department_id"),
                 as_column(count("*"), "employee_count")
             )
         
-        df = DataFrame.from_table("departments", alias="d") \
+        df = DataFrame.from_("departments", alias="d") \
             .with_cte("dept_counts", dept_counts) \
             .join(
                 TableReference(table_name="dept_counts", alias="dc"),

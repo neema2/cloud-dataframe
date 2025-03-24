@@ -118,9 +118,9 @@ class DataFrame:
         self.columns: List[Column] = []
         self.source: Optional[DataSource] = None
         self.filter_condition: Optional[FilterCondition] = None
-        self.group_by: Optional[GroupByClause] = None
+        self.group_by_clause: Optional[GroupByClause] = None
         self.having: Optional[FilterCondition] = None
-        self.order_by: List[OrderByClause] = []
+        self.order_by_clauses: List[OrderByClause] = []
         self.limit_value: Optional[int] = None
         self.offset_value: Optional[int] = None
         self.distinct: bool = False
@@ -155,7 +155,7 @@ class DataFrame:
         return self
     
     @classmethod
-    def from_table(cls, table_name: str, schema: Optional[str] = None, alias: Optional[str] = None) -> 'DataFrame':
+    def from_(cls, table_name: str, schema: Optional[str] = None, alias: Optional[str] = None) -> 'DataFrame':
         """
         Create a new DataFrame from a database table.
         
@@ -233,7 +233,7 @@ class DataFrame:
             right=LiteralExpression(value=True)
         )
     
-    def group_by_columns(self, *columns: Union[str, Expression, ColSpec]) -> 'DataFrame':
+    def group_by(self, *columns: Union[str, Expression, ColSpec]) -> 'DataFrame':
         """
         Group the DataFrame by the specified columns.
         
@@ -252,10 +252,10 @@ class DataFrame:
             else:
                 expressions.append(col)
         
-        self.group_by = GroupByClause(columns=expressions)
+        self.group_by_clause = GroupByClause(columns=expressions)
         return self
     
-    def order_by_columns(self, *clauses: Union[OrderByClause, Expression, str, ColSpec], 
+    def order_by(self, *clauses: Union[OrderByClause, Expression, str, ColSpec], 
                  desc: bool = False) -> 'DataFrame':
         """
         Order the DataFrame by the specified columns.
@@ -271,19 +271,19 @@ class DataFrame:
         
         for clause in clauses:
             if isinstance(clause, OrderByClause):
-                self.order_by.append(clause)
+                self.order_by_clauses.append(clause)
             elif isinstance(clause, str):
-                self.order_by.append(OrderByClause(
+                self.order_by_clauses.append(OrderByClause(
                     expression=ColumnReference(clause),
                     direction=direction
                 ))
             elif isinstance(clause, ColSpec):
-                self.order_by.append(OrderByClause(
+                self.order_by_clauses.append(OrderByClause(
                     expression=ColumnReference(clause.name),
                     direction=direction
                 ))
             else:
-                self.order_by.append(OrderByClause(
+                self.order_by_clauses.append(OrderByClause(
                     expression=clause,
                     direction=direction
                 ))
