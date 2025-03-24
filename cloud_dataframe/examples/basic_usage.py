@@ -38,7 +38,7 @@ class Department:
 def basic_operations():
     """Demonstrate basic dataframe operations."""
     # Create a DataFrame from a table
-    df = DataFrame.from_table("employees")
+    df = DataFrame.from_("employees")
     
     # Select specific columns
     df_select = df.select(
@@ -51,7 +51,7 @@ def basic_operations():
     df_filter = df.filter(lambda x: x.salary > 50000)
     
     # Group by and aggregate
-    df_group = df.group_by_columns("department") \
+    df_group = df.group_by("department") \
         .select(
             as_column(col("department"), "department"),
             as_column(count("*"), "employee_count"),
@@ -59,7 +59,7 @@ def basic_operations():
         )
     
     # Order by
-    df_order = df.order_by_columns("salary", desc=True)
+    df_order = df.order_by("salary", desc=True)
     
     # Limit and offset
     df_limit = df.limit(10).offset(5)
@@ -80,8 +80,8 @@ def basic_operations():
 def join_operations():
     """Demonstrate join operations."""
     # Create DataFrames from tables
-    employees = DataFrame.from_table("employees", alias="e")
-    departments = DataFrame.from_table("departments", alias="d")
+    employees = DataFrame.from_("employees", alias="e")
+    departments = DataFrame.from_("departments", alias="d")
     
     # Inner join
     inner_join = employees.join(
@@ -164,8 +164,8 @@ def execute_query():
     """)
     
     # Create a DataFrame
-    df = DataFrame.from_table("employees") \
-        .group_by_columns("department") \
+    df = DataFrame.from_("employees") \
+        .group_by("department") \
         .select(
             as_column(col("department"), "department"),
             as_column(count("*"), "employee_count"),
