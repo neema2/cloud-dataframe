@@ -174,6 +174,7 @@ class DataFrame:
                 - String column names
                 - ColSpec objects
                 - Lambda functions that access dataclass properties (e.g., lambda x: x.column_name)
+                - Lambda functions that return arrays (e.g., lambda x: [x.name, x.age])
             
         Returns:
             The DataFrame with the columns selected
@@ -190,7 +191,11 @@ class DataFrame:
                 # Handle lambda functions that access dataclass properties
                 from ..utils.lambda_parser import LambdaParser
                 expr = LambdaParser.parse_lambda(col)
-                column_list.append(expr)
+                if isinstance(expr, list):
+                    # Handle array returns from lambda functions
+                    column_list.extend(expr)
+                else:
+                    column_list.append(expr)
             else:
                 raise TypeError(f"Unsupported column type: {type(col)}")
         
@@ -314,6 +319,7 @@ class DataFrame:
                 - Expression objects
                 - ColSpec objects
                 - Lambda functions that access dataclass properties (e.g., lambda x: x.column_name)
+                - Lambda functions that return arrays (e.g., lambda x: [x.department, x.location])
             
         Returns:
             The DataFrame with the grouping applied
@@ -328,7 +334,11 @@ class DataFrame:
                 # Handle lambda functions that access dataclass properties
                 from ..utils.lambda_parser import LambdaParser
                 expr = LambdaParser.parse_lambda(col)
-                expressions.append(expr)
+                if isinstance(expr, list):
+                    # Handle array returns from lambda functions
+                    expressions.extend(expr)
+                else:
+                    expressions.append(expr)
             else:
                 expressions.append(col)
         
@@ -347,6 +357,7 @@ class DataFrame:
                 - ColSpec objects
                 - OrderByClause objects
                 - Lambda functions that access dataclass properties (e.g., lambda x: x.column_name)
+                - Lambda functions that return arrays (e.g., lambda x: [x.department, x.salary])
             desc: Whether to sort in descending order (if not using OrderByClause)
             
         Returns:
@@ -371,10 +382,18 @@ class DataFrame:
                 # Handle lambda functions that access dataclass properties
                 from ..utils.lambda_parser import LambdaParser
                 expr = LambdaParser.parse_lambda(clause)
-                self.order_by_clauses.append(OrderByClause(
-                    expression=expr,
-                    direction=direction
-                ))
+                if isinstance(expr, list):
+                    # Handle array returns from lambda functions
+                    for single_expr in expr:
+                        self.order_by_clauses.append(OrderByClause(
+                            expression=single_expr,
+                            direction=direction
+                        ))
+                else:
+                    self.order_by_clauses.append(OrderByClause(
+                        expression=expr,
+                        direction=direction
+                    ))
             else:
                 self.order_by_clauses.append(OrderByClause(
                     expression=clause,
