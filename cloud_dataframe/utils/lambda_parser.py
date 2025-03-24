@@ -15,6 +15,23 @@ from ..type_system.column import (
 from ..core.dataframe import BinaryOperation
 
 
+def parse_lambda(lambda_func: Callable, table_schema=None) -> Union[Expression, List[Expression]]:
+    """
+    Parse a lambda function and convert it to an Expression or list of Expressions.
+    
+    Args:
+        lambda_func: The lambda function to parse. Can be:
+            - A lambda that returns a boolean expression (e.g., lambda x: x.age > 30)
+            - A lambda that returns a column reference (e.g., lambda x: x.name)
+            - A lambda that returns an array of column references (e.g., lambda x: [x.name, x.age])
+        table_schema: Optional schema for type checking
+        
+    Returns:
+        An Expression or list of Expressions representing the lambda function
+    """
+    return LambdaParser.parse_lambda(lambda_func, table_schema)
+
+
 class LambdaParser:
     """
     Parser for converting Python lambda functions to SQL expressions.
