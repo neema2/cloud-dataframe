@@ -57,6 +57,7 @@ class BinaryOperation(FilterCondition):
     left: Expression
     operator: str
     right: Expression
+    needs_parentheses: bool = False
 
 
 @dataclass
@@ -125,6 +126,26 @@ class DataFrame:
         self.offset_value: Optional[int] = None
         self.distinct: bool = False
         self.ctes: List[CommonTableExpression] = []
+    
+    def copy(self) -> 'DataFrame':
+        """
+        Create a deep copy of this DataFrame.
+        
+        Returns:
+            A new DataFrame with the same properties
+        """
+        result = DataFrame()
+        result.columns = self.columns.copy()
+        result.source = self.source  # DataSource objects are immutable
+        result.filter_condition = self.filter_condition  # FilterCondition objects are immutable
+        result.group_by_clause = self.group_by_clause  # GroupByClause objects are immutable
+        result.having = self.having  # FilterCondition objects are immutable
+        result.order_by_clauses = self.order_by_clauses.copy()
+        result.limit_value = self.limit_value
+        result.offset_value = self.offset_value
+        result.distinct = self.distinct
+        result.ctes = self.ctes.copy()
+        return result
     
     @classmethod
     def create_select(cls, *columns: Column) -> 'DataFrame':
@@ -206,10 +227,23 @@ class DataFrame:
         if not callable(condition) or isinstance(condition, FilterCondition):
             raise TypeError("Filter condition must be a lambda function or generator expression")
         
-        # Extract the lambda's AST and convert to FilterCondition
-        self.filter_condition = self._lambda_to_filter_condition(condition)
+        # Create a new DataFrame with the filter condition
+        result = self.copy()
         
-        return self
+        # Convert the lambda to a filter condition
+        filter_condition = self._lambda_to_filter_condition(condition)
+        
+        # If we already have a filter condition, combine them with AND
+        if result.filter_condition:
+            result.filter_condition = BinaryOperation(
+                left=result.filter_condition,
+                operator="AND",
+                right=filter_condition
+            )
+        else:
+            result.filter_condition = filter_condition
+        
+        return result
     
     def _lambda_to_filter_condition(self, lambda_func: Callable[[Any], bool]) -> FilterCondition:
         """
