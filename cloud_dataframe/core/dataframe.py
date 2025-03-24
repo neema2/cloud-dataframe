@@ -57,6 +57,7 @@ class BinaryOperation(FilterCondition):
     left: Expression
     operator: str
     right: Expression
+    needs_parentheses: bool = False
 
 
 @dataclass
@@ -126,6 +127,26 @@ class DataFrame:
         self.distinct: bool = False
         self.ctes: List[CommonTableExpression] = []
     
+    def copy(self) -> 'DataFrame':
+        """
+        Create a deep copy of this DataFrame.
+        
+        Returns:
+            A new DataFrame with the same properties
+        """
+        result = DataFrame()
+        result.columns = self.columns.copy()
+        result.source = self.source  # DataSource objects are immutable
+        result.filter_condition = self.filter_condition  # FilterCondition objects are immutable
+        result.group_by_clause = self.group_by_clause  # GroupByClause objects are immutable
+        result.having = self.having  # FilterCondition objects are immutable
+        result.order_by_clauses = self.order_by_clauses.copy()
+        result.limit_value = self.limit_value
+        result.offset_value = self.offset_value
+        result.distinct = self.distinct
+        result.ctes = self.ctes.copy()
+        return result
+    
     @classmethod
     def create_select(cls, *columns: Column) -> 'DataFrame':
         """
@@ -192,32 +213,43 @@ class DataFrame:
         )
         return df
     
-    def filter(self, condition: Union[FilterCondition, Callable[[Any], bool]]) -> 'DataFrame':
+    def filter(self, condition: Callable[[Any], bool]) -> 'DataFrame':
         """
-        Filter the DataFrame based on a condition.
+        Filter the DataFrame based on a lambda function.
         
         Args:
-            condition: A FilterCondition object or a lambda function
+            condition: A lambda function or generator expression
             
         Returns:
             The DataFrame with the filter applied
         """
-        # If condition is a lambda, convert it to a FilterCondition
-        if callable(condition) and not isinstance(condition, FilterCondition):
-            # Extract the lambda's AST and convert to FilterCondition
-            # This is a placeholder - actual implementation will be more complex
-            self.filter_condition = self._lambda_to_filter_condition(condition)
-        else:
-            self.filter_condition = cast(FilterCondition, condition)
+        # Validate that the condition is a lambda function
+        if not callable(condition) or isinstance(condition, FilterCondition):
+            raise TypeError("Filter condition must be a lambda function or generator expression")
         
-        return self
+        # Create a new DataFrame with the filter condition
+        result = self.copy()
+        
+        # Convert the lambda to a filter condition
+        filter_condition = self._lambda_to_filter_condition(condition)
+        
+        # If we already have a filter condition, combine them with AND
+        if result.filter_condition:
+            result.filter_condition = BinaryOperation(
+                left=result.filter_condition,
+                operator="AND",
+                right=filter_condition
+            )
+        else:
+            result.filter_condition = filter_condition
+        
+        return result
     
     def _lambda_to_filter_condition(self, lambda_func: Callable[[Any], bool]) -> FilterCondition:
         """
         Convert a lambda function to a FilterCondition.
         
         This is a complex operation that requires parsing the lambda's AST.
-        For now, this is a placeholder that will be implemented later.
         
         Args:
             lambda_func: The lambda function to convert
@@ -225,13 +257,10 @@ class DataFrame:
         Returns:
             A FilterCondition representing the lambda
         """
-        # This is a placeholder - actual implementation will be more complex
-        # and will involve parsing the lambda's AST
-        return BinaryOperation(
-            left=LiteralExpression(value=True),
-            operator="=",
-            right=LiteralExpression(value=True)
-        )
+        from ..utils.lambda_parser import LambdaParser
+        
+        # Use the LambdaParser to convert the lambda to a FilterCondition
+        return LambdaParser.parse_lambda(lambda_func)
     
     def group_by(self, *columns: Union[str, Expression, ColSpec]) -> 'DataFrame':
         """

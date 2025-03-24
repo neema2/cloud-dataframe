@@ -203,7 +203,11 @@ def _generate_expression(expr: Any) -> str:
             else:
                 return f"{left_sql} {expr.operator} ({right_sql})"
         else:
-            return f"{left_sql} {expr.operator} {right_sql}"
+            # Add parentheses if needed for complex boolean operations
+            if expr.needs_parentheses:
+                return f"({left_sql} {expr.operator} {right_sql})"
+            else:
+                return f"{left_sql} {expr.operator} {right_sql}"
     
     elif isinstance(expr, UnaryOperation):
         expr_sql = _generate_expression(expr.expression)

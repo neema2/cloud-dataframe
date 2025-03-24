@@ -103,8 +103,9 @@ def dataclass_to_schema(name: Optional[str] = None) -> Callable[[Type], Type]:
         A decorator function
     """
     def decorator(cls: Type) -> Type:
+        # If the class is not a dataclass, make it one
         if not is_dataclass(cls):
-            raise ValueError(f"Class {cls.__name__} is not a dataclass")
+            cls = dataclass(cls)
         
         # Create a TableSchema from the dataclass
         schema = create_schema_from_dataclass(cls, name)
