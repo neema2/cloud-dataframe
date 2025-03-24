@@ -5,13 +5,13 @@ This module defines the base DataFrame class and core operations that can be
 translated to SQL for execution against different database backends.
 """
 from __future__ import annotations
-from typing import Any, Callable, Dict, List, Optional, Tuple, TypeVar, Union, Generic, cast
+from typing import Any, Callable, Dict, List, Optional, Tuple, TypeVar, Union, Generic, Type, cast
 from enum import Enum
 import inspect
 from dataclasses import dataclass, field
 
 from ..type_system.column import Column, ColumnReference, Expression, LiteralExpression
-from ..type_system.schema import TableSchema, ColSpec
+from ..type_system.schema import TableSchema, ColSpec, create_dynamic_dataclass_from_schema
 
 T = TypeVar('T')
 R = TypeVar('R')
@@ -126,6 +126,7 @@ class DataFrame:
         self.offset_value: Optional[int] = None
         self.distinct: bool = False
         self.ctes: List[CommonTableExpression] = []
+        self._table_class: Optional[Type] = None
     
     def copy(self) -> 'DataFrame':
         """
@@ -145,6 +146,7 @@ class DataFrame:
         result.offset_value = self.offset_value
         result.distinct = self.distinct
         result.ctes = self.ctes.copy()
+        result._table_class = self._table_class  # Copy the table class reference
         return result
     
     @classmethod
@@ -162,17 +164,42 @@ class DataFrame:
         df.columns = list(columns)
         return df
         
-    def select(self, *columns: Column) -> 'DataFrame':
+    def select(self, *columns: Union[Column, str, ColSpec, Callable[[Any], Any]]) -> 'DataFrame':
         """
         Select columns from this DataFrame.
         
         Args:
-            *columns: The columns to select
+            *columns: The columns to select. Can be:
+                - Column objects
+                - String column names
+                - ColSpec objects
+                - Lambda functions that access dataclass properties (e.g., lambda x: x.column_name)
+                - Lambda functions that return arrays (e.g., lambda x: [x.name, x.age])
             
         Returns:
             The DataFrame with the columns selected
         """
-        self.columns = list(columns)
+        column_list = []
+        for col in columns:
+            if isinstance(col, Column):
+                column_list.append(col)
+            elif isinstance(col, str):
+                column_list.append(ColumnReference(col))
+            elif isinstance(col, ColSpec):
+                column_list.append(ColumnReference(col.name))
+            elif callable(col) and not isinstance(col, Column):
+                # Handle lambda functions that access dataclass properties
+                from ..utils.lambda_parser import LambdaParser
+                expr = LambdaParser.parse_lambda(col)
+                if isinstance(expr, list):
+                    # Handle array returns from lambda functions
+                    column_list.extend(expr)
+                else:
+                    column_list.append(expr)
+            else:
+                raise TypeError(f"Unsupported column type: {type(col)}")
+        
+        self.columns = column_list
         return self
     
     @classmethod
@@ -190,6 +217,14 @@ class DataFrame:
         """
         df = cls()
         df.source = TableReference(table_name=table_name, schema=schema, alias=alias)
+        
+        # Create a basic schema with Any type for columns
+        # This is a placeholder until the actual schema is determined
+        basic_schema = TableSchema(name=table_name, columns={"*": type(Any)})
+        
+        # Create a dynamic dataclass and store it on the DataFrame
+        df._table_class = create_dynamic_dataclass_from_schema(table_name, basic_schema)
+        
         return df
     
     @classmethod
@@ -211,6 +246,10 @@ class DataFrame:
             table_schema=table_schema,
             alias=alias
         )
+        
+        # Create a dynamic dataclass and store it on the DataFrame
+        df._table_class = create_dynamic_dataclass_from_schema(table_name, table_schema)
+        
         return df
     
     def filter(self, condition: Callable[[Any], bool]) -> 'DataFrame':
@@ -259,38 +298,72 @@ class DataFrame:
         """
         from ..utils.lambda_parser import LambdaParser
         
+        # Get the table schema if available
+        table_schema = None
+        if isinstance(self.source, TableReference):
+            table_schema = self.source.table_schema
+        
         # Use the LambdaParser to convert the lambda to a FilterCondition
-        return LambdaParser.parse_lambda(lambda_func)
+        expr = LambdaParser.parse_lambda(lambda_func, table_schema)
+        
+        # Cast to FilterCondition (this is safe because the parser returns a compatible type)
+        return cast(FilterCondition, expr)
     
-    def group_by(self, *columns: Union[str, Expression, ColSpec]) -> 'DataFrame':
+    def group_by(self, *columns: Union[str, Expression, ColSpec, Callable[[Any], Any]]) -> 'DataFrame':
         """
         Group the DataFrame by the specified columns.
         
         Args:
-            *columns: The columns to group by
+            *columns: The columns to group by. Can be:
+                - String column names
+                - Expression objects
+                - ColSpec objects
+                - Lambda functions that access dataclass properties (e.g., lambda x: x.column_name)
+                - Lambda functions that return arrays (e.g., lambda x: [x.department, x.location])
             
         Returns:
             The DataFrame with the grouping applied
         """
         expressions = []
+        
+        # Get the table schema if available
+        table_schema = None
+        if isinstance(self.source, TableReference):
+            table_schema = self.source.table_schema
+            
         for col in columns:
             if isinstance(col, str):
                 expressions.append(ColumnReference(col))
             elif isinstance(col, ColSpec):
                 expressions.append(ColumnReference(col.name))
+            elif callable(col) and not isinstance(col, Expression):
+                # Handle lambda functions that access dataclass properties
+                from ..utils.lambda_parser import LambdaParser
+                expr = LambdaParser.parse_lambda(col, table_schema)
+                if isinstance(expr, list):
+                    # Handle array returns from lambda functions
+                    expressions.extend(expr)
+                else:
+                    expressions.append(expr)
             else:
                 expressions.append(col)
         
         self.group_by_clause = GroupByClause(columns=expressions)
         return self
     
-    def order_by(self, *clauses: Union[OrderByClause, Expression, str, ColSpec], 
+    def order_by(self, *clauses: Union[OrderByClause, Expression, str, ColSpec, Callable[[Any], Any]], 
                  desc: bool = False) -> 'DataFrame':
         """
         Order the DataFrame by the specified columns.
         
         Args:
-            *clauses: The columns or OrderByClauses to order by
+            *clauses: The columns or OrderByClauses to order by. Can be:
+                - String column names
+                - Expression objects
+                - ColSpec objects
+                - OrderByClause objects
+                - Lambda functions that access dataclass properties (e.g., lambda x: x.column_name)
+                - Lambda functions that return arrays (e.g., lambda x: [x.department, x.salary])
             desc: Whether to sort in descending order (if not using OrderByClause)
             
         Returns:
@@ -311,6 +384,26 @@ class DataFrame:
                     expression=ColumnReference(clause.name),
                     direction=direction
                 ))
+            elif callable(clause) and not isinstance(clause, Expression):
+                # Handle lambda functions that access dataclass properties
+                from ..utils.lambda_parser import LambdaParser
+                # Get the table schema if available
+                table_schema = None
+                if isinstance(self.source, TableReference):
+                    table_schema = self.source.table_schema
+                expr = LambdaParser.parse_lambda(clause, table_schema)
+                if isinstance(expr, list):
+                    # Handle array returns from lambda functions
+                    for single_expr in expr:
+                        self.order_by_clauses.append(OrderByClause(
+                            expression=single_expr,
+                            direction=direction
+                        ))
+                else:
+                    self.order_by_clauses.append(OrderByClause(
+                        expression=expr,
+                        direction=direction
+                    ))
             else:
                 self.order_by_clauses.append(OrderByClause(
                     expression=clause,
@@ -482,12 +575,8 @@ class DataFrame:
             A new DataFrame representing the join
         """
         # For CROSS JOIN, we use a dummy condition that's always true
-        condition = BinaryOperation(
-            left=LiteralExpression(value=True),
-            operator="=",
-            right=LiteralExpression(value=True)
-        )
-        return self.join(right, condition, JoinType.CROSS)
+        # We use a lambda function that always returns True to satisfy the type checker
+        return self.join(right, lambda x, y: True, JoinType.CROSS)
     
     def _lambda_to_join_condition(self, lambda_func: Callable[[Any, Any], bool]) -> FilterCondition:
         """
@@ -505,7 +594,77 @@ class DataFrame:
         from ..utils.lambda_parser import LambdaParser
         
         # Use the LambdaParser to convert the lambda to a FilterCondition
-        return LambdaParser.parse_join_lambda(lambda_func)
+        expr = LambdaParser.parse_join_lambda(lambda_func)
+        
+        # Cast to FilterCondition (this is safe because the parser returns a compatible type)
+        return cast(FilterCondition, expr)
+    
+    def get_table_class(self) -> Optional[Type]:
+        """
+        Get the dynamic dataclass for this DataFrame.
+        
+        Returns:
+            The dynamic dataclass for this DataFrame, or None if not available
+        """
+        if hasattr(self, "_table_class") and self._table_class is not None:
+            return self._table_class
+        elif self.source and isinstance(self.source, TableReference) and self.source.table_schema:
+            self._table_class = create_dynamic_dataclass_from_schema(
+                self.source.table_name, self.source.table_schema)
+            return self._table_class
+        return None
+        
+    def _lambda_to_column_reference(self, lambda_func: Callable[[Any], Any]) -> ColumnReference:
+        """
+        Convert a lambda function that returns an attribute to a ColumnReference.
+        
+        Args:
+            lambda_func: The lambda function to convert
+            
+        Returns:
+            A ColumnReference representing the column accessed by the lambda
+        """
+        # Try to determine the column name by inspecting the lambda source
+        import inspect
+        source = inspect.getsource(lambda_func).strip()
+        
+        # Extract the column name from the lambda
+        # Example: "lambda x: x.name" -> "name"
+        if "lambda" in source and "." in source:
+            parts = source.split(".")
+            column_name = parts[-1].strip().rstrip(")")
+            return ColumnReference(column_name)
+        
+        # If we can't determine the column name, raise an error
+        raise ValueError("Could not determine column name from lambda function")
+        
+    def _create_sample_instance(self) -> Any:
+        """
+        Create a sample instance of the table dataclass for testing.
+        
+        Returns:
+            A sample instance of the table dataclass
+        """
+        table_class = self.get_table_class()
+        if not table_class:
+            return None
+        
+        # Create a sample instance with default values
+        sample_data = {}
+        for field_name, field_type in table_class.__annotations__.items():
+            # Assign default values based on type
+            if field_type == int:
+                sample_data[field_name] = 0
+            elif field_type == float:
+                sample_data[field_name] = 0.0
+            elif field_type == str:
+                sample_data[field_name] = ""
+            elif field_type == bool:
+                sample_data[field_name] = False
+            else:
+                sample_data[field_name] = None
+        
+        return table_class(**sample_data)
     
     def to_sql(self, dialect: str = "duckdb") -> str:
         """

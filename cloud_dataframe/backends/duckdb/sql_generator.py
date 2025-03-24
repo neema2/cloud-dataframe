@@ -11,7 +11,7 @@ from ...core.dataframe import (
     BinaryOperation, UnaryOperation, CommonTableExpression
 )
 from ...type_system.column import (
-    Column, ColumnReference, LiteralExpression, FunctionExpression,
+    Column, ColumnReference, Expression, LiteralExpression, FunctionExpression,
     AggregateFunction, WindowFunction
 )
 
@@ -151,22 +151,31 @@ def _generate_select(df: DataFrame) -> str:
     return f"SELECT {distinct_sql}{', '.join(column_parts)}"
 
 
-def _generate_column(col: Column) -> str:
+def _generate_column(col: Union[Column, ColumnReference, Expression]) -> str:
     """
     Generate SQL for a column.
     
     Args:
-        col: The column to generate SQL for
+        col: The column to generate SQL for. Can be:
+            - Column object
+            - ColumnReference object
+            - Expression object
         
     Returns:
         The generated SQL string for the column
     """
-    expr_sql = _generate_expression(col.expression)
-    
-    if col.alias:
-        return f"{expr_sql} AS {col.alias}"
+    if isinstance(col, Column):
+        expr_sql = _generate_expression(col.expression)
+        
+        if col.alias:
+            return f"{expr_sql} AS {col.alias}"
+        else:
+            return expr_sql
+    elif isinstance(col, ColumnReference) or isinstance(col, Expression):
+        return _generate_expression(col)
     else:
-        return expr_sql
+        # For other types, convert to string
+        return str(col)
 
 
 def _generate_expression(expr: Any) -> str:

@@ -24,16 +24,19 @@ class LambdaParser:
     """
     
     @staticmethod
-    def parse_lambda(lambda_func: Callable, table_schema=None) -> Expression:
+    def parse_lambda(lambda_func: Callable, table_schema=None) -> Union[Expression, List[Expression]]:
         """
-        Parse a lambda function and convert it to an Expression.
+        Parse a lambda function and convert it to an Expression or list of Expressions.
         
         Args:
-            lambda_func: The lambda function to parse
+            lambda_func: The lambda function to parse. Can be:
+                - A lambda that returns a boolean expression (e.g., lambda x: x.age > 30)
+                - A lambda that returns a column reference (e.g., lambda x: x.name)
+                - A lambda that returns an array of column references (e.g., lambda x: [x.name, x.age])
             table_schema: Optional schema for type checking
             
         Returns:
-            An Expression representing the lambda function
+            An Expression or list of Expressions representing the lambda function
         """
         # Get the source code of the lambda function
         try:
@@ -64,7 +67,8 @@ class LambdaParser:
                     child.parent = parent
             
             # Parse the lambda body
-            return LambdaParser._parse_expression(lambda_node.body, lambda_node.args.args, table_schema)
+            result = LambdaParser._parse_expression(lambda_node.body, lambda_node.args.args, table_schema)
+            return result
         except (SyntaxError, AttributeError):
             # Alternative approach for complex lambdas or when source extraction fails
             # Use the lambda's __code__ object directly
@@ -197,9 +201,9 @@ class LambdaParser:
                 )
     
     @staticmethod
-    def _parse_expression(node: ast.AST, args: List[ast.arg], table_schema=None) -> Expression:
+    def _parse_expression(node: ast.AST, args: List[ast.arg], table_schema=None) -> Union[Expression, List[Expression]]:
         """
-        Parse an AST node and convert it to an Expression.
+        Parse an AST node and convert it to an Expression or list of Expressions.
         
         Args:
             node: The AST node to parse
@@ -207,7 +211,7 @@ class LambdaParser:
             table_schema: Optional schema for type checking
             
         Returns:
-            An Expression representing the AST node
+            An Expression or list of Expressions representing the AST node
         """
         # Handle different types of AST nodes
         if isinstance(node, ast.Compare):
@@ -257,6 +261,9 @@ class LambdaParser:
             # Handle attribute access (e.g., x.name, x.age)
             if isinstance(node.value, ast.Name) and node.value.id == args[0].arg:
                 # This is accessing an attribute of the lambda parameter (e.g., x.name)
+                # If table_schema is provided, validate the column name
+                if table_schema and not table_schema.validate_column(node.attr):
+                    raise ValueError(f"Column '{node.attr}' not found in table schema '{table_schema.name}'")
                 return ColumnReference(name=node.attr)
             else:
                 # This is a more complex attribute access
@@ -355,8 +362,9 @@ class LambdaParser:
         
         elif isinstance(node, ast.Tuple) or isinstance(node, ast.List):
             # Handle tuples and lists (e.g., (1, 2, 3), [1, 2, 3])
-            # In a real implementation, we would handle this more robustly
-            return LiteralExpression(value=[])
+            # Process each element in the list and return them as separate expressions
+            # This is used for array returns in lambdas like lambda x: [x.name, x.age]
+            return [LambdaParser._parse_expression(elt, args, table_schema) for elt in node.elts]
         
         elif isinstance(node, ast.Dict):
             # Handle dictionaries (e.g., {'a': 1, 'b': 2})
