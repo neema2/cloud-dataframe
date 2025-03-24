@@ -12,7 +12,7 @@ from ...core.dataframe import (
 )
 from ...type_system.column import (
     Column, ColumnReference, Expression, LiteralExpression, FunctionExpression,
-    AggregateFunction, WindowFunction
+    AggregateFunction, WindowFunction, CountFunction
 )
 
 
@@ -251,11 +251,16 @@ def _generate_aggregate_function(func: AggregateFunction) -> str:
     Returns:
         The generated SQL string for the aggregate function
     """
+    # Process parameters (handles expressions like x.col1 - x.col2)
     params_sql = ", ".join(_generate_expression(param) for param in func.parameters)
     
     # Handle special case for COUNT(*)
     if func.function_name.upper() == "COUNT" and (not func.parameters or func.parameters[0] == "*"):
         return "COUNT(*)"
+    
+    # Handle DISTINCT for COUNT
+    if isinstance(func, CountFunction) and func.distinct:
+        return f"{func.function_name}(DISTINCT {params_sql})"
     
     return f"{func.function_name}({params_sql})"
 

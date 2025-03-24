@@ -109,8 +109,8 @@ class TestDuckDBIntegration(unittest.TestCase):
         df = DataFrame.from_("employees")
         grouped_df = df.group_by(lambda x: x.department_id).select(
             lambda x: x.department_id,
-            as_column(count("*"), "employee_count"),
-            as_column(avg("salary"), "avg_salary")
+            as_column(count(lambda x: x.id), "employee_count"),
+            as_column(avg(lambda x: x.salary), "avg_salary")
         )
         
         sql = grouped_df.to_sql(dialect="duckdb")

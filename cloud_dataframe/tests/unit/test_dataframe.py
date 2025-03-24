@@ -120,7 +120,7 @@ class TestDataFrame(unittest.TestCase):
             .group_by(lambda x: x.department_id) \
             .select(
                 lambda x: x.department_id,
-                as_column(count("*"), "employee_count")
+                as_column(count(lambda x: x.id), "employee_count")
             )
         
         df = DataFrame.from_("departments") \

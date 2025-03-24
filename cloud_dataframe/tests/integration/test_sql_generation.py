@@ -74,12 +74,12 @@ class TestDuckDBSQLGeneration(unittest.TestCase):
             .group_by(lambda x: x.department) \
             .select(
                 lambda x: x.department,
-                as_column(count("*"), "employee_count"),
-                as_column(avg("salary"), "avg_salary")
+                as_column(count(lambda x: x.id), "employee_count"),
+                as_column(avg(lambda x: x.salary), "avg_salary")
             )
         
         sql = df.to_sql(dialect="duckdb")
-        expected_sql = "SELECT department, COUNT(*) AS employee_count, AVG(salary) AS avg_salary\nFROM employees\nGROUP BY department"
+        expected_sql = "SELECT department, COUNT(id) AS employee_count, AVG(salary) AS avg_salary\nFROM employees\nGROUP BY department"
         self.assertEqual(sql.strip(), expected_sql)
     
     def test_order_by(self):
@@ -147,7 +147,7 @@ class TestDuckDBSQLGeneration(unittest.TestCase):
             .group_by(lambda x: x.department_id) \
             .select(
                 lambda x: x.department_id,
-                as_column(count("*"), "employee_count")
+                as_column(count(lambda x: x.id), "employee_count")
             )
         
         df = DataFrame.from_("departments", alias="d") \

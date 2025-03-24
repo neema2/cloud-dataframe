@@ -52,8 +52,8 @@ selected_df = DataFrame.select(
 summary_df = df.group_by_columns("department") \
     .select(
         as_column(col("department"), "department"),
-        as_column(avg("salary"), "avg_salary"),
-        as_column(count("*"), "employee_count")
+        as_column(avg(lambda x: x.salary), "avg_salary"),
+        as_column(count(lambda x: x.id), "employee_count")
     )
 
 # Generate SQL for DuckDB
