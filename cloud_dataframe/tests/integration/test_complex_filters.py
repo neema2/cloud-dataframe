@@ -56,7 +56,7 @@ class TestComplexFilterConditions(unittest.TestCase):
         )
         
         sql = df.to_sql(dialect="duckdb")
-        expected_sql = "SELECT *\nFROM employees\nWHERE department = 'Engineering' OR department = 'Sales'"
+        expected_sql = "SELECT *\nFROM employees\nWHERE (department = 'Engineering' OR department = 'Sales')"
         self.assertEqual(sql.strip(), expected_sql)
     
     def test_complex_boolean_condition(self):
