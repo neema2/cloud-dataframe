@@ -29,7 +29,9 @@ class LambdaParser:
         Parse a lambda function and convert it to an Expression.
         
         Args:
-            lambda_func: The lambda function to parse
+            lambda_func: The lambda function to parse. Can be:
+                - A lambda that returns a boolean expression (e.g., lambda x: x.age > 30)
+                - A lambda that returns a column reference (e.g., lambda x: x.name)
             table_schema: Optional schema for type checking
             
         Returns:
@@ -257,6 +259,9 @@ class LambdaParser:
             # Handle attribute access (e.g., x.name, x.age)
             if isinstance(node.value, ast.Name) and node.value.id == args[0].arg:
                 # This is accessing an attribute of the lambda parameter (e.g., x.name)
+                # If table_schema is provided, validate the column name
+                if table_schema and not table_schema.validate_column(node.attr):
+                    raise ValueError(f"Column '{node.attr}' not found in table schema '{table_schema.name}'")
                 return ColumnReference(name=node.attr)
             else:
                 # This is a more complex attribute access
