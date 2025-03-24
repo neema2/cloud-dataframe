@@ -20,7 +20,7 @@ class TestDataFrame(unittest.TestCase):
     
     def test_select(self):
         """Test the select method."""
-        df = DataFrame.select(
+        df = DataFrame().select(
             as_column(col("id"), "id"),
             as_column(col("name"), "name")
         )
@@ -30,8 +30,8 @@ class TestDataFrame(unittest.TestCase):
         self.assertEqual(df.columns[1].name, "name")
     
     def test_from_table(self):
-        """Test the from_table method."""
-        df = DataFrame.from_table("employees", schema="public", alias="e")
+        """Test the from_ method."""
+        df = DataFrame.from_("employees", schema="public", alias="e")
         
         self.assertIsNotNone(df.source)
         self.assertIsInstance(df.source, TableReference)
@@ -43,99 +43,87 @@ class TestDataFrame(unittest.TestCase):
     
     def test_filter(self):
         """Test the filter method."""
-        df = DataFrame.from_table("employees")
+        df = DataFrame.from_("employees")
         filtered_df = df.filter(
-            BinaryOperation(
-                left=col("salary"),
-                operator=">",
-                right=literal(50000)
-            )
+            lambda x: x.salary > 50000
         )
         
         self.assertIsNotNone(filtered_df.filter_condition)
     
     def test_group_by(self):
-        """Test the group_by_columns method."""
-        df = DataFrame.from_table("employees")
-        grouped_df = df.group_by_columns("department")
+        """Test the group_by method."""
+        df = DataFrame.from_("employees")
+        grouped_df = df.group_by("department")
         
-        self.assertIsNotNone(grouped_df.group_by)
+        self.assertIsNotNone(grouped_df.group_by_clause)
         # Check that group_by is properly initialized
         from cloud_dataframe.core.dataframe import GroupByClause
-        self.assertIsInstance(grouped_df.group_by, GroupByClause)
-        group_by = cast(GroupByClause, grouped_df.group_by)
+        self.assertIsInstance(grouped_df.group_by_clause, GroupByClause)
+        group_by = cast(GroupByClause, grouped_df.group_by_clause)
         self.assertEqual(len(group_by.columns), 1)  # Verify one column in group by
     
     def test_order_by(self):
-        """Test the order_by_columns method."""
-        df = DataFrame.from_table("employees")
-        ordered_df = df.order_by_columns("salary", desc=True)
+        """Test the order_by method."""
+        df = DataFrame.from_("employees")
+        ordered_df = df.order_by("salary", desc=True)
         
-        self.assertEqual(len(ordered_df.order_by), 1)
+        self.assertEqual(len(ordered_df.order_by_clauses), 1)
     
     def test_limit(self):
         """Test the limit method."""
-        df = DataFrame.from_table("employees")
+        df = DataFrame.from_("employees")
         limited_df = df.limit(10)
         
         self.assertEqual(limited_df.limit_value, 10)
     
     def test_offset(self):
         """Test the offset method."""
-        df = DataFrame.from_table("employees")
+        df = DataFrame.from_("employees")
         offset_df = df.offset(5)
         
         self.assertEqual(offset_df.offset_value, 5)
     
     def test_distinct(self):
         """Test the distinct_rows method."""
-        df = DataFrame.from_table("employees")
+        df = DataFrame.from_("employees")
         distinct_df = df.distinct_rows()
         
         self.assertTrue(distinct_df.distinct)
     
     def test_join(self):
         """Test the join method."""
-        employees = DataFrame.from_table("employees", alias="e")
-        departments = DataFrame.from_table("departments", alias="d")
+        employees = DataFrame.from_("employees", alias="e")
+        departments = DataFrame.from_("departments", alias="d")
         
         joined_df = employees.join(
             departments,
-            BinaryOperation(
-                left=col("department_id", "e"),
-                operator="=",
-                right=col("id", "d")
-            )
+            lambda e, d: e.department_id == d.id
         )
         
         self.assertIsNotNone(joined_df.source)
     
     def test_left_join(self):
         """Test the left_join method."""
-        employees = DataFrame.from_table("employees", alias="e")
-        departments = DataFrame.from_table("departments", alias="d")
+        employees = DataFrame.from_("employees", alias="e")
+        departments = DataFrame.from_("departments", alias="d")
         
         joined_df = employees.left_join(
             departments,
-            BinaryOperation(
-                left=col("department_id", "e"),
-                operator="=",
-                right=col("id", "d")
-            )
+            lambda e, d: e.department_id == d.id
         )
         
         self.assertIsNotNone(joined_df.source)
     
     def test_with_cte(self):
         """Test the with_cte method."""
-        dept_counts = DataFrame.from_table("employees") \
-            .group_by_columns("department_id") \
+        dept_counts = DataFrame.from_("employees") \
+            .group_by("department_id") \
             .select(
                 as_column(col("department_id"), "department_id"),
                 as_column(count("*"), "employee_count")
             )
         
-        df = DataFrame.from_table("departments") \
+        df = DataFrame.from_("departments") \
             .with_cte("dept_counts", dept_counts)
         
         self.assertEqual(len(df.ctes), 1)

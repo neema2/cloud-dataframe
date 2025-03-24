@@ -104,7 +104,7 @@ class TestDataclassSchema(unittest.TestCase):
         """Test creating a schema from a dataclass."""
         schema = create_schema_from_dataclass(Employee)
         
-        self.assertEqual(schema.name, "Employee")
+        self.assertEqual(schema.name, "EmployeeTable")
         self.assertEqual(len(schema.columns), 5)
         self.assertEqual(schema.columns["id"], int)
         self.assertEqual(schema.columns["name"], str)
@@ -117,7 +117,7 @@ class TestDataclassSchema(unittest.TestCase):
         col_spec = col_spec_from_dataclass_field(Employee, "salary")
         
         self.assertEqual(col_spec.name, "salary")
-        self.assertEqual(col_spec.table_schema.name, "Employee")
+        self.assertEqual(col_spec.table_schema.name, "EmployeeTable")
         
         # Invalid field
         with self.assertRaises(ValueError):
