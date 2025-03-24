@@ -411,30 +411,42 @@ class LambdaParser:
                     parsed_arg = LambdaParser._parse_expression(arg, args, table_schema)
                     args_list.append(parsed_arg)
                 
+                # Handle keyword arguments
+                kwargs = {}
+                for kw in node.keywords:
+                    if isinstance(kw.value, ast.Constant):
+                        kwargs[kw.arg] = kw.value.value
+                
                 # Create the appropriate Function object based on function name
                 if node.func.id in ('sum', 'avg', 'count', 'min', 'max'):
                     from ..type_system.column import (
                         SumFunction, AvgFunction, CountFunction, MinFunction, MaxFunction
                     )
                     
-                    if len(args_list) != 1:
-                        raise ValueError(f"Function {node.func.id}() expects exactly one argument")
-                        
+                    # Allow complex expressions as arguments (e.g., sum(x.col1 - x.col2))
                     if node.func.id == 'sum':
                         return SumFunction(function_name="SUM", parameters=args_list)
                     elif node.func.id == 'avg':
                         return AvgFunction(function_name="AVG", parameters=args_list)
                     elif node.func.id == 'count':
-                        distinct = False
-                        # Look for keyword arguments for 'distinct'
+                        distinct = kwargs.get('distinct', False)
+                        # Also check for distinct in keywords
                         for kw in node.keywords:
-                            if kw.arg == 'distinct':
-                                distinct = kw.value.value  # Assuming a boolean literal
+                            if kw.arg == 'distinct' and isinstance(kw.value, ast.Constant):
+                                distinct = kw.value.value
                         return CountFunction(function_name="COUNT", parameters=args_list, distinct=distinct)
                     elif node.func.id == 'min':
                         return MinFunction(function_name="MIN", parameters=args_list)
                     elif node.func.id == 'max':
                         return MaxFunction(function_name="MAX", parameters=args_list)
+                # Support for scalar functions
+                elif node.func.id in ('date_diff'):
+                    from ..type_system.column import DateDiffFunction
+                    
+                    if len(args_list) != 2:
+                        raise ValueError(f"Function {node.func.id}() expects exactly two arguments")
+                        
+                    return DateDiffFunction(function_name="DATE_DIFF", parameters=args_list)
             
             # Default case for other function calls
             return ColumnReference(name="*")

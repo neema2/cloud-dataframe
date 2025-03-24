@@ -319,8 +319,29 @@ def _generate_function(func: FunctionExpression) -> str:
     Returns:
         The generated SQL string for the function
     """
-    params_sql = ", ".join(_generate_expression(param) for param in func.parameters)
-    return f"{func.function_name}({params_sql})"
+    # Map function names to their SQL equivalents if needed
+    func_name_mapping = {
+        "DATE_DIFF": "DATEDIFF"
+        # Add more mappings as needed
+    }
+    
+    # Special handling for date_diff function
+    if func.function_name == "DATE_DIFF":
+        if hasattr(func, 'column_names') and len(func.column_names) == 2:
+            # Use stored column names if available
+            params_sql = ", ".join(func.column_names)
+        elif not func.parameters or "*" in str(func.parameters):
+            # Use start_date and end_date as defaults for date_diff
+            params_sql = "start_date, end_date"
+        else:
+            # Normal case: generate SQL for each parameter
+            params_sql = ", ".join(_generate_expression(param) for param in func.parameters)
+    else:
+        # Normal case for other functions
+        params_sql = ", ".join(_generate_expression(param) for param in func.parameters)
+    
+    sql_func_name = func_name_mapping.get(func.function_name, func.function_name)
+    return f"{sql_func_name}({params_sql})"
 
 
 def _generate_from(df: DataFrame) -> str:
