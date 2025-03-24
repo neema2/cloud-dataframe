@@ -80,6 +80,14 @@ class Window:
     partition_by: List[Expression] = field(default_factory=list)
     order_by: List[Any] = field(default_factory=list)  # Will be OrderByClause
     frame: Optional[Any] = None  # Will be Frame
+    
+    def set_partition_by(self, expressions: List[Any]) -> None:
+        """Set the partition by expressions."""
+        self.partition_by = expressions
+        
+    def set_order_by(self, clauses: List[Any]) -> None:
+        """Set the order by clauses."""
+        self.order_by = clauses
 
 
 @dataclass
@@ -294,49 +302,72 @@ def dense_rank() -> DenseRankFunction:
 
 
 def over(func: WindowFunction, 
-         partition_by: Optional[Union[List[Union[Expression, Callable]], Callable]] = None,
-         order_by: Optional[Union[List[Union[Expression, Callable]], Callable]] = None) -> WindowFunction:
+         partition_by: Optional[Union[List[Expression], Callable]] = None,
+         order_by: Optional[Union[List[Expression], Callable]] = None) -> WindowFunction:
     """
     Apply a window specification to a window function.
     
     Args:
         func: The window function
         partition_by: Optional list of expressions or lambda function to partition by
+            Can be a lambda that returns:
+            - A single column reference (lambda x: x.column)
+            - A list of column references (lambda x: [x.col1, x.col2])
         order_by: Optional list of expressions or lambda function to order by
+            Can be a lambda that returns:
+            - A single column reference (lambda x: x.column)
+            - A list of column references (lambda x: [x.col1, x.col2])
+            - A list with tuples specifying sort direction (lambda x: [(x.col1, 'DESC'), (x.col2, 'ASC')])
         
     Returns:
         The window function with the window specification applied
     """
     from ..utils.lambda_parser import parse_lambda
+    from ..core.dataframe import OrderByClause, SortDirection
     
     window = Window()
+    partition_by_list = []
+    order_by_list = []
     
     if partition_by:
         if callable(partition_by):
             # Handle lambda function
             parsed_expressions = parse_lambda(partition_by)
             if isinstance(parsed_expressions, list):
-                window.partition_by = parsed_expressions
+                partition_by_list = parsed_expressions
             else:
-                window.partition_by = [parsed_expressions]
+                partition_by_list = [parsed_expressions]
         else:
-            # Handle list of expressions
-            window.partition_by = [
-                p if not isinstance(p, str) else col(p)
-                for p in partition_by
-            ]
+            # Handle list of expressions (already Expression objects)
+            partition_by_list = partition_by
     
     if order_by:
         if callable(order_by):
             # Handle lambda function
             parsed_expressions = parse_lambda(order_by)
+            
             if isinstance(parsed_expressions, list):
-                window.order_by = parsed_expressions
+                # Process array lambdas
+                for item in parsed_expressions:
+                    # Check if this is a tuple with sort direction
+                    if isinstance(item, tuple) and len(item) == 2:
+                        col_expr, sort_dir = item
+                        # Convert string sort direction to OrderByClause equivalent
+                        dir_enum = SortDirection.DESC if isinstance(sort_dir, str) and sort_dir.upper() == 'DESC' else SortDirection.ASC
+                        order_by_list.append(OrderByClause(expression=col_expr, direction=dir_enum))
+                    else:
+                        # Use default ASC ordering
+                        order_by_list.append(OrderByClause(expression=item, direction=SortDirection.ASC))
             else:
-                window.order_by = [parsed_expressions]
+                # Single expression with default ASC ordering
+                order_by_list.append(OrderByClause(expression=parsed_expressions, direction=SortDirection.ASC))
         else:
-            # Handle list of expressions
-            window.order_by = order_by
+            # Handle list of expressions (already OrderByClause objects)
+            order_by_list = order_by
+    
+    # Set the window properties using setter methods
+    window.set_partition_by(partition_by_list)
+    window.set_order_by(order_by_list)
     
     func.window = window
     return func

@@ -279,8 +279,18 @@ def _generate_window_function(func: WindowFunction) -> str:
     
     order_by_sql = ""
     if func.window.order_by:
-        order_by_cols = ", ".join(_generate_expression(col) for col in func.window.order_by)
-        order_by_sql = f"ORDER BY {order_by_cols}"
+        # Handle OrderByClause objects in window functions
+        order_by_parts = []
+        for clause in func.window.order_by:
+            if isinstance(clause, OrderByClause):
+                expr_sql = _generate_expression(clause.expression)
+                direction_sql = clause.direction.value
+                order_by_parts.append(f"{expr_sql} {direction_sql}")
+            else:
+                # For backward compatibility with non-OrderByClause objects
+                order_by_parts.append(_generate_expression(clause))
+        
+        order_by_sql = f"ORDER BY {', '.join(order_by_parts)}"
     
     window_sql = ""
     if partition_by_sql or order_by_sql:
@@ -437,11 +447,25 @@ def _generate_order_by(df: DataFrame) -> str:
     order_by_parts = []
     
     for clause in df.order_by_clauses:
-        expr_sql = _generate_expression(clause.expression)
-        direction_sql = clause.direction.value
-        order_by_parts.append(f"{expr_sql} {direction_sql}")
+        if isinstance(clause, OrderByClause):
+            expr_sql = _generate_expression(clause.expression)
+            # Handle both SortDirection enum and string values
+            if hasattr(clause.direction, 'value'):
+                direction_sql = clause.direction.value
+            else:
+                # Default to ASC if direction is not a SortDirection enum
+                direction_sql = "ASC"
+            order_by_parts.append(f"{expr_sql} {direction_sql}")
+        else:
+            # For backward compatibility with non-OrderByClause objects
+            order_by_parts.append(_generate_expression(clause))
     
-    return f"ORDER BY {', '.join(order_by_parts)}"
+    # Join the order by parts with commas
+    # Check if there's a trailing comma issue in the SQL
+    order_by_sql = ', '.join(order_by_parts)
+    # Fix any "column, DESC" patterns that should be "column DESC"
+    order_by_sql = order_by_sql.replace(', DESC', ' DESC').replace(', ASC', ' ASC')
+    return f"ORDER BY {order_by_sql}"
 
 
 def _generate_limit_offset(df: DataFrame) -> str:

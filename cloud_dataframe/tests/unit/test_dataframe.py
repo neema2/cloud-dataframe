@@ -53,7 +53,7 @@ class TestDataFrame(unittest.TestCase):
     def test_group_by(self):
         """Test the group_by method."""
         df = DataFrame.from_("employees")
-        grouped_df = df.group_by("department")
+        grouped_df = df.group_by(lambda x: x.department)
         
         self.assertIsNotNone(grouped_df.group_by_clause)
         # Check that group_by is properly initialized
@@ -65,7 +65,7 @@ class TestDataFrame(unittest.TestCase):
     def test_order_by(self):
         """Test the order_by method."""
         df = DataFrame.from_("employees")
-        ordered_df = df.order_by("salary", desc=True)
+        ordered_df = df.order_by(lambda x: x.salary, desc=True)
         
         self.assertEqual(len(ordered_df.order_by_clauses), 1)
     
@@ -117,9 +117,9 @@ class TestDataFrame(unittest.TestCase):
     def test_with_cte(self):
         """Test the with_cte method."""
         dept_counts = DataFrame.from_("employees") \
-            .group_by("department_id") \
+            .group_by(lambda x: x.department_id) \
             .select(
-                as_column(col("department_id"), "department_id"),
+                lambda x: x.department_id,
                 as_column(count("*"), "employee_count")
             )
         

@@ -71,21 +71,21 @@ class TestDuckDBSQLGeneration(unittest.TestCase):
     def test_group_by(self):
         """Test generating SQL for a GROUP BY query."""
         df = DataFrame.from_("employees") \
-            .group_by("department") \
+            .group_by(lambda x: x.department) \
             .select(
-                as_column(col("department"), "department"),
+                lambda x: x.department,
                 as_column(count("*"), "employee_count"),
                 as_column(avg("salary"), "avg_salary")
             )
         
         sql = df.to_sql(dialect="duckdb")
-        expected_sql = "SELECT department AS department, COUNT(*) AS employee_count, AVG(salary) AS avg_salary\nFROM employees\nGROUP BY department"
+        expected_sql = "SELECT department, COUNT(*) AS employee_count, AVG(salary) AS avg_salary\nFROM employees\nGROUP BY department"
         self.assertEqual(sql.strip(), expected_sql)
     
     def test_order_by(self):
         """Test generating SQL for an ORDER BY query."""
         df = DataFrame.from_("employees") \
-            .order_by("salary", desc=True)
+            .order_by(lambda x: x.salary, desc=True)
         
         sql = df.to_sql(dialect="duckdb")
         expected_sql = "SELECT *\nFROM employees\nORDER BY salary DESC"
@@ -144,9 +144,9 @@ class TestDuckDBSQLGeneration(unittest.TestCase):
     def test_with_cte(self):
         """Test generating SQL for a query with a CTE."""
         dept_counts = DataFrame.from_("employees") \
-            .group_by("department_id") \
+            .group_by(lambda x: x.department_id) \
             .select(
-                as_column(col("department_id"), "department_id"),
+                lambda x: x.department_id,
                 as_column(count("*"), "employee_count")
             )
         
