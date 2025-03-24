@@ -294,30 +294,49 @@ def dense_rank() -> DenseRankFunction:
 
 
 def over(func: WindowFunction, 
-         partition_by: Optional[List[Union[str, Expression]]] = None,
-         order_by: Optional[List[Any]] = None) -> WindowFunction:
+         partition_by: Optional[Union[List[Union[Expression, Callable]], Callable]] = None,
+         order_by: Optional[Union[List[Union[Expression, Callable]], Callable]] = None) -> WindowFunction:
     """
     Apply a window specification to a window function.
     
     Args:
         func: The window function
-        partition_by: Optional list of expressions to partition by
-        order_by: Optional list of expressions to order by
+        partition_by: Optional list of expressions or lambda function to partition by
+        order_by: Optional list of expressions or lambda function to order by
         
     Returns:
         The window function with the window specification applied
     """
+    from ..utils.lambda_parser import parse_lambda
+    
     window = Window()
     
     if partition_by:
-        window.partition_by = [
-            col(p) if isinstance(p, str) else p
-            for p in partition_by
-        ]
+        if callable(partition_by):
+            # Handle lambda function
+            parsed_expressions = parse_lambda(partition_by)
+            if isinstance(parsed_expressions, list):
+                window.partition_by = parsed_expressions
+            else:
+                window.partition_by = [parsed_expressions]
+        else:
+            # Handle list of expressions
+            window.partition_by = [
+                p if not isinstance(p, str) else col(p)
+                for p in partition_by
+            ]
     
     if order_by:
-        # This is a simplification - in reality, we'd need to handle OrderByClause objects
-        window.order_by = order_by
+        if callable(order_by):
+            # Handle lambda function
+            parsed_expressions = parse_lambda(order_by)
+            if isinstance(parsed_expressions, list):
+                window.order_by = parsed_expressions
+            else:
+                window.order_by = [parsed_expressions]
+        else:
+            # Handle list of expressions
+            window.order_by = order_by
     
     func.window = window
     return func
