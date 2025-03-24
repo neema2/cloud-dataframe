@@ -49,23 +49,29 @@ def _generate_ctes(ctes: List[CommonTableExpression]) -> str:
     Returns:
         The generated SQL string for the WITH clause
     """
+    if not ctes:
+        return ""
+        
     cte_parts = []
     
     for cte in ctes:
         if isinstance(cte.query, DataFrame):
-            query_sql = generate_sql(cte.query)
+            # For DataFrame CTEs, we need to generate SQL without including their own CTEs
+            # to avoid infinite recursion and to properly format the WITH clause
+            df_copy = cte.query.copy()
+            saved_ctes = df_copy.ctes
+            df_copy.ctes = []  # Temporarily remove CTEs to avoid recursion
+            query_sql = _generate_query(df_copy)  # Generate only the query part
+            df_copy.ctes = saved_ctes  # Restore CTEs
         else:
             query_sql = cte.query
         
         columns_sql = f"({', '.join(cte.columns)})" if cte.columns else ""
-        recursive_sql = "RECURSIVE " if cte.is_recursive else ""
         
         cte_parts.append(f"{cte.name}{columns_sql} AS (\n{query_sql}\n)")
     
-    if cte_parts:
-        return f"WITH {recursive_sql}{', '.join(cte_parts)}"
-    else:
-        return ""
+    recursive_prefix = "RECURSIVE " if any(cte.is_recursive for cte in ctes) else ""
+    return f"WITH {recursive_prefix}{', '.join(cte_parts)}"
 
 
 def _generate_query(df: DataFrame) -> str:

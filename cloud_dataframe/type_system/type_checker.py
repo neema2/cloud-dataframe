@@ -144,8 +144,13 @@ def create_schema_from_dataclass(cls: Type, name: Optional[str] = None) -> Table
     
     type_hints = get_type_hints(cls)
     
+    # Check if the class has a custom name from the decorator
+    custom_name = None
+    if hasattr(cls, "__table_schema__") and getattr(cls, "__table_schema__").name != cls.__name__:
+        custom_name = getattr(cls, "__table_schema__").name
+    
     return TableSchema(
-        name=name or cls.__name__,
+        name=name or custom_name or cls.__name__,
         columns=type_hints
     )
 

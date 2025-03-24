@@ -378,13 +378,14 @@ class DataFrame:
         return self
     
     def join(self, right: Union['DataFrame', TableReference], 
-             condition: FilterCondition, join_type: JoinType = JoinType.INNER) -> 'DataFrame':
+             condition: Callable[[Any, Any], bool], 
+             join_type: JoinType = JoinType.INNER) -> 'DataFrame':
         """
         Join this DataFrame with another DataFrame or table.
         
         Args:
             right: The DataFrame or table to join with
-            condition: The join condition
+            condition: A lambda function that defines the join condition
             join_type: The type of join to perform
             
         Returns:
@@ -393,17 +394,31 @@ class DataFrame:
         if self.source is None:
             raise ValueError("Cannot join a DataFrame without a source")
         
-        right_source = right if isinstance(right, DataSource) else SubquerySource(
-            dataframe=right,
-            alias=f"subquery_{len(self.ctes)}"
-        )
+        # Get the right source
+        if isinstance(right, DataFrame):
+            # If the right DataFrame has a TableReference source, use it directly
+            if isinstance(right.source, TableReference):
+                right_source = right.source
+            else:
+                # Otherwise, wrap it in a SubquerySource
+                right_source = SubquerySource(
+                    dataframe=right,
+                    alias=f"subquery_{len(self.ctes)}"
+                )
+        elif isinstance(right, TableReference):
+            right_source = right
+        else:
+            raise TypeError("Right side of join must be a DataFrame or TableReference")
+        
+        # Convert lambda to join condition
+        join_condition = self._lambda_to_join_condition(condition)
         
         result = DataFrame()
         result.source = JoinOperation(
             left=self.source,
             right=right_source,
             join_type=join_type,
-            condition=condition
+            condition=join_condition
         )
         
         # Combine columns from both sides
@@ -415,13 +430,13 @@ class DataFrame:
         return result
     
     def left_join(self, right: Union['DataFrame', TableReference], 
-                  condition: FilterCondition) -> 'DataFrame':
+                  condition: Callable[[Any, Any], bool]) -> 'DataFrame':
         """
         Perform a LEFT JOIN with another DataFrame or table.
         
         Args:
             right: The DataFrame or table to join with
-            condition: The join condition
+            condition: A lambda function that defines the join condition
             
         Returns:
             A new DataFrame representing the join
@@ -429,13 +444,13 @@ class DataFrame:
         return self.join(right, condition, JoinType.LEFT)
     
     def right_join(self, right: Union['DataFrame', TableReference], 
-                   condition: FilterCondition) -> 'DataFrame':
+                   condition: Callable[[Any, Any], bool]) -> 'DataFrame':
         """
         Perform a RIGHT JOIN with another DataFrame or table.
         
         Args:
             right: The DataFrame or table to join with
-            condition: The join condition
+            condition: A lambda function that defines the join condition
             
         Returns:
             A new DataFrame representing the join
@@ -443,13 +458,13 @@ class DataFrame:
         return self.join(right, condition, JoinType.RIGHT)
     
     def full_join(self, right: Union['DataFrame', TableReference], 
-                  condition: FilterCondition) -> 'DataFrame':
+                  condition: Callable[[Any, Any], bool]) -> 'DataFrame':
         """
         Perform a FULL JOIN with another DataFrame or table.
         
         Args:
             right: The DataFrame or table to join with
-            condition: The join condition
+            condition: A lambda function that defines the join condition
             
         Returns:
             A new DataFrame representing the join
@@ -473,6 +488,24 @@ class DataFrame:
             right=LiteralExpression(value=True)
         )
         return self.join(right, condition, JoinType.CROSS)
+    
+    def _lambda_to_join_condition(self, lambda_func: Callable[[Any, Any], bool]) -> FilterCondition:
+        """
+        Convert a lambda function to a join condition.
+        
+        This method parses a lambda function that takes two parameters (one for each table)
+        and converts it to a FilterCondition representing the join condition.
+        
+        Args:
+            lambda_func: The lambda function to convert
+            
+        Returns:
+            A FilterCondition representing the join condition
+        """
+        from ..utils.lambda_parser import LambdaParser
+        
+        # Use the LambdaParser to convert the lambda to a FilterCondition
+        return LambdaParser.parse_join_lambda(lambda_func)
     
     def to_sql(self, dialect: str = "duckdb") -> str:
         """

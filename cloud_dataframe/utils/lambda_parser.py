@@ -379,6 +379,130 @@ class LambdaParser:
             return ColumnReference(name="*")
     
     @staticmethod
+    def parse_join_lambda(lambda_func: Callable, table_schema=None) -> Expression:
+        """
+        Parse a lambda function that represents a join condition.
+        
+        Args:
+            lambda_func: The lambda function to parse
+            table_schema: Optional schema for type checking
+            
+        Returns:
+            An Expression representing the join condition
+        """
+        # Get the source code of the lambda function
+        try:
+            source = inspect.getsource(lambda_func)
+            
+            # Handle multiline lambda expressions
+            if "\\" in source:
+                # Remove line continuations and normalize whitespace
+                source = source.replace("\\", "").strip()
+            
+            # Parse the source code into an AST
+            tree = ast.parse(source.strip())
+            
+            # Find the lambda expression in the AST
+            lambda_node = None
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Lambda):
+                    lambda_node = node
+                    break
+            
+            if not lambda_node:
+                raise ValueError("Could not find lambda expression in source code")
+            
+            # Check if the lambda has exactly two arguments
+            if len(lambda_node.args.args) != 2:
+                raise ValueError("Join condition lambda must have exactly two arguments (one for each table)")
+            
+            # Add parent references to all nodes in the AST
+            # This helps with determining context for complex boolean operations
+            for parent in ast.walk(tree):
+                for child in ast.iter_child_nodes(parent):
+                    child.parent = parent
+            
+            # Parse the lambda body
+            return LambdaParser._parse_join_expression(lambda_node.body, lambda_node.args.args, table_schema)
+        except (SyntaxError, AttributeError) as e:
+            # Alternative approach for complex lambdas or when source extraction fails
+            raise ValueError(f"Failed to parse join lambda: {e}")
+    
+    @staticmethod
+    def _parse_join_expression(node: ast.AST, args: List[ast.arg], table_schema=None) -> Expression:
+        """
+        Parse a join expression AST node and convert it to an Expression.
+        
+        Args:
+            node: The AST node to parse
+            args: The lambda function arguments (left table, right table)
+            table_schema: Optional schema for type checking
+            
+        Returns:
+            An Expression representing the AST node
+        """
+        # Handle different types of AST nodes
+        if isinstance(node, ast.Compare):
+            # Handle comparison operations (e.g., x.col1 == y.col2)
+            left = LambdaParser._parse_join_expression(node.left, args, table_schema)
+            
+            # We only handle the first comparator for simplicity
+            op = node.ops[0]
+            right = LambdaParser._parse_join_expression(node.comparators[0], args, table_schema)
+            
+            operator = LambdaParser._get_comparison_operator(op)
+            
+            return BinaryOperation(left=left, operator=operator, right=right)
+        
+        elif isinstance(node, ast.BoolOp):
+            # Handle boolean operations (e.g., x.col1 == y.col2 and x.col3 > y.col4)
+            values = [LambdaParser._parse_join_expression(val, args, table_schema) for val in node.values]
+            
+            # Combine the values with the appropriate operator
+            operator = "AND" if isinstance(node.op, ast.And) else "OR"
+            
+            # Start with the first two values
+            result = BinaryOperation(left=values[0], operator=operator, right=values[1])
+            
+            # Add the remaining values
+            for value in values[2:]:
+                result = BinaryOperation(left=result, operator=operator, right=value)
+            
+            return result
+        
+        elif isinstance(node, ast.Attribute):
+            # Handle attribute access (e.g., x.col1, y.col2)
+            if isinstance(node.value, ast.Name):
+                # Determine which table the attribute belongs to
+                if node.value.id == args[0].arg:  # First table
+                    return ColumnReference(name=node.attr, table_alias=args[0].arg)
+                elif node.value.id == args[1].arg:  # Second table
+                    return ColumnReference(name=node.attr, table_alias=args[1].arg)
+            
+            # If we can't determine the table, return a default column reference
+            return ColumnReference(name=node.attr)
+        
+        elif isinstance(node, ast.Constant):
+            # Handle literal values
+            return LiteralExpression(value=node.value)
+        
+        elif isinstance(node, ast.Name):
+            # Handle variable names
+            if node.id in [arg.arg for arg in args]:
+                # This is one of the lambda parameters
+                return ColumnReference(name="*", table_alias=node.id)
+            elif node.id == "True":
+                return LiteralExpression(value=True)
+            elif node.id == "False":
+                return LiteralExpression(value=False)
+            else:
+                # This is a variable reference
+                return ColumnReference(name=node.id)
+        
+        # For other node types, return a default expression
+        return ColumnReference(name="*")
+    
+    @staticmethod
     def _get_comparison_operator(op: ast.cmpop) -> str:
         """
         Convert an AST comparison operator to a SQL operator.
