@@ -325,6 +325,12 @@ class DataFrame:
             The DataFrame with the grouping applied
         """
         expressions = []
+        
+        # Get the table schema if available
+        table_schema = None
+        if isinstance(self.source, TableReference):
+            table_schema = self.source.table_schema
+            
         for col in columns:
             if isinstance(col, str):
                 expressions.append(ColumnReference(col))
@@ -333,7 +339,7 @@ class DataFrame:
             elif callable(col) and not isinstance(col, Expression):
                 # Handle lambda functions that access dataclass properties
                 from ..utils.lambda_parser import LambdaParser
-                expr = LambdaParser.parse_lambda(col)
+                expr = LambdaParser.parse_lambda(col, table_schema)
                 if isinstance(expr, list):
                     # Handle array returns from lambda functions
                     expressions.extend(expr)
@@ -381,7 +387,11 @@ class DataFrame:
             elif callable(clause) and not isinstance(clause, Expression):
                 # Handle lambda functions that access dataclass properties
                 from ..utils.lambda_parser import LambdaParser
-                expr = LambdaParser.parse_lambda(clause)
+                # Get the table schema if available
+                table_schema = None
+                if isinstance(self.source, TableReference):
+                    table_schema = self.source.table_schema
+                expr = LambdaParser.parse_lambda(clause, table_schema)
                 if isinstance(expr, list):
                     # Handle array returns from lambda functions
                     for single_expr in expr:
