@@ -215,7 +215,7 @@ def comprehensive_query_with_array_lambdas():
             over(
                 row_number(),
                 partition_by=lambda x: x.e.department,
-                order_by=lambda x: x.e.salary
+                order_by=lambda x: [(x.e.salary, 'DESC')]  # Salary in descending order
             ),
             "salary_rank_in_dept"
         ),
@@ -224,7 +224,7 @@ def comprehensive_query_with_array_lambdas():
             over(
                 rank(),
                 partition_by=lambda x: [x.e.department, x.e.location],
-                order_by=lambda x: x.e.salary
+                order_by=lambda x: [(x.e.salary, 'ASC'), (x.e.id, 'DESC')]  # Salary ASC, ID DESC
             ),
             "salary_rank_with_ties"
         ),
@@ -233,7 +233,7 @@ def comprehensive_query_with_array_lambdas():
             over(
                 dense_rank(),
                 partition_by=lambda x: x.e.department,
-                order_by=lambda x: [x.e.salary, x.e.id]
+                order_by=lambda x: [(x.e.salary, 'DESC'), (x.e.id, 'ASC')]  # Salary DESC, ID ASC
             ),
             "dense_salary_rank"
         )
