@@ -11,11 +11,7 @@ def main():
     
     # Apply filter
     filtered_df = df.filter(
-        BinaryOperation(
-            left=col("salary"),
-            operator=">",
-            right=literal(50000)
-        )
+        lambda x: x.salary > 50000
     )
     
     # Apply group by

@@ -4,7 +4,7 @@ Integration tests for SQL generation.
 This module contains tests for generating SQL from DataFrame objects.
 """
 import unittest
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional
 
 from cloud_dataframe.core.dataframe import DataFrame, BinaryOperation, JoinType, TableReference
@@ -15,6 +15,7 @@ from cloud_dataframe.type_system.schema import TableSchema, ColSpec
 from cloud_dataframe.type_system.decorators import dataclass_to_schema
 
 
+@dataclass
 @dataclass_to_schema()
 class Employee:
     """Employee dataclass for testing type-safe operations."""
@@ -25,6 +26,7 @@ class Employee:
     manager_id: Optional[int] = None
 
 
+@dataclass
 @dataclass_to_schema()
 class Department:
     """Department dataclass for testing type-safe operations."""
@@ -59,11 +61,7 @@ class TestDuckDBSQLGeneration(unittest.TestCase):
     def test_filter(self):
         """Test generating SQL for a filtered query."""
         df = DataFrame.from_("employees").filter(
-            BinaryOperation(
-                left=col("salary"),
-                operator=">",
-                right=literal(50000)
-            )
+            lambda x: x.salary > 50000
         )
         
         sql = df.to_sql(dialect="duckdb")
@@ -191,11 +189,7 @@ class TestDuckDBSQLGeneration(unittest.TestCase):
         
         # Filter using the schema
         filtered_df = df.filter(
-            BinaryOperation(
-                left=col("salary"),
-                operator=">",
-                right=literal(50000)
-            )
+            lambda x: x.salary > 50000
         )
         
         sql = filtered_df.to_sql(dialect="duckdb")
