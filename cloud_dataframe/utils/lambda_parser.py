@@ -425,20 +425,40 @@ class LambdaParser:
                     
                     # Allow complex expressions as arguments (e.g., sum(x.col1 - x.col2))
                     if node.func.id == 'sum':
-                        return SumFunction(function_name="SUM", parameters=args_list)
+                        # Create a SumFunction with the parsed arguments
+                        func = SumFunction(function_name="SUM", parameters=args_list)
+                        return func
                     elif node.func.id == 'avg':
-                        return AvgFunction(function_name="AVG", parameters=args_list)
+                        # Create an AvgFunction with the parsed arguments
+                        func = AvgFunction(function_name="AVG", parameters=args_list)
+                        
+                        return func
                     elif node.func.id == 'count':
                         distinct = kwargs.get('distinct', False)
                         # Also check for distinct in keywords
                         for kw in node.keywords:
                             if kw.arg == 'distinct' and isinstance(kw.value, ast.Constant):
                                 distinct = kw.value.value
-                        return CountFunction(function_name="COUNT", parameters=args_list, distinct=distinct)
+                        
+                        # Handle count() with no arguments - convert to COUNT(1)
+                        if not args_list:
+                            from ..type_system.column import LiteralExpression
+                            args_list = [LiteralExpression(value=1)]
+                        
+                        # Create a CountFunction with the parsed arguments
+                        func = CountFunction(function_name="COUNT", parameters=args_list, distinct=distinct)
+                        
+                        return func
                     elif node.func.id == 'min':
-                        return MinFunction(function_name="MIN", parameters=args_list)
+                        # Create a MinFunction with the parsed arguments
+                        func = MinFunction(function_name="MIN", parameters=args_list)
+                        
+                        return func
                     elif node.func.id == 'max':
-                        return MaxFunction(function_name="MAX", parameters=args_list)
+                        # Create a MaxFunction with the parsed arguments
+                        func = MaxFunction(function_name="MAX", parameters=args_list)
+                        
+                        return func
                 # Support for scalar functions
                 elif node.func.id in ('date_diff'):
                     from ..type_system.column import DateDiffFunction

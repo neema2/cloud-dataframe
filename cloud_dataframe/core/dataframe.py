@@ -173,6 +173,7 @@ class DataFrame:
                 - Column objects
                 - Lambda functions that access dataclass properties (e.g., lambda x: x.column_name)
                 - Lambda functions that return arrays (e.g., lambda x: [x.name, x.age])
+                - Lambda functions with aggregate functions (e.g., lambda x: count(x.id).as_column('count'))
             
         Returns:
             The DataFrame with the columns selected
@@ -188,12 +189,20 @@ class DataFrame:
                 table_schema = None
                 if isinstance(self.source, TableReference):
                     table_schema = self.source.table_schema
+                
+                # Parse the lambda function
                 expr = LambdaParser.parse_lambda(col, table_schema)
+                
                 if isinstance(expr, list):
                     # Handle array returns from lambda functions
                     column_list.extend(expr)
                 else:
-                    column_list.append(expr)
+                    # Check if this is already a Column object
+                    if isinstance(expr, Column):
+                        column_list.append(expr)
+                    else:
+                        # Convert to a Column if it's not already
+                        column_list.append(expr)
             else:
                 raise TypeError(f"Unsupported column type: {type(col)}")
         
