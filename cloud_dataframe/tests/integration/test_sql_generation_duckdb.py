@@ -195,8 +195,8 @@ class TestSqlGenerationDuckDB(unittest.TestCase):
             .group_by(lambda x: x.department) \
             .select(
                 lambda x: x.department,
-                as_column(count(lambda x: x.id), "employee_count"),
-                as_column(avg(lambda x: x.salary), "avg_salary")
+                as_column(lambda x: count(x.id), "employee_count"),
+                as_column(lambda x: avg(x.salary), "avg_salary")
             )
         
         # Generate SQL
@@ -377,8 +377,8 @@ WHERE salary > 0"""
             lambda x: x.d.location
         ).select(
             lambda x: x.d.location,
-            as_column(count(lambda x: literal(1)), "employee_count"),
-            as_column(avg(lambda x: x.e.salary), "avg_salary")
+            as_column(lambda x: count(literal(1)), "employee_count"),
+            as_column(lambda x: avg(x.e.salary), "avg_salary")
         )
         
         # Generate SQL

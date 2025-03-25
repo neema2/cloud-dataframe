@@ -195,125 +195,125 @@ def as_column(expr: Union[Expression, Callable], alias: str) -> Column:
 
 # Aggregate functions
 
-def count(expr: Union[Callable, Expression], distinct: bool = False) -> CountFunction:
+def count(expr: Expression, distinct: bool = False) -> CountFunction:
     """
     Create a COUNT aggregate function.
     
     Args:
-        expr: Lambda function that returns an expression to count, or an Expression object
-              Examples: lambda x: x.column, lambda x: x.col1 - x.col2
+        expr: Expression to count, must NOT be a lambda function
+              Examples: x.column, x.col1 - x.col2
         distinct: Whether to count distinct values
         
     Returns:
         A CountFunction expression
+        
+    Raises:
+        TypeError: If a lambda function is passed directly to count()
     """
-    from ..utils.lambda_parser import parse_lambda
-    
-    if callable(expr):
-        parsed_expr = parse_lambda(expr)
-    else:
-        parsed_expr = expr
+    if callable(expr) and not isinstance(expr, Expression):
+        raise TypeError("Lambda functions should not be passed directly to count(). "
+                       "Use lambda x: count(x.column) instead of count(lambda x: x.column)")
     
     return CountFunction(
         function_name="COUNT",
-        parameters=[parsed_expr],
+        parameters=[expr],
         distinct=distinct
     )
 
 
-def sum(expr: Union[Callable, Expression]) -> SumFunction:
+def sum(expr: Expression) -> SumFunction:
     """
     Create a SUM aggregate function.
     
     Args:
-        expr: Lambda function that returns an expression to sum, or an Expression object
-              Examples: lambda x: x.salary, lambda x: x.salary - x.tax
+        expr: Expression to sum, must NOT be a lambda function
+              Examples: x.salary, x.salary - x.tax
         
     Returns:
         A SumFunction expression
+        
+    Raises:
+        TypeError: If a lambda function is passed directly to sum()
     """
-    from ..utils.lambda_parser import parse_lambda
-    
-    if callable(expr):
-        parsed_expr = parse_lambda(expr)
-    else:
-        parsed_expr = expr
+    if callable(expr) and not isinstance(expr, Expression):
+        raise TypeError("Lambda functions should not be passed directly to sum(). "
+                       "Use lambda x: sum(x.column) instead of sum(lambda x: x.column)")
     
     return SumFunction(
         function_name="SUM",
-        parameters=[parsed_expr]
+        parameters=[expr]
     )
 
 
-def avg(expr: Union[Callable, Expression]) -> AvgFunction:
+def avg(expr: Expression) -> AvgFunction:
     """
     Create an AVG aggregate function.
     
     Args:
-        expr: Lambda function that returns an expression to average, or an Expression object
-              Examples: lambda x: x.salary, lambda x: x.revenue / x.count
+        expr: Expression to average, must NOT be a lambda function
+              Examples: x.salary, x.revenue / x.count
         
     Returns:
         An AvgFunction expression
+        
+    Raises:
+        TypeError: If a lambda function is passed directly to avg()
     """
-    from ..utils.lambda_parser import parse_lambda
-    
-    if callable(expr):
-        parsed_expr = parse_lambda(expr)
-    else:
-        parsed_expr = expr
+    if callable(expr) and not isinstance(expr, Expression):
+        raise TypeError("Lambda functions should not be passed directly to avg(). "
+                       "Use lambda x: avg(x.column) instead of avg(lambda x: x.column)")
     
     return AvgFunction(
         function_name="AVG",
-        parameters=[parsed_expr]
+        parameters=[expr]
     )
 
 
-def min(expr: Union[Callable, Expression]) -> MinFunction:
+def min(expr: Expression) -> MinFunction:
     """
     Create a MIN aggregate function.
     
     Args:
-        expr: Lambda function that returns an expression to find the minimum of, or an Expression object
-              Examples: lambda x: x.salary, lambda x: x.price - x.discount
+        expr: Expression to find the minimum of, must NOT be a lambda function
+              Examples: x.salary, x.price - x.discount
         
     Returns:
         A MinFunction expression
+        
+    Raises:
+        TypeError: If a lambda function is passed directly to min()
     """
-    from ..utils.lambda_parser import parse_lambda
-    
-    if callable(expr):
-        parsed_expr = parse_lambda(expr)
-    else:
-        parsed_expr = expr
+    if callable(expr) and not isinstance(expr, Expression):
+        raise TypeError("Lambda functions should not be passed directly to min(). "
+                       "Use lambda x: min(x.column) instead of min(lambda x: x.column)")
     
     return MinFunction(
         function_name="MIN",
-        parameters=[parsed_expr]
+        parameters=[expr]
     )
 
 
-def max(expr: Union[Callable, Expression]) -> MaxFunction:
+def max(expr: Expression) -> MaxFunction:
     """
     Create a MAX aggregate function.
     
     Args:
-        expr: Lambda function that returns an expression to find the maximum of, or an Expression object
-              Examples: lambda x: x.salary, lambda x: x.price * (1 + x.tax_rate)
+        expr: Expression to find the maximum of, must NOT be a lambda function
+              Examples: x.salary, x.price * (1 + x.tax_rate)
         
     Returns:
         A MaxFunction expression
+        
+    Raises:
+        TypeError: If a lambda function is passed directly to max()
     """
-    from ..utils.lambda_parser import parse_lambda
-    
-    if callable(expr):
-        parsed_expr = parse_lambda(expr)
-    else:
-        parsed_expr = expr
+    if callable(expr) and not isinstance(expr, Expression):
+        raise TypeError("Lambda functions should not be passed directly to max(). "
+                       "Use lambda x: max(x.column) instead of max(lambda x: x.column)")
     
     return MaxFunction(
         function_name="MAX",
-        parameters=[parsed_expr]
+        parameters=[expr]
     )
 
 
