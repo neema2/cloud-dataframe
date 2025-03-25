@@ -212,14 +212,13 @@ def as_column(expr: Union[Expression, Callable], alias: str) -> Column:
 
 # Aggregate functions
 
-def count(expr: Optional[Union[Callable, Expression]] = None, distinct: bool = False) -> CountFunction:
+def count(expr: Union[Callable, Expression, None] = None, distinct: bool = False) -> CountFunction:
     """
     Create a COUNT aggregate function.
     
     Args:
         expr: Expression to count, can be a column reference or other expression
-              Examples: x.column, x.col1 - x.col2
-              If None, COUNT(*) will be used
+              If None, COUNT(1) will be used
               For backward compatibility, can also be a lambda function
         distinct: Whether to count distinct values
         
@@ -228,18 +227,17 @@ def count(expr: Optional[Union[Callable, Expression]] = None, distinct: bool = F
     """
     from ..utils.lambda_parser import parse_lambda
     
-    # Handle COUNT(*) special case
+    # Handle COUNT(*) special case - convert to COUNT(1)
     if expr is None:
-        # Create a special marker for COUNT(*)
+        # Create a special marker for COUNT(1)
         return CountFunction(
             function_name="COUNT",
-            parameters=[LiteralExpression(value="*")],
+            parameters=[LiteralExpression(value=1)],
             distinct=distinct
         )
     
-    # Handle lambda function for backward compatibility
+    # For backward compatibility, handle lambda functions
     if callable(expr) and not isinstance(expr, Expression):
-        # Parse the lambda to get the expression
         parsed_expr = parse_lambda(expr)
         return CountFunction(
             function_name="COUNT",
@@ -269,9 +267,8 @@ def sum(expr: Union[Callable, Expression]) -> SumFunction:
     """
     from ..utils.lambda_parser import parse_lambda
     
-    # Handle lambda function for backward compatibility
+    # For backward compatibility, handle lambda functions
     if callable(expr) and not isinstance(expr, Expression):
-        # Parse the lambda to get the expression
         parsed_expr = parse_lambda(expr)
         return SumFunction(
             function_name="SUM",
@@ -299,9 +296,8 @@ def avg(expr: Union[Callable, Expression]) -> AvgFunction:
     """
     from ..utils.lambda_parser import parse_lambda
     
-    # Handle lambda function for backward compatibility
+    # For backward compatibility, handle lambda functions
     if callable(expr) and not isinstance(expr, Expression):
-        # Parse the lambda to get the expression
         parsed_expr = parse_lambda(expr)
         return AvgFunction(
             function_name="AVG",
@@ -329,9 +325,8 @@ def min(expr: Union[Callable, Expression]) -> MinFunction:
     """
     from ..utils.lambda_parser import parse_lambda
     
-    # Handle lambda function for backward compatibility
+    # For backward compatibility, handle lambda functions
     if callable(expr) and not isinstance(expr, Expression):
-        # Parse the lambda to get the expression
         parsed_expr = parse_lambda(expr)
         return MinFunction(
             function_name="MIN",
@@ -359,9 +354,8 @@ def max(expr: Union[Callable, Expression]) -> MaxFunction:
     """
     from ..utils.lambda_parser import parse_lambda
     
-    # Handle lambda function for backward compatibility
+    # For backward compatibility, handle lambda functions
     if callable(expr) and not isinstance(expr, Expression):
-        # Parse the lambda to get the expression
         parsed_expr = parse_lambda(expr)
         return MaxFunction(
             function_name="MAX",
