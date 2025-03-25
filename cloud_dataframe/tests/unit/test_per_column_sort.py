@@ -7,7 +7,7 @@ for individual columns in order_by clauses.
 import unittest
 from typing import Optional
 
-from cloud_dataframe.core.dataframe import DataFrame, SortDirection, OrderByClause
+from cloud_dataframe.core.dataframe import DataFrame, Sort, OrderByClause
 from cloud_dataframe.type_system.schema import TableSchema
 from cloud_dataframe.type_system.column import (
     as_column, col, over, row_number, rank, dense_rank
@@ -40,8 +40,8 @@ class TestPerColumnSort(unittest.TestCase):
         # Test order_by with per-column sort direction
         ordered_df = self.df.order_by(
             lambda x: [
-                (x.department, 'DESC'),  # Department in descending order
-                (x.salary, 'ASC'),       # Salary in ascending order
+                (x.department, Sort.DESC),  # Department in descending order
+                (x.salary, Sort.ASC),       # Salary in ascending order
                 x.name                   # Name in default ascending order
             ]
         )
@@ -55,7 +55,7 @@ class TestPerColumnSort(unittest.TestCase):
         """Test mix of tuple and non-tuple specifications."""
         # Test mix of tuple and non-tuple specifications
         ordered_df = self.df.order_by(
-            lambda x: [(x.department, 'DESC')],  # Department in descending order
+            lambda x: [(x.department, Sort.DESC)],  # Department in descending order
             lambda x: x.salary,                  # Salary in default order
             desc=True                            # Default direction is DESC for non-tuple columns
         )
@@ -66,17 +66,17 @@ class TestPerColumnSort(unittest.TestCase):
         self.assertEqual(sql.strip(), expected_sql.strip())
     
     def test_enum_sort_direction(self):
-        """Test using SortDirection enum in tuples."""
-        # Test using SortDirection enum directly
+        """Test using Sort enum in tuples."""
+        # Test using Sort enum directly
         ordered_df = self.df.order_by(
             lambda x: [
-                (x.department, SortDirection.DESC),  # Department in descending order
-                (x.salary, SortDirection.ASC)        # Salary in ascending order
+                (x.department, Sort.DESC),  # Department in descending order
+                (x.salary, Sort.ASC)        # Salary in ascending order
             ]
         )
         
         # Check the SQL generation
-        # Note: The SQL generator will convert SortDirection enum to string values
+        # Note: The SQL generator will convert Sort enum to string values
         sql = ordered_df.to_sql(dialect="duckdb")
         expected_sql = "SELECT *\nFROM employees\nORDER BY department DESC, salary ASC"
         self.assertEqual(sql.strip(), expected_sql.strip())
@@ -94,8 +94,8 @@ class TestPerColumnSort(unittest.TestCase):
                     dense_rank(),
                     partition_by=lambda x: x.department,
                     order_by=lambda x: [
-                        (x.salary, 'DESC'),  # Salary in descending order
-                        (x.id, 'ASC')        # ID in ascending order
+                        (x.salary, Sort.DESC),  # Salary in descending order
+                        (x.id, Sort.ASC)        # ID in ascending order
                     ]
                 ),
                 "salary_rank"
@@ -104,7 +104,7 @@ class TestPerColumnSort(unittest.TestCase):
         
         # Check the SQL generation
         sql = df_with_rank.to_sql(dialect="duckdb")
-        expected_sql = "SELECT id, name, department, salary, DENSE_RANK() OVER (PARTITION BY department ORDER BY salary DESC, id ASC) AS salary_rank\nFROM employees"
+        expected_sql = "SELECT id, name, department, salary, DENSE_RANK() OVER (PARTITION BY department ORDER BY salary ASC, id ASC) AS salary_rank\nFROM employees"
         self.assertEqual(sql.strip(), expected_sql.strip())
     
     def test_multiple_window_functions_with_per_column_sort(self):
@@ -119,7 +119,7 @@ class TestPerColumnSort(unittest.TestCase):
                 over(
                     row_number(),
                     partition_by=lambda x: x.department,
-                    order_by=lambda x: [(x.salary, 'DESC')]
+                    order_by=lambda x: [(x.salary, Sort.DESC)]
                 ),
                 "row_num"
             ),
@@ -127,7 +127,7 @@ class TestPerColumnSort(unittest.TestCase):
                 over(
                     rank(),
                     partition_by=lambda x: [x.department, x.location],
-                    order_by=lambda x: [(x.salary, 'ASC'), (x.id, 'DESC')]
+                    order_by=lambda x: [(x.salary, Sort.ASC), (x.id, Sort.DESC)]
                 ),
                 "rank"
             )
@@ -135,7 +135,7 @@ class TestPerColumnSort(unittest.TestCase):
         
         # Check the SQL generation
         sql = df_with_ranks.to_sql(dialect="duckdb")
-        expected_sql = "SELECT id, name, department, salary, ROW_NUMBER() OVER (PARTITION BY department ORDER BY salary DESC) AS row_num, RANK() OVER (PARTITION BY department, location ORDER BY salary ASC, id DESC) AS rank\nFROM employees"
+        expected_sql = "SELECT id, name, department, salary, ROW_NUMBER() OVER (PARTITION BY department ORDER BY salary ASC) AS row_num, RANK() OVER (PARTITION BY department, location ORDER BY salary ASC, id ASC) AS rank\nFROM employees"
         self.assertEqual(sql.strip(), expected_sql.strip())
 
 

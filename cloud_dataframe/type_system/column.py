@@ -444,7 +444,7 @@ def over(func: Union[WindowFunction, Callable],
         The window function with the window specification applied
     """
     from ..utils.lambda_parser import parse_lambda
-    from ..core.dataframe import OrderByClause, SortDirection
+    from ..core.dataframe import OrderByClause, Sort
     
     window = Window()
     partition_by_list = []
@@ -488,14 +488,14 @@ def over(func: Union[WindowFunction, Callable],
                     if isinstance(item, tuple) and len(item) == 2:
                         col_expr, sort_dir = item
                         # Convert string sort direction to OrderByClause equivalent
-                        dir_enum = SortDirection.DESC if isinstance(sort_dir, str) and sort_dir.upper() == 'DESC' else SortDirection.ASC
+                        dir_enum = Sort.DESC if isinstance(sort_dir, str) and sort_dir.upper() == 'DESC' else Sort.ASC
                         order_by_list.append(OrderByClause(expression=col_expr, direction=dir_enum))
                     else:
                         # Use default ASC ordering
-                        order_by_list.append(OrderByClause(expression=item, direction=SortDirection.ASC))
+                        order_by_list.append(OrderByClause(expression=item, direction=Sort.ASC))
             else:
                 # Single expression with default ASC ordering
-                order_by_list.append(OrderByClause(expression=parsed_expressions, direction=SortDirection.ASC))
+                order_by_list.append(OrderByClause(expression=parsed_expressions, direction=Sort.ASC))
         else:
             # Handle list of expressions (already OrderByClause objects)
             order_by_list = order_by

@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Optional, Union, cast
 
 from ...core.dataframe import (
     DataFrame, TableReference, SubquerySource, JoinOperation, 
-    JoinType, OrderByClause, SortDirection, FilterCondition,
+    JoinType, OrderByClause, Sort, FilterCondition,
     BinaryOperation, UnaryOperation, CommonTableExpression
 )
 from ...type_system.column import (
@@ -580,11 +580,11 @@ def _generate_order_by(df: DataFrame) -> str:
     for clause in df.order_by_clauses:
         if isinstance(clause, OrderByClause):
             expr_sql = _generate_expression(clause.expression)
-            # Handle both SortDirection enum and string values
+            # Handle both Sort enum and string values
             if hasattr(clause.direction, 'value'):
                 direction_sql = clause.direction.value
             else:
-                # Default to ASC if direction is not a SortDirection enum
+                # Default to ASC if direction is not a Sort enum
                 direction_sql = "ASC"
             order_by_parts.append(f"{expr_sql} {direction_sql}")
         else:
