@@ -437,7 +437,7 @@ def over(func: Union[WindowFunction, Callable],
             Can be a lambda that returns:
             - A single column reference (lambda x: x.column)
             - A list of column references (lambda x: [x.col1, x.col2])
-            - A list with tuples specifying sort direction (lambda x: [(x.col1, 'DESC'), (x.col2, 'ASC')])
+            - A list with tuples specifying sort direction (lambda x: [(x.col1, SortDirection.DESC), (x.col2, SortDirection.ASC)])
         frame: Optional frame specification created with row() or range() functions
         
     Returns:
