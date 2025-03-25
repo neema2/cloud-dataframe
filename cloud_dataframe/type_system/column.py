@@ -168,18 +168,29 @@ def literal(value: Any) -> LiteralExpression:
     return LiteralExpression(value=value)
 
 
-def as_column(expr: Expression, alias: str) -> Column:
+def as_column(expr: Union[Expression, Callable], alias: str) -> Column:
     """
     Create a column with an alias.
     
     Args:
-        expr: The expression for the column
+        expr: The expression for the column. Can be:
+            - An Expression object
+            - A lambda function that returns an expression (e.g., lambda x: x.column_name)
+            - A lambda function with nested function calls (e.g., lambda x: sum(x.salary + x.bonus))
         alias: The alias for the column
         
     Returns:
         A Column with the specified alias
     """
-    return Column(name=alias, expression=expr, alias=alias)
+    from ..utils.lambda_parser import parse_lambda
+    
+    if callable(expr) and not isinstance(expr, Expression):
+        # Parse lambda function to get the expression
+        parsed_expr = parse_lambda(expr)
+    else:
+        parsed_expr = expr
+        
+    return Column(name=alias, expression=parsed_expr, alias=alias)
 
 
 # Aggregate functions
