@@ -213,20 +213,8 @@ def _generate_select(df: DataFrame) -> str:
     column_parts = []
     
     for col in df.columns:
-        # Special handling for count() with no arguments
-        if isinstance(col, Column) and isinstance(col.expression, CountFunction) and (
-            not col.expression.parameters or 
-            (len(col.expression.parameters) == 1 and 
-             isinstance(col.expression.parameters[0], LiteralExpression) and 
-             col.expression.parameters[0].value == 1)
-        ):
-            if col.alias:
-                column_parts.append(f"COUNT(1) AS {col.alias}")
-            else:
-                column_parts.append("COUNT(1)")
-        else:
-            column_sql = _generate_column(col)
-            column_parts.append(column_sql)
+        column_sql = _generate_column(col)
+        column_parts.append(column_sql)
     
     return f"SELECT {distinct_sql}{', '.join(column_parts)}"
 
