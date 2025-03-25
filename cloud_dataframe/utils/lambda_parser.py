@@ -237,7 +237,12 @@ class LambdaParser:
         Returns:
             An Expression or list of Expressions representing the AST node,
             or list containing tuples of (Expression, sort_direction) for order_by clauses
+            
+        Note:
+            All column references should include table aliases when possible.
+            This ensures proper SQL generation for joins and complex queries.
         """
+        from ..type_system.column import LiteralExpression
         # Handle different types of AST nodes
         if isinstance(node, ast.Compare):
             # Handle comparison operations (e.g., x > 5, y == 'value')
@@ -329,10 +334,17 @@ class LambdaParser:
                 # If table_schema is provided, validate the column name
                 if table_schema and not table_schema.validate_column(node.attr):
                     raise ValueError(f"Column '{node.attr}' not found in table schema '{table_schema.name}'")
-                return ColumnReference(name=node.attr)
+                
+                table_alias = None
+                if table_schema:
+                    table_alias = table_schema.name.lower()
+                
+                return ColumnReference(name=node.attr, table_alias=table_alias)
             else:
-                # This is a more complex attribute access
-                # In a real implementation, we would handle this more robustly
+                if isinstance(node.value, ast.Attribute) and isinstance(node.value.value, ast.Name):
+                    if node.value.value.id == args[0].arg:
+                        return ColumnReference(name=node.attr, table_alias=node.value.attr)
+                
                 return ColumnReference(name=node.attr)
         
         elif isinstance(node, ast.Constant):
@@ -472,9 +484,14 @@ class LambdaParser:
                         
                     return DateDiffFunction(function_name="DATE_DIFF", parameters=args_list)
             # Handle nested function calls inside lambda expressions
-            elif isinstance(node.func, ast.Attribute) and isinstance(node.func.value, ast.Name):
-                # This handles cases like lambda x: x.func(arg1, arg2)
-                # Parse the arguments to the function
+            elif isinstance(node.func, ast.Attribute):
+                if node.func.attr == 'alias' and len(node.args) == 1 and isinstance(node.args[0], ast.Constant):
+                    alias_name = node.args[0].value
+                    col_ref = LambdaParser._parse_expression(node.func.value, args, table_schema)
+                    if isinstance(col_ref, ColumnReference):
+                        col_ref.column_alias = alias_name
+                        return col_ref
+                
                 args_list = []
                 for arg in node.args:
                     parsed_arg = LambdaParser._parse_expression(arg, args, table_schema)
@@ -680,7 +697,6 @@ class LambdaParser:
         elif isinstance(node, ast.Name):
             # Handle variable names
             if node.id in [arg.arg for arg in args]:
-                # This is one of the lambda parameters
                 return ColumnReference(name="*", table_alias=node.id)
             elif node.id == "True":
                 from ..type_system.column import LiteralExpression

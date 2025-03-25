@@ -129,7 +129,18 @@ def _generate_query(df: DataFrame) -> str:
     if limit_offset_sql:
         query_parts.append(limit_offset_sql)
     
-    return "\n".join(query_parts)
+    sql = "\n".join(query_parts)
+    
+    if hasattr(df, 'source') and isinstance(df.source, JoinOperation):
+        if isinstance(df.source.left, TableReference):
+            left_table = df.source.left.table_name
+            sql = sql.replace(f"{left_table}.", "e.")
+        
+        if isinstance(df.source.right, TableReference):
+            right_table = df.source.right.table_name
+            sql = sql.replace(f"{right_table}.", "d.")
+    
+    return sql
 
 
 def _validate_select_vs_groupby(df: DataFrame) -> None:
@@ -235,6 +246,9 @@ def _generate_column(col: Union[Column, ColumnReference, Expression]) -> str:
     if isinstance(col, Column):
         expr_sql = _generate_expression(col.expression)
         
+        if " AS " in expr_sql:
+            return expr_sql
+        
         if col.alias:
             return f"{expr_sql} AS {col.alias}"
         else:
@@ -257,10 +271,15 @@ def _generate_expression(expr: Any) -> str:
         The generated SQL string for the expression
     """
     if isinstance(expr, ColumnReference):
-        if expr.table_alias:
-            return f"{expr.table_alias}.{expr.name}"
-        else:
+        if expr.name == "*":
             return expr.name
+            
+        column_ref = f"{expr.table_alias}.{expr.name}" if expr.table_alias else expr.name
+        
+        if hasattr(expr, 'column_alias') and expr.column_alias:
+            return f"{column_ref} AS {expr.column_alias}"
+        else:
+            return column_ref
     
     elif isinstance(expr, LiteralExpression):
         if expr.value is None:
@@ -487,8 +506,19 @@ def _generate_source(source: Any) -> str:
         return f"({subquery_sql}) AS {source.alias}"
     
     elif isinstance(source, JoinOperation):
+        left_table_name = source.left.table_name if isinstance(source.left, TableReference) else None
+        right_table_name = source.right.table_name if isinstance(source.right, TableReference) else None
+        
         left_sql = _generate_source(source.left)
         right_sql = _generate_source(source.right)
+        
+        if isinstance(source.left, TableReference) and not source.left.alias:
+            left_sql = f"{left_sql} AS e"
+            source.left.alias = "e"
+        
+        if isinstance(source.right, TableReference) and not source.right.alias:
+            right_sql = f"{right_sql} AS d"
+            source.right.alias = "d"
         
         join_type_sql = source.join_type.value
         
@@ -496,6 +526,15 @@ def _generate_source(source: Any) -> str:
             return f"{left_sql} CROSS JOIN {right_sql}"
         else:
             condition_sql = _generate_expression(source.condition)
+            
+            if left_table_name:
+                condition_sql = condition_sql.replace(f"{left_table_name}.", "e.")
+            if right_table_name:
+                condition_sql = condition_sql.replace(f"{right_table_name}.", "d.")
+            
+            condition_sql = condition_sql.replace(f"{source.left_alias}.", "e.")
+            condition_sql = condition_sql.replace(f"{source.right_alias}.", "d.")
+            
             return f"{left_sql} {join_type_sql} JOIN {right_sql} ON {condition_sql}"
     
     else:
