@@ -9,7 +9,7 @@ import pandas as pd
 import duckdb
 from typing import Optional, Dict
 
-from cloud_dataframe.core.dataframe import DataFrame
+from cloud_dataframe.core.dataframe import DataFrame, SortDirection
 from cloud_dataframe.type_system.schema import TableSchema
 from cloud_dataframe.type_system.column import as_column, sum, avg, count, rank, dense_rank, row_number, over
 
@@ -63,7 +63,7 @@ class TestWindowExamples(unittest.TestCase):
             lambda x: x.department,
             lambda x: x.salary,
             as_column(
-                over(rank(), partition_by=lambda x: x.department, order_by=lambda x: [(x.salary, 'DESC')]),
+                over(rank(), partition_by=lambda x: x.department, order_by=lambda x: [(x.salary, SortDirection.DESC)]),
                 "salary_rank"
             )
         )
@@ -101,7 +101,7 @@ class TestWindowExamples(unittest.TestCase):
             lambda x: x.department,
             lambda x: x.salary,
             as_column(
-                over(row_number(), partition_by=lambda x: x.department, order_by=lambda x: [(x.salary, 'DESC')]),
+                over(row_number(), partition_by=lambda x: x.department, order_by=lambda x: [(x.salary, SortDirection.DESC)]),
                 "row_num"
             )
         )
@@ -140,7 +140,7 @@ class TestWindowExamples(unittest.TestCase):
             lambda x: x.department,
             lambda x: x.salary,
             as_column(
-                over(rank(), partition_by=lambda x: x.department, order_by=lambda x: [(x.salary, 'DESC')]),
+                over(rank(), partition_by=lambda x: x.department, order_by=lambda x: [(x.salary, SortDirection.DESC)]),
                 "salary_rank"
             )
         )
@@ -188,15 +188,15 @@ class TestWindowExamples(unittest.TestCase):
             lambda x: x.department,
             lambda x: x.salary,
             as_column(
-                over(rank(), partition_by=lambda x: x.department, order_by=lambda x: [(x.salary, 'DESC')]),
+                over(rank(), partition_by=lambda x: x.department, order_by=lambda x: [(x.salary, SortDirection.DESC)]),
                 "salary_rank"
             ),
             as_column(
-                over(dense_rank(), partition_by=lambda x: x.department, order_by=lambda x: [(x.salary, 'DESC')]),
+                over(dense_rank(), partition_by=lambda x: x.department, order_by=lambda x: [(x.salary, SortDirection.DESC)]),
                 "dense_rank"
             ),
             as_column(
-                over(row_number(), partition_by=lambda x: x.department, order_by=lambda x: [(x.salary, 'DESC')]),
+                over(row_number(), partition_by=lambda x: x.department, order_by=lambda x: [(x.salary, SortDirection.DESC)]),
                 "row_num"
             )
         )

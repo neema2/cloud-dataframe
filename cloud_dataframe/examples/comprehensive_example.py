@@ -8,7 +8,7 @@ import duckdb
 from dataclasses import dataclass
 from typing import Optional
 
-from cloud_dataframe.core.dataframe import DataFrame
+from cloud_dataframe.core.dataframe import DataFrame, SortDirection
 from cloud_dataframe.type_system.schema import TableSchema
 from cloud_dataframe.type_system.column import (
     as_column, col, literal,
@@ -215,7 +215,7 @@ def comprehensive_query_with_array_lambdas():
             over(
                 row_number(),
                 partition_by=lambda x: x.e.department,
-                order_by=lambda x: [(x.e.salary, 'DESC')]  # Salary in descending order
+                order_by=lambda x: [(x.e.salary, SortDirection.DESC)]  # Salary in descending order
             ),
             "salary_rank_in_dept"
         ),
@@ -224,7 +224,7 @@ def comprehensive_query_with_array_lambdas():
             over(
                 rank(),
                 partition_by=lambda x: [x.e.department, x.e.location],
-                order_by=lambda x: [(x.e.salary, 'ASC'), (x.e.id, 'DESC')]  # Salary ASC, ID DESC
+                order_by=lambda x: [(x.e.salary, SortDirection.ASC), (x.e.id, SortDirection.DESC)]  # Salary ASC, ID DESC
             ),
             "salary_rank_with_ties"
         ),
@@ -233,7 +233,7 @@ def comprehensive_query_with_array_lambdas():
             over(
                 dense_rank(),
                 partition_by=lambda x: x.e.department,
-                order_by=lambda x: [(x.e.salary, 'DESC'), (x.e.id, 'ASC')]  # Salary DESC, ID ASC
+                order_by=lambda x: [(x.e.salary, SortDirection.DESC), (x.e.id, SortDirection.ASC)]  # Salary DESC, ID ASC
             ),
             "dense_salary_rank"
         )

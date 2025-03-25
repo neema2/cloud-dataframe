@@ -369,7 +369,7 @@ class DataFrame:
                 - Lambda functions that access dataclass properties (e.g., lambda x: x.column_name)
                 - Lambda functions that return arrays (e.g., lambda x: [x.department, x.salary])
                 - Lambda functions that return tuples with sort direction (e.g., lambda x: 
-                  [(x.department, 'DESC'), (x.salary, 'ASC'), x.name])
+                  [(x.department, SortDirection.DESC), (x.salary, SortDirection.ASC), x.name])
             desc: Whether to sort in descending order (if not using OrderByClause or tuple specification)
             
         Returns:
@@ -396,9 +396,10 @@ class DataFrame:
                         # Check if the expression is a tuple with a sort direction
                         if isinstance(single_expr, tuple) and len(single_expr) == 2:
                             col_expr, sort_dir = single_expr
-                            # Convert string sort direction to SortDirection enum
-                            if isinstance(sort_dir, str):
-                                sort_dir = SortDirection.DESC if sort_dir.upper() == 'DESC' else SortDirection.ASC
+                            # Only accept SortDirection enum values, not strings
+                            if not isinstance(sort_dir, SortDirection):
+                                raise ValueError(f"Sort direction must be a SortDirection enum value, not {type(sort_dir).__name__}. "
+                                               f"Use SortDirection.ASC or SortDirection.DESC instead of strings.")
                             
                             # Skip if we've already added this column
                             if isinstance(col_expr, ColumnReference) and col_expr.name in added_columns:

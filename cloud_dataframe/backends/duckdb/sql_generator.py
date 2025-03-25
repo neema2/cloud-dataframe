@@ -360,7 +360,12 @@ def _generate_window_function(func: WindowFunction) -> str:
         for clause in func.window.order_by:
             if isinstance(clause, OrderByClause):
                 expr_sql = _generate_expression(clause.expression)
-                direction_sql = clause.direction.value
+                # Only handle SortDirection enum values
+                if hasattr(clause.direction, 'value'):
+                    direction_sql = clause.direction.value
+                else:
+                    # This should not happen with the updated code, but handle it gracefully
+                    raise ValueError(f"Invalid sort direction: {clause.direction}. Must use SortDirection enum.")
                 order_by_parts.append(f"{expr_sql} {direction_sql}")
             else:
                 # For backward compatibility with non-OrderByClause objects
@@ -580,12 +585,12 @@ def _generate_order_by(df: DataFrame) -> str:
     for clause in df.order_by_clauses:
         if isinstance(clause, OrderByClause):
             expr_sql = _generate_expression(clause.expression)
-            # Handle both SortDirection enum and string values
+            # Only handle SortDirection enum values
             if hasattr(clause.direction, 'value'):
                 direction_sql = clause.direction.value
             else:
-                # Default to ASC if direction is not a SortDirection enum
-                direction_sql = "ASC"
+                # This should not happen with the updated code, but handle it gracefully
+                raise ValueError(f"Invalid sort direction: {clause.direction}. Must use SortDirection enum.")
             order_by_parts.append(f"{expr_sql} {direction_sql}")
         else:
             # For backward compatibility with non-OrderByClause objects
