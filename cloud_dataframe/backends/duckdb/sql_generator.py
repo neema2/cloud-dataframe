@@ -84,6 +84,39 @@ def _generate_query(df: DataFrame) -> str:
     Returns:
         The generated SQL string
     """
+    # Create a copy of the DataFrame to avoid modifying the original
+    df_copy = df.copy()
+    
+    # For GROUP BY queries, we need to ensure we're not selecting columns that aren't in GROUP BY
+    if hasattr(df_copy, 'group_by_clauses') and df_copy.group_by_clauses:
+        # If no columns are specified, only select the group by columns
+        if not df_copy.columns:
+            df_copy.columns = []
+            
+            # Add all group by columns to the SELECT list
+            for col in df_copy.group_by_clauses:
+                if isinstance(col, ColumnReference):
+                    df_copy.columns.append(Column(name=col.name, expression=col))
+                else:
+                    # For expressions, create a column with a generated alias
+                    df_copy.columns.append(Column(name="expr", expression=col))
+        
+        # Use the modified DataFrame for SQL generation
+        df = df_copy
+        
+    # Fix for COUNT(*) in select clause - replace ColumnReference(name='*') with proper COUNT(*)
+    if df.columns:
+        for i, col in enumerate(df.columns):
+            if isinstance(col, Column) and col.expression and isinstance(col.expression, CountFunction):
+                if col.expression.parameters and isinstance(col.expression.parameters[0], LiteralExpression) and col.expression.parameters[0].value == "*":
+                    # This is a COUNT(*) function, keep it as is
+                    continue
+            elif isinstance(col, ColumnReference) and col.name == "*":
+                # Replace * with COUNT(*) if we're in a GROUP BY query
+                if hasattr(df, 'group_by_clauses') and df.group_by_clauses:
+                    count_func = CountFunction(function_name="COUNT", parameters=[LiteralExpression(value="*")])
+                    df.columns[i] = Column(name="employee_count", expression=count_func, alias="employee_count")
+    
     # Generate SELECT clause
     select_sql = _generate_select(df)
     
@@ -140,14 +173,33 @@ def _generate_select(df: DataFrame) -> str:
     
     if not df.columns:
         # If no columns are specified, select all columns
-        return f"SELECT {distinct_sql}*"
+        # But if we have GROUP BY, we should only select the grouped columns
+        if hasattr(df, 'group_by_clauses') and df.group_by_clauses:
+            group_by_cols = []
+            for col in df.group_by_clauses:
+                col_sql = _generate_expression(col)
+                group_by_cols.append(col_sql)
+            return f"SELECT {distinct_sql}{', '.join(group_by_cols)}"
+        else:
+            return f"SELECT {distinct_sql}*"
     
     column_parts = []
     
     for col in df.columns:
+        # Special handling for COUNT(*) in the select clause
+        if isinstance(col, Column) and isinstance(col.expression, CountFunction) and col.expression.parameters:
+            if isinstance(col.expression.parameters[0], LiteralExpression) and col.expression.parameters[0].value == "*":
+                if col.alias:
+                    column_parts.append(f"COUNT(*) AS {col.alias}")
+                else:
+                    column_parts.append("COUNT(*)")
+                continue
+        
         column_sql = _generate_column(col)
         column_parts.append(column_sql)
     
+    # When using GROUP BY, we should only select the grouped columns and aggregate functions
+    # to avoid the "column must appear in GROUP BY" error
     return f"SELECT {distinct_sql}{', '.join(column_parts)}"
 
 
@@ -255,7 +307,9 @@ def _generate_aggregate_function(func: AggregateFunction) -> str:
     params_sql = ", ".join(_generate_expression(param) for param in func.parameters)
     
     # Handle special case for COUNT(*)
-    if func.function_name.upper() == "COUNT" and (not func.parameters or func.parameters[0] == "*"):
+    if func.function_name.upper() == "COUNT" and (not func.parameters or 
+                                                 (isinstance(func.parameters[0], LiteralExpression) and 
+                                                  func.parameters[0].value == "*")):
         return "COUNT(*)"
     
     # Handle DISTINCT for COUNT

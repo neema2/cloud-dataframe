@@ -16,6 +16,18 @@ R = TypeVar('R')
 class Expression:
     """Base class for all expressions in the DataFrame DSL."""
     pass
+    
+    def as_column(self, alias: str) -> 'Column':
+        """
+        Create a column with this expression and the given alias.
+        
+        Args:
+            alias: The alias for the column
+            
+        Returns:
+            A Column with this expression and the specified alias
+        """
+        return Column(name=alias, expression=self, alias=alias)
 
 
 @dataclass
@@ -60,6 +72,11 @@ class AggregateFunction(FunctionExpression):
 class CountFunction(AggregateFunction):
     """COUNT aggregate function."""
     distinct: bool = False
+    
+    def __post_init__(self):
+        # Convert string "*" to a LiteralExpression for COUNT(*)
+        if self.parameters and self.parameters[0] == "*":
+            self.parameters = [LiteralExpression(value="*")]
 
 
 @dataclass
@@ -195,25 +212,42 @@ def as_column(expr: Union[Expression, Callable], alias: str) -> Column:
 
 # Aggregate functions
 
-def count(expr: Expression, distinct: bool = False) -> CountFunction:
+def count(expr: Optional[Union[Callable, Expression]] = None, distinct: bool = False) -> CountFunction:
     """
     Create a COUNT aggregate function.
     
     Args:
-        expr: Expression to count, must NOT be a lambda function
+        expr: Expression to count, can be a column reference or other expression
               Examples: x.column, x.col1 - x.col2
+              If None, COUNT(*) will be used
+              For backward compatibility, can also be a lambda function
         distinct: Whether to count distinct values
         
     Returns:
         A CountFunction expression
-        
-    Raises:
-        TypeError: If a lambda function is passed directly to count()
     """
-    if callable(expr) and not isinstance(expr, Expression):
-        raise TypeError("Lambda functions should not be passed directly to count(). "
-                       "Use lambda x: count(x.column) instead of count(lambda x: x.column)")
+    from ..utils.lambda_parser import parse_lambda
     
+    # Handle COUNT(*) special case
+    if expr is None:
+        # Create a special marker for COUNT(*)
+        return CountFunction(
+            function_name="COUNT",
+            parameters=[LiteralExpression(value="*")],
+            distinct=distinct
+        )
+    
+    # Handle lambda function for backward compatibility
+    if callable(expr) and not isinstance(expr, Expression):
+        # Parse the lambda to get the expression
+        parsed_expr = parse_lambda(expr)
+        return CountFunction(
+            function_name="COUNT",
+            parameters=[parsed_expr],
+            distinct=distinct
+        )
+    
+    # Handle direct expression
     return CountFunction(
         function_name="COUNT",
         parameters=[expr],
@@ -221,96 +255,120 @@ def count(expr: Expression, distinct: bool = False) -> CountFunction:
     )
 
 
-def sum(expr: Expression) -> SumFunction:
+def sum(expr: Union[Callable, Expression]) -> SumFunction:
     """
     Create a SUM aggregate function.
     
     Args:
-        expr: Expression to sum, must NOT be a lambda function
+        expr: Expression to sum
               Examples: x.salary, x.salary - x.tax
+              For backward compatibility, can also be a lambda function
         
     Returns:
         A SumFunction expression
-        
-    Raises:
-        TypeError: If a lambda function is passed directly to sum()
     """
-    if callable(expr) and not isinstance(expr, Expression):
-        raise TypeError("Lambda functions should not be passed directly to sum(). "
-                       "Use lambda x: sum(x.column) instead of sum(lambda x: x.column)")
+    from ..utils.lambda_parser import parse_lambda
     
+    # Handle lambda function for backward compatibility
+    if callable(expr) and not isinstance(expr, Expression):
+        # Parse the lambda to get the expression
+        parsed_expr = parse_lambda(expr)
+        return SumFunction(
+            function_name="SUM",
+            parameters=[parsed_expr]
+        )
+    
+    # Handle direct expression
     return SumFunction(
         function_name="SUM",
         parameters=[expr]
     )
 
 
-def avg(expr: Expression) -> AvgFunction:
+def avg(expr: Union[Callable, Expression]) -> AvgFunction:
     """
     Create an AVG aggregate function.
     
     Args:
-        expr: Expression to average, must NOT be a lambda function
+        expr: Expression to average
               Examples: x.salary, x.revenue / x.count
+              For backward compatibility, can also be a lambda function
         
     Returns:
         An AvgFunction expression
-        
-    Raises:
-        TypeError: If a lambda function is passed directly to avg()
     """
-    if callable(expr) and not isinstance(expr, Expression):
-        raise TypeError("Lambda functions should not be passed directly to avg(). "
-                       "Use lambda x: avg(x.column) instead of avg(lambda x: x.column)")
+    from ..utils.lambda_parser import parse_lambda
     
+    # Handle lambda function for backward compatibility
+    if callable(expr) and not isinstance(expr, Expression):
+        # Parse the lambda to get the expression
+        parsed_expr = parse_lambda(expr)
+        return AvgFunction(
+            function_name="AVG",
+            parameters=[parsed_expr]
+        )
+    
+    # Handle direct expression
     return AvgFunction(
         function_name="AVG",
         parameters=[expr]
     )
 
 
-def min(expr: Expression) -> MinFunction:
+def min(expr: Union[Callable, Expression]) -> MinFunction:
     """
     Create a MIN aggregate function.
     
     Args:
-        expr: Expression to find the minimum of, must NOT be a lambda function
+        expr: Expression to find the minimum of
               Examples: x.salary, x.price - x.discount
+              For backward compatibility, can also be a lambda function
         
     Returns:
         A MinFunction expression
-        
-    Raises:
-        TypeError: If a lambda function is passed directly to min()
     """
-    if callable(expr) and not isinstance(expr, Expression):
-        raise TypeError("Lambda functions should not be passed directly to min(). "
-                       "Use lambda x: min(x.column) instead of min(lambda x: x.column)")
+    from ..utils.lambda_parser import parse_lambda
     
+    # Handle lambda function for backward compatibility
+    if callable(expr) and not isinstance(expr, Expression):
+        # Parse the lambda to get the expression
+        parsed_expr = parse_lambda(expr)
+        return MinFunction(
+            function_name="MIN",
+            parameters=[parsed_expr]
+        )
+    
+    # Handle direct expression
     return MinFunction(
         function_name="MIN",
         parameters=[expr]
     )
 
 
-def max(expr: Expression) -> MaxFunction:
+def max(expr: Union[Callable, Expression]) -> MaxFunction:
     """
     Create a MAX aggregate function.
     
     Args:
-        expr: Expression to find the maximum of, must NOT be a lambda function
+        expr: Expression to find the maximum of
               Examples: x.salary, x.price * (1 + x.tax_rate)
+              For backward compatibility, can also be a lambda function
         
     Returns:
         A MaxFunction expression
-        
-    Raises:
-        TypeError: If a lambda function is passed directly to max()
     """
-    if callable(expr) and not isinstance(expr, Expression):
-        raise TypeError("Lambda functions should not be passed directly to max(). "
-                       "Use lambda x: max(x.column) instead of max(lambda x: x.column)")
+    from ..utils.lambda_parser import parse_lambda
     
+    # Handle lambda function for backward compatibility
+    if callable(expr) and not isinstance(expr, Expression):
+        # Parse the lambda to get the expression
+        parsed_expr = parse_lambda(expr)
+        return MaxFunction(
+            function_name="MAX",
+            parameters=[parsed_expr]
+        )
+    
+    # Handle direct expression
     return MaxFunction(
         function_name="MAX",
         parameters=[expr]
