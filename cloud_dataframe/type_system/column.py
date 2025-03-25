@@ -39,6 +39,18 @@ class FunctionExpression(Expression):
 
 
 @dataclass
+class ScalarFunction(FunctionExpression):
+    """Base class for scalar functions."""
+    pass
+
+
+@dataclass
+class DateDiffFunction(ScalarFunction):
+    """DATE_DIFF scalar function."""
+    pass
+
+
+@dataclass
 class AggregateFunction(FunctionExpression):
     """Base class for aggregate functions."""
     pass
@@ -156,116 +168,152 @@ def literal(value: Any) -> LiteralExpression:
     return LiteralExpression(value=value)
 
 
-def as_column(expr: Expression, alias: str) -> Column:
+def as_column(expr: Union[Expression, Callable], alias: str) -> Column:
     """
     Create a column with an alias.
     
     Args:
-        expr: The expression for the column
+        expr: The expression for the column. Can be:
+            - An Expression object
+            - A lambda function that returns an expression (e.g., lambda x: x.column_name)
+            - A lambda function with nested function calls (e.g., lambda x: sum(x.salary + x.bonus))
         alias: The alias for the column
         
     Returns:
         A Column with the specified alias
     """
-    return Column(name=alias, expression=expr, alias=alias)
+    from ..utils.lambda_parser import parse_lambda
+    
+    if callable(expr) and not isinstance(expr, Expression):
+        # Parse lambda function to get the expression
+        parsed_expr = parse_lambda(expr)
+    else:
+        parsed_expr = expr
+        
+    return Column(name=alias, expression=parsed_expr, alias=alias)
 
 
 # Aggregate functions
 
-def count(expr: Union[str, Expression], distinct: bool = False) -> CountFunction:
+def count(expr: Union[Callable, Expression], distinct: bool = False) -> CountFunction:
     """
     Create a COUNT aggregate function.
     
     Args:
-        expr: The expression to count
+        expr: Lambda function that returns an expression to count, or an Expression object
+              Examples: lambda x: x.column, lambda x: x.col1 - x.col2
         distinct: Whether to count distinct values
         
     Returns:
         A CountFunction expression
     """
-    if isinstance(expr, str):
-        expr = col(expr)
+    from ..utils.lambda_parser import parse_lambda
+    
+    if callable(expr):
+        parsed_expr = parse_lambda(expr)
+    else:
+        parsed_expr = expr
     
     return CountFunction(
         function_name="COUNT",
-        parameters=[expr],
+        parameters=[parsed_expr],
         distinct=distinct
     )
 
 
-def sum(expr: Union[str, Expression]) -> SumFunction:
+def sum(expr: Union[Callable, Expression]) -> SumFunction:
     """
     Create a SUM aggregate function.
     
     Args:
-        expr: The expression to sum
+        expr: Lambda function that returns an expression to sum, or an Expression object
+              Examples: lambda x: x.salary, lambda x: x.salary - x.tax
         
     Returns:
         A SumFunction expression
     """
-    if isinstance(expr, str):
-        expr = col(expr)
+    from ..utils.lambda_parser import parse_lambda
+    
+    if callable(expr):
+        parsed_expr = parse_lambda(expr)
+    else:
+        parsed_expr = expr
     
     return SumFunction(
         function_name="SUM",
-        parameters=[expr]
+        parameters=[parsed_expr]
     )
 
 
-def avg(expr: Union[str, Expression]) -> AvgFunction:
+def avg(expr: Union[Callable, Expression]) -> AvgFunction:
     """
     Create an AVG aggregate function.
     
     Args:
-        expr: The expression to average
+        expr: Lambda function that returns an expression to average, or an Expression object
+              Examples: lambda x: x.salary, lambda x: x.revenue / x.count
         
     Returns:
         An AvgFunction expression
     """
-    if isinstance(expr, str):
-        expr = col(expr)
+    from ..utils.lambda_parser import parse_lambda
+    
+    if callable(expr):
+        parsed_expr = parse_lambda(expr)
+    else:
+        parsed_expr = expr
     
     return AvgFunction(
         function_name="AVG",
-        parameters=[expr]
+        parameters=[parsed_expr]
     )
 
 
-def min(expr: Union[str, Expression]) -> MinFunction:
+def min(expr: Union[Callable, Expression]) -> MinFunction:
     """
     Create a MIN aggregate function.
     
     Args:
-        expr: The expression to find the minimum of
+        expr: Lambda function that returns an expression to find the minimum of, or an Expression object
+              Examples: lambda x: x.salary, lambda x: x.price - x.discount
         
     Returns:
         A MinFunction expression
     """
-    if isinstance(expr, str):
-        expr = col(expr)
+    from ..utils.lambda_parser import parse_lambda
+    
+    if callable(expr):
+        parsed_expr = parse_lambda(expr)
+    else:
+        parsed_expr = expr
     
     return MinFunction(
         function_name="MIN",
-        parameters=[expr]
+        parameters=[parsed_expr]
     )
 
 
-def max(expr: Union[str, Expression]) -> MaxFunction:
+def max(expr: Union[Callable, Expression]) -> MaxFunction:
     """
     Create a MAX aggregate function.
     
     Args:
-        expr: The expression to find the maximum of
+        expr: Lambda function that returns an expression to find the maximum of, or an Expression object
+              Examples: lambda x: x.salary, lambda x: x.price * (1 + x.tax_rate)
         
     Returns:
         A MaxFunction expression
     """
-    if isinstance(expr, str):
-        expr = col(expr)
+    from ..utils.lambda_parser import parse_lambda
+    
+    if callable(expr):
+        parsed_expr = parse_lambda(expr)
+    else:
+        parsed_expr = expr
     
     return MaxFunction(
         function_name="MAX",
-        parameters=[expr]
+        parameters=[parsed_expr]
     )
 
 
@@ -371,3 +419,83 @@ def over(func: WindowFunction,
     
     func.window = window
     return func
+
+
+# Scalar functions
+
+def date_diff(expr1: Union[Callable, Expression], expr2: Union[Callable, Expression]) -> DateDiffFunction:
+    """
+    Create a DATE_DIFF scalar function.
+    
+    Args:
+        expr1: First date expression (lambda function or Expression)
+              Example: lambda x: x.start_date
+        expr2: Second date expression (lambda function or Expression)
+              Example: lambda x: x.end_date
+        
+    Returns:
+        A DateDiffFunction expression
+    """
+    from ..utils.lambda_parser import parse_lambda
+    
+    if callable(expr1) and not isinstance(expr1, Expression):
+        parsed_expr1 = parse_lambda(expr1)
+    else:
+        parsed_expr1 = expr1
+    
+    if callable(expr2) and not isinstance(expr2, Expression):
+        parsed_expr2 = parse_lambda(expr2)
+    else:
+        parsed_expr2 = expr2
+    
+    # Store column names for SQL generation
+    col_names = []
+    if isinstance(parsed_expr1, ColumnReference):
+        col_names.append(parsed_expr1.name)
+    if isinstance(parsed_expr2, ColumnReference):
+        col_names.append(parsed_expr2.name)
+    
+    func = DateDiffFunction(
+        function_name="DATE_DIFF",
+        parameters=[parsed_expr1, parsed_expr2]
+    )
+    
+    # Store column names as an attribute for SQL generation
+    if col_names:
+        func.column_names = col_names
+    
+    return func
+
+@dataclass
+class DateDiffFunction(ScalarFunction):
+    """DATE_DIFF scalar function."""
+    pass
+
+
+def date_diff(expr1: Union[Callable, Expression], expr2: Union[Callable, Expression]) -> DateDiffFunction:
+    """
+    Create a DATE_DIFF scalar function.
+    
+    Args:
+        expr1: First date expression
+        expr2: Second date expression
+        
+    Returns:
+        A DateDiffFunction expression
+    """
+    from ..utils.lambda_parser import parse_lambda
+    
+    if callable(expr1):
+        parsed_expr1 = parse_lambda(expr1)
+    else:
+        parsed_expr1 = expr1
+    
+    if callable(expr2):
+        parsed_expr2 = parse_lambda(expr2)
+    else:
+        parsed_expr2 = expr2
+    
+    return DateDiffFunction(
+        function_name="DATE_DIFF",
+        parameters=[parsed_expr1, parsed_expr2]
+    )

@@ -51,7 +51,7 @@ class TestArrayLambda(unittest.TestCase):
         grouped_df = self.df.group_by(lambda x: [x.department, x.location]).select(
             lambda x: x.department,
             lambda x: x.location,
-            as_column(avg("salary"), "avg_salary")
+            as_column(avg(lambda x: x.salary), "avg_salary")
         )
         
         # Check the SQL generation
@@ -90,7 +90,7 @@ class TestArrayLambda(unittest.TestCase):
             lambda x: x.department,
             lambda x: x.location,
             lambda x: x.is_manager,
-            as_column(avg("salary"), "avg_salary")
+            as_column(avg(lambda x: x.salary), "avg_salary")
         )
         
         # Check the SQL generation

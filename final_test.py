@@ -19,9 +19,9 @@ def main():
     
     # Apply select
     result_df = grouped_df.select(
-        as_column(col("department"), "department"),
-        as_column(count("*"), "employee_count"),
-        as_column(avg("salary"), "avg_salary")
+        lambda x: x.department,
+        as_column(count(lambda x: x.id), "employee_count"),
+        as_column(avg(lambda x: x.salary), "avg_salary")
     )
     
     # Generate SQL for DuckDB

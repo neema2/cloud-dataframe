@@ -257,6 +257,33 @@ class LambdaParser:
                 
             return BinaryOperation(left=left, operator=operator, right=right)
         
+        elif isinstance(node, ast.BinOp):
+            # Handle binary operations (e.g., x + y, x - y, x * y)
+            left = LambdaParser._parse_expression(node.left, args, table_schema)
+            right = LambdaParser._parse_expression(node.right, args, table_schema)
+            
+            # Map Python operators to SQL operators
+            op_map = {
+                ast.Add: "+",
+                ast.Sub: "-",
+                ast.Mult: "*",
+                ast.Div: "/",
+                ast.Mod: "%",
+                ast.Pow: "^",
+                ast.BitOr: "|",
+                ast.BitAnd: "&",
+            }
+            
+            operator = op_map.get(type(node.op), "+")  # Default to + if unknown
+            
+            # Ensure left and right are Expression objects, not lists or tuples
+            if isinstance(left, list) or isinstance(left, tuple):
+                left = ColumnReference(name="*")  # Fallback
+            if isinstance(right, list) or isinstance(right, tuple):
+                right = ColumnReference(name="*")  # Fallback
+                
+            return BinaryOperation(left=left, operator=operator, right=right, needs_parentheses=True)
+            
         elif isinstance(node, ast.BoolOp):
             # Handle boolean operations (e.g., x and y, x or y)
             values = [LambdaParser._parse_expression(val, args, table_schema) for val in node.values]
@@ -376,8 +403,67 @@ class LambdaParser:
                 return operand
         
         elif isinstance(node, ast.Call):
-            # Handle function calls (e.g., len(x), x.startswith('a'))
-            # In a real implementation, we would handle this more robustly
+            # Handle function calls (e.g., sum(x.col1 - x.col2))
+            if isinstance(node.func, ast.Name):
+                # Parse the arguments to the function
+                args_list = []
+                for arg in node.args:
+                    parsed_arg = LambdaParser._parse_expression(arg, args, table_schema)
+                    args_list.append(parsed_arg)
+                
+                # Handle keyword arguments
+                kwargs = {}
+                for kw in node.keywords:
+                    if isinstance(kw.value, ast.Constant):
+                        kwargs[kw.arg] = kw.value.value
+                
+                # Create the appropriate Function object based on function name
+                if node.func.id in ('sum', 'avg', 'count', 'min', 'max'):
+                    from ..type_system.column import (
+                        SumFunction, AvgFunction, CountFunction, MinFunction, MaxFunction
+                    )
+                    
+                    # Allow complex expressions as arguments (e.g., sum(x.col1 - x.col2))
+                    if node.func.id == 'sum':
+                        return SumFunction(function_name="SUM", parameters=args_list)
+                    elif node.func.id == 'avg':
+                        return AvgFunction(function_name="AVG", parameters=args_list)
+                    elif node.func.id == 'count':
+                        distinct = kwargs.get('distinct', False)
+                        # Also check for distinct in keywords
+                        for kw in node.keywords:
+                            if kw.arg == 'distinct' and isinstance(kw.value, ast.Constant):
+                                distinct = kw.value.value
+                        return CountFunction(function_name="COUNT", parameters=args_list, distinct=distinct)
+                    elif node.func.id == 'min':
+                        return MinFunction(function_name="MIN", parameters=args_list)
+                    elif node.func.id == 'max':
+                        return MaxFunction(function_name="MAX", parameters=args_list)
+                # Support for scalar functions
+                elif node.func.id in ('date_diff'):
+                    from ..type_system.column import DateDiffFunction
+                    
+                    if len(args_list) != 2:
+                        raise ValueError(f"Function {node.func.id}() expects exactly two arguments")
+                        
+                    return DateDiffFunction(function_name="DATE_DIFF", parameters=args_list)
+            # Handle nested function calls inside lambda expressions
+            elif isinstance(node.func, ast.Attribute) and isinstance(node.func.value, ast.Name):
+                # This handles cases like lambda x: x.func(arg1, arg2)
+                # Parse the arguments to the function
+                args_list = []
+                for arg in node.args:
+                    parsed_arg = LambdaParser._parse_expression(arg, args, table_schema)
+                    args_list.append(parsed_arg)
+                
+                # Create a function expression with the attribute name as the function name
+                from ..type_system.column import FunctionExpression
+                return FunctionExpression(
+                    function_name=node.func.attr,
+                    parameters=args_list
+                )
+            
+            # Default case for other function calls
             return ColumnReference(name="*")
         
         elif isinstance(node, ast.IfExp):

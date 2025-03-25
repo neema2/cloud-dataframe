@@ -54,8 +54,8 @@ def basic_operations():
     df_group = df.group_by("department") \
         .select(
             as_column(col("department"), "department"),
-            as_column(count("*"), "employee_count"),
-            as_column(avg("salary"), "avg_salary")
+            as_column(count(lambda x: x.id), "employee_count"),
+            as_column(avg(lambda x: x.salary), "avg_salary")
         )
     
     # Order by
@@ -168,8 +168,8 @@ def execute_query():
         .group_by("department") \
         .select(
             as_column(col("department"), "department"),
-            as_column(count("*"), "employee_count"),
-            as_column(avg("salary"), "avg_salary")
+            as_column(count(lambda x: x.id), "employee_count"),
+            as_column(avg(lambda x: x.salary), "avg_salary")
         )
     
     # Generate SQL

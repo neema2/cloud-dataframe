@@ -12,7 +12,7 @@ from ...core.dataframe import (
 )
 from ...type_system.column import (
     Column, ColumnReference, Expression, LiteralExpression, FunctionExpression,
-    AggregateFunction, WindowFunction
+    AggregateFunction, WindowFunction, CountFunction
 )
 
 
@@ -251,11 +251,16 @@ def _generate_aggregate_function(func: AggregateFunction) -> str:
     Returns:
         The generated SQL string for the aggregate function
     """
+    # Process parameters (handles expressions like x.col1 - x.col2)
     params_sql = ", ".join(_generate_expression(param) for param in func.parameters)
     
     # Handle special case for COUNT(*)
     if func.function_name.upper() == "COUNT" and (not func.parameters or func.parameters[0] == "*"):
         return "COUNT(*)"
+    
+    # Handle DISTINCT for COUNT
+    if isinstance(func, CountFunction) and func.distinct:
+        return f"{func.function_name}(DISTINCT {params_sql})"
     
     return f"{func.function_name}({params_sql})"
 
@@ -314,8 +319,32 @@ def _generate_function(func: FunctionExpression) -> str:
     Returns:
         The generated SQL string for the function
     """
-    params_sql = ", ".join(_generate_expression(param) for param in func.parameters)
-    return f"{func.function_name}({params_sql})"
+    # Map function names to their SQL equivalents if needed
+    func_name_mapping = {
+        "DATE_DIFF": "DATEDIFF"
+        # Add more mappings as needed
+    }
+    
+    # Special handling for date_diff function
+    if func.function_name == "DATE_DIFF":
+        if hasattr(func, 'column_names') and len(func.column_names) == 2:
+            # Use stored column names if available
+            params_sql = ", ".join(func.column_names)
+        elif not func.parameters or "*" in str(func.parameters):
+            # Use start_date and end_date as defaults for date_diff
+            params_sql = "start_date, end_date"
+        else:
+            # Normal case: generate SQL for each parameter
+            params_sql = ", ".join(_generate_expression(param) for param in func.parameters)
+        
+        # Add 'day' as the first parameter and cast date columns for DuckDB
+        params_sql = f"'day', CAST({params_sql.split(',')[0].strip()} AS DATE), CAST({params_sql.split(',')[1].strip()} AS DATE)"
+    else:
+        # Normal case for other functions
+        params_sql = ", ".join(_generate_expression(param) for param in func.parameters)
+    
+    sql_func_name = func_name_mapping.get(func.function_name, func.function_name)
+    return f"{sql_func_name}({params_sql})"
 
 
 def _generate_from(df: DataFrame) -> str:
@@ -403,11 +432,11 @@ def _generate_group_by(df: DataFrame) -> str:
     Returns:
         The generated SQL string for the GROUP BY clause
     """
-    if not df.group_by_clause or not df.group_by_clause.columns:
+    if not hasattr(df, 'group_by_clauses') or not df.group_by_clauses:
         return ""
-    
+        
     group_by_cols = []
-    for col in df.group_by_clause.columns:
+    for col in df.group_by_clauses:
         col_sql = _generate_expression(col)
         group_by_cols.append(col_sql)
     
@@ -424,10 +453,14 @@ def _generate_having(df: DataFrame) -> str:
     Returns:
         The generated SQL string for the HAVING clause
     """
-    if not df.having:
+    if not hasattr(df, 'having_condition') or not df.having_condition:
         return ""
-    
-    condition_sql = _generate_expression(df.having)
+        
+    # Check if having_condition is a FilterCondition and extract the inner condition
+    if hasattr(df.having_condition, 'condition'):
+        condition_sql = _generate_expression(df.having_condition.condition)
+    else:
+        condition_sql = _generate_expression(df.having_condition)
     return f"HAVING {condition_sql}"
 
 

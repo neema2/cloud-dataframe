@@ -158,11 +158,11 @@ def comprehensive_query_example():
     ).select(
         lambda x: x.department,
         lambda x: x.location,
-        as_column(count("*"), "employee_count"),
-        as_column(avg("salary"), "avg_salary"),
-        as_column(sum("salary"), "total_salary"),
-        as_column(min("salary"), "min_salary"),
-        as_column(max("salary"), "max_salary")
+        as_column(count(lambda x: x.id), "employee_count"),
+        as_column(avg(lambda x: x.salary), "avg_salary"),
+        as_column(sum(lambda x: x.salary), "total_salary"),
+        as_column(min(lambda x: x.salary), "min_salary"),
+        as_column(max(lambda x: x.salary), "max_salary")
     ).order_by(
         lambda x: x.department,
         desc=True
@@ -254,11 +254,11 @@ def comprehensive_query_with_array_lambdas():
         lambda x: [x.department, x.location]
     ).select(
         lambda x: [x.department, x.location],
-        as_column(count("*"), "employee_count"),
-        as_column(avg("salary"), "avg_salary"),
-        as_column(sum("salary"), "total_salary"),
-        as_column(min("salary"), "min_salary"),
-        as_column(max("salary"), "max_salary")
+        as_column(count(lambda x: x.id), "employee_count"),
+        as_column(avg(lambda x: x.salary), "avg_salary"),
+        as_column(sum(lambda x: x.salary), "total_salary"),
+        as_column(min(lambda x: x.salary), "min_salary"),
+        as_column(max(lambda x: x.salary), "max_salary")
     ).order_by(
         lambda x: x.department,
         desc=True

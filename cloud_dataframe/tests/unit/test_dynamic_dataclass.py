@@ -106,7 +106,7 @@ class TestDataframeWithTypedProperties(unittest.TestCase):
         # Test group_by with lambda using typed properties
         grouped_df = self.df.group_by(lambda x: x.department).select(
             lambda x: x.department,
-            as_column(avg("salary"), "avg_salary")
+            as_column(avg(lambda x: x.salary), "avg_salary")
         )
         
         # Check the SQL generation

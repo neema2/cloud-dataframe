@@ -94,7 +94,7 @@ class TestArrayLambdaDuckDB(unittest.TestCase):
         ).select(
             lambda x: x.department,
             lambda x: x.location,
-            as_column(avg("salary"), "avg_salary")
+            as_column(avg(lambda x: x.salary), "avg_salary")
         )
         
         # Execute the query
@@ -170,7 +170,7 @@ class TestArrayLambdaDuckDB(unittest.TestCase):
             lambda x: x.department,
             lambda x: x.location,
             lambda x: x.is_manager,
-            as_column(sum("salary"), "total_salary")
+            as_column(sum(lambda x: x.salary), "total_salary")
         )
         
         # Execute the query
