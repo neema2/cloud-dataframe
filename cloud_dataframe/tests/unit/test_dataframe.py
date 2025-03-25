@@ -55,12 +55,10 @@ class TestDataFrame(unittest.TestCase):
         df = DataFrame.from_("employees")
         grouped_df = df.group_by(lambda x: x.department)
         
-        self.assertIsNotNone(grouped_df.group_by_clause)
+        self.assertIsNotNone(grouped_df.group_by_clauses)
         # Check that group_by is properly initialized
-        from cloud_dataframe.core.dataframe import GroupByClause
-        self.assertIsInstance(grouped_df.group_by_clause, GroupByClause)
-        group_by = cast(GroupByClause, grouped_df.group_by_clause)
-        self.assertEqual(len(group_by.columns), 1)  # Verify one column in group by
+        self.assertIsInstance(grouped_df.group_by_clauses, list)
+        self.assertEqual(len(grouped_df.group_by_clauses), 1)  # Verify one column in group by
     
     def test_order_by(self):
         """Test the order_by method."""

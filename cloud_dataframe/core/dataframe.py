@@ -48,11 +48,11 @@ class GroupByClause:
 @dataclass
 class FilterCondition(Expression):
     """Base class for filter conditions."""
-    pass
+    condition: Expression
 
 
 @dataclass
-class BinaryOperation(FilterCondition):
+class BinaryOperation(Expression):
     """Binary operation (e.g., =, >, <, etc.)."""
     left: Expression
     operator: str
@@ -61,7 +61,7 @@ class BinaryOperation(FilterCondition):
 
 
 @dataclass
-class UnaryOperation(FilterCondition):
+class UnaryOperation(Expression):
     """Unary operation (e.g., NOT)."""
     operator: str
     expression: Expression
@@ -119,8 +119,8 @@ class DataFrame:
         self.columns: List[Column] = []
         self.source: Optional[DataSource] = None
         self.filter_condition: Optional[FilterCondition] = None
-        self.group_by_clause: Optional[GroupByClause] = None
-        self.having: Optional[FilterCondition] = None
+        self.group_by_clauses: List[Expression] = []
+        self.having_condition: Optional[FilterCondition] = None
         self.order_by_clauses: List[OrderByClause] = []
         self.limit_value: Optional[int] = None
         self.offset_value: Optional[int] = None
@@ -139,8 +139,8 @@ class DataFrame:
         result.columns = self.columns.copy()
         result.source = self.source  # DataSource objects are immutable
         result.filter_condition = self.filter_condition  # FilterCondition objects are immutable
-        result.group_by_clause = self.group_by_clause  # GroupByClause objects are immutable
-        result.having = self.having  # FilterCondition objects are immutable
+        result.group_by_clauses = self.group_by_clauses.copy() if hasattr(self, 'group_by_clauses') else []
+        result.having_condition = self.having_condition  # FilterCondition objects are immutable
         result.order_by_clauses = self.order_by_clauses.copy()
         result.limit_value = self.limit_value
         result.offset_value = self.offset_value
@@ -320,12 +320,15 @@ class DataFrame:
         Returns:
             The DataFrame with the grouping applied
         """
+        # Create a copy of the DataFrame
+        df_copy = self.copy()
+        
         expressions = []
         
         # Get the table schema if available
         table_schema = None
-        if isinstance(self.source, TableReference):
-            table_schema = self.source.table_schema
+        if isinstance(df_copy.source, TableReference):
+            table_schema = df_copy.source.table_schema
             
         for col in columns:
             if callable(col) and not isinstance(col, Expression):
@@ -340,8 +343,10 @@ class DataFrame:
             else:
                 expressions.append(col)
         
-        self.group_by_clause = GroupByClause(columns=expressions)
-        return self
+        # Set group_by_clauses with the parsed expressions
+        df_copy.group_by_clauses = expressions
+        
+        return df_copy
     
     def order_by(self, *clauses: Union[OrderByClause, Expression, Callable[[Any], Any]], 
                  desc: bool = False) -> 'DataFrame':
@@ -470,22 +475,39 @@ class DataFrame:
             condition: The condition to filter by. Can be:
                 - An Expression object
                 - A lambda function that returns a boolean expression
+                - A lambda function with nested function calls (e.g., lambda x: sum(x.salary) > 100000)
                 
         Returns:
             The DataFrame with the HAVING clause applied
         """
+        # Create a copy of the DataFrame
+        df_copy = self.copy()
+        
         if callable(condition) and not isinstance(condition, Expression):
             # Handle lambda functions
             from ..utils.lambda_parser import LambdaParser
             # Get the table schema if available
             table_schema = None
-            if isinstance(self.source, TableReference):
-                table_schema = self.source.table_schema
-            self.having = LambdaParser.parse_lambda(condition, table_schema)
-        else:
-            self.having = condition
+            if hasattr(self, 'source') and self.source is not None:
+                if isinstance(self.source, TableReference):
+                    table_schema = self.source.table_schema
             
-        return self
+            try:
+                # Parse the lambda function to get the expression
+                parsed_condition = LambdaParser.parse_lambda(condition, table_schema)
+                
+                # Create a FilterCondition with the parsed expression
+                df_copy.having_condition = FilterCondition(parsed_condition)
+            except Exception as e:
+                raise ValueError(f"Error parsing having lambda: {e}")
+        else:
+            # If it's already an Expression, wrap it in a FilterCondition
+            if not isinstance(condition, FilterCondition) and isinstance(condition, Expression):
+                df_copy.having_condition = FilterCondition(condition)
+            else:
+                df_copy.having_condition = condition
+            
+        return df_copy
     
     def with_cte(self, name: str, query: Union['DataFrame', str], 
                  columns: Optional[List[str]] = None, is_recursive: bool = False) -> 'DataFrame':

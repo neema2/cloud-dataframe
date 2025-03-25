@@ -336,6 +336,9 @@ def _generate_function(func: FunctionExpression) -> str:
         else:
             # Normal case: generate SQL for each parameter
             params_sql = ", ".join(_generate_expression(param) for param in func.parameters)
+        
+        # Add 'day' as the first parameter and cast date columns for DuckDB
+        params_sql = f"'day', CAST({params_sql.split(',')[0].strip()} AS DATE), CAST({params_sql.split(',')[1].strip()} AS DATE)"
     else:
         # Normal case for other functions
         params_sql = ", ".join(_generate_expression(param) for param in func.parameters)
@@ -429,11 +432,11 @@ def _generate_group_by(df: DataFrame) -> str:
     Returns:
         The generated SQL string for the GROUP BY clause
     """
-    if not df.group_by_clause or not df.group_by_clause.columns:
+    if not hasattr(df, 'group_by_clauses') or not df.group_by_clauses:
         return ""
-    
+        
     group_by_cols = []
-    for col in df.group_by_clause.columns:
+    for col in df.group_by_clauses:
         col_sql = _generate_expression(col)
         group_by_cols.append(col_sql)
     
@@ -450,10 +453,14 @@ def _generate_having(df: DataFrame) -> str:
     Returns:
         The generated SQL string for the HAVING clause
     """
-    if not df.having:
+    if not hasattr(df, 'having_condition') or not df.having_condition:
         return ""
-    
-    condition_sql = _generate_expression(df.having)
+        
+    # Check if having_condition is a FilterCondition and extract the inner condition
+    if hasattr(df.having_condition, 'condition'):
+        condition_sql = _generate_expression(df.having_condition.condition)
+    else:
+        condition_sql = _generate_expression(df.having_condition)
     return f"HAVING {condition_sql}"
 
 
