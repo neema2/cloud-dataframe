@@ -16,6 +16,18 @@ R = TypeVar('R')
 class Expression:
     """Base class for all expressions in the DataFrame DSL."""
     pass
+    
+    def as_column(self, alias: str) -> 'Column':
+        """
+        Create a column with this expression and the given alias.
+        
+        Args:
+            alias: The alias for the column
+            
+        Returns:
+            A Column with this expression and the specified alias
+        """
+        return Column(name=alias, expression=self, alias=alias)
 
 
 @dataclass
@@ -60,6 +72,11 @@ class AggregateFunction(FunctionExpression):
 class CountFunction(AggregateFunction):
     """COUNT aggregate function."""
     distinct: bool = False
+    
+    def __post_init__(self):
+        # Convert string "*" to a LiteralExpression for COUNT(*)
+        if self.parameters and self.parameters[0] == "*":
+            self.parameters = [LiteralExpression(value="*")]
 
 
 @dataclass
@@ -195,13 +212,14 @@ def as_column(expr: Union[Expression, Callable], alias: str) -> Column:
 
 # Aggregate functions
 
-def count(expr: Union[Callable, Expression], distinct: bool = False) -> CountFunction:
+def count(expr: Union[Callable, Expression, None] = None, distinct: bool = False) -> CountFunction:
     """
     Create a COUNT aggregate function.
     
     Args:
-        expr: Lambda function that returns an expression to count, or an Expression object
-              Examples: lambda x: x.column, lambda x: x.col1 - x.col2
+        expr: Expression to count, can be a column reference or other expression
+              If None, COUNT(1) will be used
+              For backward compatibility, can also be a lambda function
         distinct: Whether to count distinct values
         
     Returns:
@@ -209,14 +227,28 @@ def count(expr: Union[Callable, Expression], distinct: bool = False) -> CountFun
     """
     from ..utils.lambda_parser import parse_lambda
     
-    if callable(expr):
-        parsed_expr = parse_lambda(expr)
-    else:
-        parsed_expr = expr
+    # Handle COUNT(*) special case - convert to COUNT(1)
+    if expr is None:
+        # Create a special marker for COUNT(1)
+        return CountFunction(
+            function_name="COUNT",
+            parameters=[LiteralExpression(value=1)],
+            distinct=distinct
+        )
     
+    # For backward compatibility, handle lambda functions
+    if callable(expr) and not isinstance(expr, Expression):
+        parsed_expr = parse_lambda(expr)
+        return CountFunction(
+            function_name="COUNT",
+            parameters=[parsed_expr],
+            distinct=distinct
+        )
+    
+    # Handle direct expression
     return CountFunction(
         function_name="COUNT",
-        parameters=[parsed_expr],
+        parameters=[expr],
         distinct=distinct
     )
 
@@ -226,22 +258,27 @@ def sum(expr: Union[Callable, Expression]) -> SumFunction:
     Create a SUM aggregate function.
     
     Args:
-        expr: Lambda function that returns an expression to sum, or an Expression object
-              Examples: lambda x: x.salary, lambda x: x.salary - x.tax
+        expr: Expression to sum
+              Examples: x.salary, x.salary - x.tax
+              For backward compatibility, can also be a lambda function
         
     Returns:
         A SumFunction expression
     """
     from ..utils.lambda_parser import parse_lambda
     
-    if callable(expr):
+    # For backward compatibility, handle lambda functions
+    if callable(expr) and not isinstance(expr, Expression):
         parsed_expr = parse_lambda(expr)
-    else:
-        parsed_expr = expr
+        return SumFunction(
+            function_name="SUM",
+            parameters=[parsed_expr]
+        )
     
+    # Handle direct expression
     return SumFunction(
         function_name="SUM",
-        parameters=[parsed_expr]
+        parameters=[expr]
     )
 
 
@@ -250,22 +287,27 @@ def avg(expr: Union[Callable, Expression]) -> AvgFunction:
     Create an AVG aggregate function.
     
     Args:
-        expr: Lambda function that returns an expression to average, or an Expression object
-              Examples: lambda x: x.salary, lambda x: x.revenue / x.count
+        expr: Expression to average
+              Examples: x.salary, x.revenue / x.count
+              For backward compatibility, can also be a lambda function
         
     Returns:
         An AvgFunction expression
     """
     from ..utils.lambda_parser import parse_lambda
     
-    if callable(expr):
+    # For backward compatibility, handle lambda functions
+    if callable(expr) and not isinstance(expr, Expression):
         parsed_expr = parse_lambda(expr)
-    else:
-        parsed_expr = expr
+        return AvgFunction(
+            function_name="AVG",
+            parameters=[parsed_expr]
+        )
     
+    # Handle direct expression
     return AvgFunction(
         function_name="AVG",
-        parameters=[parsed_expr]
+        parameters=[expr]
     )
 
 
@@ -274,22 +316,27 @@ def min(expr: Union[Callable, Expression]) -> MinFunction:
     Create a MIN aggregate function.
     
     Args:
-        expr: Lambda function that returns an expression to find the minimum of, or an Expression object
-              Examples: lambda x: x.salary, lambda x: x.price - x.discount
+        expr: Expression to find the minimum of
+              Examples: x.salary, x.price - x.discount
+              For backward compatibility, can also be a lambda function
         
     Returns:
         A MinFunction expression
     """
     from ..utils.lambda_parser import parse_lambda
     
-    if callable(expr):
+    # For backward compatibility, handle lambda functions
+    if callable(expr) and not isinstance(expr, Expression):
         parsed_expr = parse_lambda(expr)
-    else:
-        parsed_expr = expr
+        return MinFunction(
+            function_name="MIN",
+            parameters=[parsed_expr]
+        )
     
+    # Handle direct expression
     return MinFunction(
         function_name="MIN",
-        parameters=[parsed_expr]
+        parameters=[expr]
     )
 
 
@@ -298,22 +345,27 @@ def max(expr: Union[Callable, Expression]) -> MaxFunction:
     Create a MAX aggregate function.
     
     Args:
-        expr: Lambda function that returns an expression to find the maximum of, or an Expression object
-              Examples: lambda x: x.salary, lambda x: x.price * (1 + x.tax_rate)
+        expr: Expression to find the maximum of
+              Examples: x.salary, x.price * (1 + x.tax_rate)
+              For backward compatibility, can also be a lambda function
         
     Returns:
         A MaxFunction expression
     """
     from ..utils.lambda_parser import parse_lambda
     
-    if callable(expr):
+    # For backward compatibility, handle lambda functions
+    if callable(expr) and not isinstance(expr, Expression):
         parsed_expr = parse_lambda(expr)
-    else:
-        parsed_expr = expr
+        return MaxFunction(
+            function_name="MAX",
+            parameters=[parsed_expr]
+        )
     
+    # Handle direct expression
     return MaxFunction(
         function_name="MAX",
-        parameters=[parsed_expr]
+        parameters=[expr]
     )
 
 
