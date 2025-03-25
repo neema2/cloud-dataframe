@@ -104,6 +104,21 @@ class MaxFunction(AggregateFunction):
 
 
 @dataclass
+class Frame:
+    """Frame specification for window functions."""
+    type: str  # 'ROWS' or 'RANGE'
+    start: Any = None  # Start boundary: number or UNBOUNDED
+    end: Any = None  # End boundary: number or UNBOUNDED
+    is_unbounded_start: bool = False
+    is_unbounded_end: bool = False
+    
+    def __post_init__(self):
+        # Validate frame type
+        if self.type.upper() not in ('ROWS', 'RANGE'):
+            raise ValueError(f"Frame type must be 'ROWS' or 'RANGE', got '{self.type}'")
+
+
+@dataclass
 class Window:
     """Window specification for window functions."""
     partition_by: List[Expression] = field(default_factory=list)
@@ -117,6 +132,10 @@ class Window:
     def set_order_by(self, clauses: List[Any]) -> None:
         """Set the order by clauses."""
         self.order_by = clauses
+        
+    def set_frame(self, frame: Frame) -> None:
+        """Set the frame specification."""
+        self.frame = frame
 
 
 @dataclass
@@ -401,14 +420,15 @@ def dense_rank() -> DenseRankFunction:
     return DenseRankFunction(function_name="DENSE_RANK")
 
 
-def over(func: WindowFunction, 
+def over(func: Union[WindowFunction, Callable], 
          partition_by: Optional[Union[List[Expression], Callable]] = None,
-         order_by: Optional[Union[List[Expression], Callable]] = None) -> WindowFunction:
+         order_by: Optional[Union[List[Expression], Callable]] = None,
+         frame: Optional[Frame] = None) -> WindowFunction:
     """
     Apply a window specification to a window function.
     
     Args:
-        func: The window function
+        func: The window function or lambda function expression
         partition_by: Optional list of expressions or lambda function to partition by
             Can be a lambda that returns:
             - A single column reference (lambda x: x.column)
@@ -418,6 +438,7 @@ def over(func: WindowFunction,
             - A single column reference (lambda x: x.column)
             - A list of column references (lambda x: [x.col1, x.col2])
             - A list with tuples specifying sort direction (lambda x: [(x.col1, 'DESC'), (x.col2, 'ASC')])
+        frame: Optional frame specification created with row() or range() functions
         
     Returns:
         The window function with the window specification applied
@@ -428,6 +449,20 @@ def over(func: WindowFunction,
     window = Window()
     partition_by_list = []
     order_by_list = []
+    
+    # Handle lambda function as func parameter
+    if callable(func) and not isinstance(func, WindowFunction):
+        # Parse lambda function expression
+        parsed_func = parse_lambda(func)
+        # Create a WindowFunction with the parsed expression
+        if isinstance(parsed_func, FunctionExpression):
+            window_func = WindowFunction(function_name=parsed_func.function_name, parameters=parsed_func.parameters)
+        else:
+            # If not a function expression, wrap in a WindowFunction
+            window_func = WindowFunction(function_name="EXPR", parameters=[parsed_func])
+    else:
+        # Use the provided WindowFunction
+        window_func = func
     
     if partition_by:
         if callable(partition_by):
@@ -469,8 +504,60 @@ def over(func: WindowFunction,
     window.set_partition_by(partition_by_list)
     window.set_order_by(order_by_list)
     
-    func.window = window
-    return func
+    # Add frame handling
+    if frame:
+        window.set_frame(frame)
+    
+    window_func.window = window
+    return window_func
+
+
+def unbounded() -> str:
+    """
+    Create an UNBOUNDED boundary for window frames.
+    
+    Returns:
+        A string representing UNBOUNDED
+    """
+    return "UNBOUNDED"
+
+
+def row(start: Union[int, str] = 0, end: Union[int, str] = 0) -> Frame:
+    """
+    Create a ROWS frame specification for window functions.
+    
+    Args:
+        start: Start boundary (number of rows preceding, 0 for current row, or unbounded())
+        end: End boundary (number of rows following, 0 for current row, or unbounded())
+        
+    Returns:
+        A Frame object with ROWS type
+    """
+    is_unbounded_start = isinstance(start, str) and start == "UNBOUNDED"
+    is_unbounded_end = isinstance(end, str) and end == "UNBOUNDED"
+    
+    return Frame(type="ROWS", start=start, end=end, 
+                is_unbounded_start=is_unbounded_start, 
+                is_unbounded_end=is_unbounded_end)
+
+
+def range(start: Union[int, str] = 0, end: Union[int, str] = 0) -> Frame:
+    """
+    Create a RANGE frame specification for window functions.
+    
+    Args:
+        start: Start boundary (range value preceding, 0 for current row, or unbounded())
+        end: End boundary (range value following, 0 for current row, or unbounded())
+        
+    Returns:
+        A Frame object with RANGE type
+    """
+    is_unbounded_start = isinstance(start, str) and start == "UNBOUNDED"
+    is_unbounded_end = isinstance(end, str) and end == "UNBOUNDED"
+    
+    return Frame(type="RANGE", start=start, end=end, 
+                is_unbounded_start=is_unbounded_start, 
+                is_unbounded_end=is_unbounded_end)
 
 
 # Scalar functions
