@@ -103,6 +103,32 @@ class TestSqlGenerationDuckDB(unittest.TestCase):
         self.assertEqual(result[0][2], "Engineering")  # department
         self.assertEqual(result[0][3], 85000)  # salary
         self.assertIsNone(result[0][4])  # manager_id
+        
+    def test_simple_select_with_array_lambda(self):
+        """Test a simple SELECT with array lambda to select specific columns."""
+        # Create a DataFrame with specific columns
+        df = DataFrame.from_("employees").select(
+            lambda x: [x.id, x.name, x.salary]
+        )
+        
+        # Generate SQL
+        sql = df.to_sql(dialect="duckdb")
+        
+        # Verify SQL
+        self.assertIn("SELECT id, name, salary", sql)
+        self.assertIn("FROM employees", sql)
+        
+        # Execute query and verify results
+        result = self.conn.execute(sql).fetchall()
+        
+        # Verify that we got all 6 employees
+        self.assertEqual(len(result), 6)
+        
+        # Verify the first employee's data has only the selected columns
+        self.assertEqual(len(result[0]), 3)  # Only 3 columns selected
+        self.assertEqual(result[0][0], 1)  # id
+        self.assertEqual(result[0][1], "Alice")  # name
+        self.assertEqual(result[0][2], 85000)  # salary
     def test_select_with_where(self):
         """Test a SELECT with WHERE clause."""
         # Create a DataFrame with filter
@@ -129,6 +155,38 @@ class TestSqlGenerationDuckDB(unittest.TestCase):
         # Verify all salaries are greater than 75000
         for salary in salaries:
             self.assertGreater(salary, 75000)
+            
+    def test_select_with_where_and_array_lambda(self):
+        """Test a SELECT with WHERE clause and array lambda for column selection."""
+        # Create a DataFrame with filter and specific columns
+        df = DataFrame.from_("employees").filter(
+            lambda x: x.salary > 75000
+        ).select(
+            lambda x: [x.id, x.name, x.department]
+        )
+        
+        # Generate SQL
+        sql = df.to_sql(dialect="duckdb")
+        
+        # Verify SQL
+        self.assertIn("SELECT id, name, department", sql)
+        self.assertIn("FROM employees", sql)
+        self.assertIn("WHERE salary > 75000", sql)
+        
+        # Execute query and verify results
+        result = self.conn.execute(sql).fetchall()
+        
+        # Verify we got the correct employees (Alice, Carol, Eve)
+        self.assertEqual(len(result), 3)
+        
+        # Verify the result has only the selected columns
+        self.assertEqual(len(result[0]), 3)  # Only 3 columns selected
+        
+        # Collect names and verify
+        names = [row[1] for row in result]
+        self.assertIn("Alice", names)
+        self.assertIn("Carol", names)
+        self.assertIn("Eve", names)
     def test_select_with_where_and_group_by(self):
         """Test a SELECT with WHERE and GROUP BY."""
         # Create a DataFrame with filter and group by
