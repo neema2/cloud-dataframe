@@ -461,6 +461,31 @@ class DataFrame:
         """
         self.distinct = True
         return self
+        
+    def having(self, condition: Union[Expression, Callable]) -> 'DataFrame':
+        """
+        Add a HAVING clause to filter grouped results.
+        
+        Args:
+            condition: The condition to filter by. Can be:
+                - An Expression object
+                - A lambda function that returns a boolean expression
+                
+        Returns:
+            The DataFrame with the HAVING clause applied
+        """
+        if callable(condition) and not isinstance(condition, Expression):
+            # Handle lambda functions
+            from ..utils.lambda_parser import LambdaParser
+            # Get the table schema if available
+            table_schema = None
+            if isinstance(self.source, TableReference):
+                table_schema = self.source.table_schema
+            self.having = LambdaParser.parse_lambda(condition, table_schema)
+        else:
+            self.having = condition
+            
+        return self
     
     def with_cte(self, name: str, query: Union['DataFrame', str], 
                  columns: Optional[List[str]] = None, is_recursive: bool = False) -> 'DataFrame':
