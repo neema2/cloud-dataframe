@@ -66,7 +66,7 @@ class TestNestedFunctionsDuckDB(unittest.TestCase):
         # Test sum with binary operation
         df = self.df.group_by(lambda x: x.department).select(
             lambda x: x.department,
-            as_column(sum(lambda x: x.salary + x.bonus), "total_compensation")
+            as_column(lambda x: sum(x.salary + x.bonus), "total_compensation")
         )
         
         # Generate SQL and execute it
@@ -96,9 +96,9 @@ class TestNestedFunctionsDuckDB(unittest.TestCase):
         # Test multiple aggregates with expressions
         df = self.df.group_by(lambda x: x.department).select(
             lambda x: x.department,
-            as_column(sum(lambda x: x.salary), "total_salary"),
-            as_column(avg(lambda x: x.salary / 12), "avg_monthly_salary"),
-            as_column(max(lambda x: x.salary + x.bonus), "max_total_comp")
+            as_column(lambda x: sum(x.salary), "total_salary"),
+            as_column(lambda x: avg(x.salary / 12), "avg_monthly_salary"),
+            as_column(lambda x: max(x.salary + x.bonus), "max_total_comp")
         )
         
         # Generate SQL and execute it
@@ -127,10 +127,10 @@ class TestNestedFunctionsDuckDB(unittest.TestCase):
         """Test having clause with aggregate expression."""
         # Test having with aggregate expression
         df = self.df.group_by(lambda x: x.department).having(
-            lambda x: sum(lambda x: x.salary) > 100000
+            lambda x: sum(x.salary) > 100000
         ).select(
             lambda x: x.department,
-            as_column(count(lambda x: x.id), "employee_count")
+            as_column(lambda x: count(x.id), "employee_count")
         )
         
         # Generate SQL and execute it
@@ -159,7 +159,7 @@ class TestNestedFunctionsDuckDB(unittest.TestCase):
         df = self.df.select(
             lambda x: x.name,
             lambda x: x.department,
-            as_column(date_diff(lambda x: x.start_date, lambda x: x.end_date), "days_employed")
+            as_column(lambda x: date_diff(x.start_date, x.end_date), "days_employed")
         )
         
         # Generate SQL and execute it
