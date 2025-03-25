@@ -40,7 +40,7 @@ class TestNestedFunctions(unittest.TestCase):
         # Test sum with binary operation
         df = self.df.group_by(lambda x: x.department).select(
             lambda x: x.department,
-            as_column(sum(lambda x: x.salary + x.bonus), "total_compensation")
+            as_column(lambda x: sum(x.salary + x.bonus), "total_compensation")
         )
         
         # Check the SQL generation
@@ -53,7 +53,7 @@ class TestNestedFunctions(unittest.TestCase):
         # Test avg with complex expression
         df = self.df.group_by(lambda x: x.department).select(
             lambda x: x.department,
-            as_column(avg(lambda x: (x.salary * 0.8) + (x.bonus * 1.2)), "weighted_comp")
+            as_column(lambda x: avg((x.salary * 0.8) + (x.bonus * 1.2)), "weighted_comp")
         )
         
         # Check the SQL generation
@@ -66,9 +66,9 @@ class TestNestedFunctions(unittest.TestCase):
         # Test multiple aggregates with expressions
         df = self.df.group_by(lambda x: x.department).select(
             lambda x: x.department,
-            as_column(sum(lambda x: x.salary), "total_salary"),
-            as_column(avg(lambda x: x.salary / 12), "avg_monthly_salary"),
-            as_column(max(lambda x: x.salary + x.bonus), "max_total_comp")
+            as_column(lambda x: sum(x.salary), "total_salary"),
+            as_column(lambda x: avg(x.salary / 12), "avg_monthly_salary"),
+            as_column(lambda x: max(x.salary + x.bonus), "max_total_comp")
         )
         
         # Check the SQL generation
@@ -115,7 +115,7 @@ class TestNestedFunctions(unittest.TestCase):
         """Test scalar function in filter."""
         # Test date_diff in filter
         df = self.df.filter(
-            lambda x: date_diff(lambda x: x.start_date, lambda x: x.end_date) > 365
+            lambda x: date_diff(x.start_date, x.end_date) > 365
         )
         
         # Check the SQL generation
