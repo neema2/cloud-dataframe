@@ -368,13 +368,40 @@ def _generate_window_function(func: WindowFunction) -> str:
         
         order_by_sql = f"ORDER BY {', '.join(order_by_parts)}"
     
+    # Add frame specification handling
+    frame_sql = ""
+    if func.window.frame:
+        frame = func.window.frame
+        frame_type = frame.type.upper()
+        
+        # Build frame boundary definition
+        start_boundary = ""
+        if frame.is_unbounded_start:
+            start_boundary = "UNBOUNDED PRECEDING"
+        elif frame.start == 0:
+            start_boundary = "CURRENT ROW"
+        else:
+            start_boundary = f"{frame.start} PRECEDING" if isinstance(frame.start, int) else str(frame.start)
+        
+        end_boundary = ""
+        if frame.is_unbounded_end:
+            end_boundary = "UNBOUNDED FOLLOWING"
+        elif frame.end == 0:
+            end_boundary = "CURRENT ROW"
+        else:
+            end_boundary = f"{frame.end} FOLLOWING" if isinstance(frame.end, int) else str(frame.end)
+        
+        frame_sql = f"{frame_type} BETWEEN {start_boundary} AND {end_boundary}"
+    
     window_sql = ""
-    if partition_by_sql or order_by_sql:
+    if partition_by_sql or order_by_sql or frame_sql:
         window_parts = []
         if partition_by_sql:
             window_parts.append(partition_by_sql)
         if order_by_sql:
             window_parts.append(order_by_sql)
+        if frame_sql:
+            window_parts.append(frame_sql)
         window_sql = f" OVER ({' '.join(window_parts)})"
     
     return f"{func.function_name}({params_sql}){window_sql}"
