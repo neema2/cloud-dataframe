@@ -26,7 +26,7 @@ class JoinType(Enum):
     CROSS = "CROSS"
 
 
-class SortDirection(Enum):
+class Sort(Enum):
     """Sort directions for ORDER BY clauses."""
     ASC = "ASC"
     DESC = "DESC"
@@ -36,7 +36,7 @@ class SortDirection(Enum):
 class OrderByClause:
     """Represents an ORDER BY clause in a SQL query."""
     expression: Expression
-    direction: SortDirection = SortDirection.ASC
+    direction: Sort = Sort.ASC
 
 
 @dataclass
@@ -375,7 +375,7 @@ class DataFrame:
         Returns:
             The DataFrame with the ordering applied
         """
-        direction = SortDirection.DESC if desc else SortDirection.ASC
+        direction = Sort.DESC if desc else Sort.ASC
         
         for clause in clauses:
             if isinstance(clause, OrderByClause):
@@ -396,9 +396,9 @@ class DataFrame:
                         # Check if the expression is a tuple with a sort direction
                         if isinstance(single_expr, tuple) and len(single_expr) == 2:
                             col_expr, sort_dir = single_expr
-                            # Convert string sort direction to SortDirection enum
+                            # Convert string sort direction to Sort enum
                             if isinstance(sort_dir, str):
-                                sort_dir = SortDirection.DESC if sort_dir.upper() == 'DESC' else SortDirection.ASC
+                                sort_dir = Sort.DESC if sort_dir.upper() == 'DESC' else Sort.ASC
                             
                             # Skip if we've already added this column
                             if isinstance(col_expr, ColumnReference) and col_expr.name in added_columns:

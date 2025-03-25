@@ -25,7 +25,7 @@ def parse_lambda(lambda_func: Callable, table_schema=None) -> Union[Expression, 
             - A lambda that returns a boolean expression (e.g., lambda x: x.age > 30)
             - A lambda that returns a column reference (e.g., lambda x: x.name)
             - A lambda that returns an array of column references (e.g., lambda x: [x.name, x.age])
-            - A lambda that returns tuples with sort direction (e.g., lambda x: [(x.department, 'DESC')])
+            - A lambda that returns tuples with sort direction (e.g., lambda x: [(x.department, Sort.DESC)])
         table_schema: Optional schema for type checking
         
     Returns:
@@ -53,7 +53,7 @@ class LambdaParser:
                 - A lambda that returns a boolean expression (e.g., lambda x: x.age > 30)
                 - A lambda that returns a column reference (e.g., lambda x: x.name)
                 - A lambda that returns an array of column references (e.g., lambda x: [x.name, x.age])
-                - A lambda that returns tuples with sort direction (e.g., lambda x: [(x.department, 'DESC')])
+                - A lambda that returns tuples with sort direction (e.g., lambda x: [(x.department, Sort.DESC)])
             table_schema: Optional schema for type checking
             
         Returns:
@@ -532,15 +532,20 @@ class LambdaParser:
                     col_expr = LambdaParser._parse_expression(elt.elts[0], args, table_schema)
                     sort_dir = LambdaParser._parse_expression(elt.elts[1], args, table_schema)
                     
-                    # Handle both string literals and SortDirection enum references
-                    if isinstance(sort_dir, LiteralExpression):
-                        # String literal like 'DESC'
-                        elements.append((col_expr, sort_dir.value))
-                    elif isinstance(elt.elts[1], ast.Attribute) and elt.elts[1].attr in ('DESC', 'ASC'):
-                        # SortDirection enum reference like SortDirection.DESC
-                        elements.append((col_expr, elt.elts[1].attr))
+                    # Import needed classes
+                    from ..type_system.column import LiteralExpression
+                    from ..core.dataframe import Sort
+                    
+                    # Handle Sort enum references
+                    if isinstance(elt.elts[1], ast.Attribute) and elt.elts[1].attr in ('DESC', 'ASC'):
+                        # Sort enum reference like Sort.DESC
+                        sort_direction = Sort.DESC if elt.elts[1].attr == 'DESC' else Sort.ASC
+                        elements.append((col_expr, sort_direction))
+                    elif isinstance(sort_dir, LiteralExpression):
+                        # Convert string literals to Sort enum
+                        raise ValueError(f"String literals for sort direction ('{sort_dir.value}') are no longer supported. Use Sort.DESC or Sort.ASC instead.")
                     else:
-                        # Other cases
+                        # Other cases - pass through the sort_dir as is
                         elements.append((col_expr, sort_dir))
                 else:
                     elements.append(LambdaParser._parse_expression(elt, args, table_schema))
@@ -669,6 +674,7 @@ class LambdaParser:
         
         elif isinstance(node, ast.Constant):
             # Handle literal values
+            from ..type_system.column import LiteralExpression
             return LiteralExpression(value=node.value)
         
         elif isinstance(node, ast.Name):
