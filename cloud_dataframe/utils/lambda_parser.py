@@ -10,7 +10,8 @@ import textwrap
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 from ..type_system.column import (
-    Expression, LiteralExpression, ColumnReference
+    Expression, LiteralExpression, ColumnReference, 
+    SumFunction, AvgFunction, CountFunction, MinFunction, MaxFunction
 )
 from ..core.dataframe import BinaryOperation
 
@@ -336,6 +337,7 @@ class LambdaParser:
         
         elif isinstance(node, ast.Constant):
             # Handle literal values (e.g., 5, 'value', True)
+            from ..type_system.column import LiteralExpression
             return LiteralExpression(value=node.value)
         
         elif isinstance(node, ast.Name):
@@ -345,8 +347,10 @@ class LambdaParser:
                 # In a real implementation, we would handle this more robustly
                 return ColumnReference(name="*")
             elif node.id == "True":
+                from ..type_system.column import LiteralExpression
                 return LiteralExpression(value=True)
             elif node.id == "False":
+                from ..type_system.column import LiteralExpression
                 return LiteralExpression(value=False)
             else:
                 # This is a variable reference
@@ -673,8 +677,10 @@ class LambdaParser:
                 # This is one of the lambda parameters
                 return ColumnReference(name="*", table_alias=node.id)
             elif node.id == "True":
+                from ..type_system.column import LiteralExpression
                 return LiteralExpression(value=True)
             elif node.id == "False":
+                from ..type_system.column import LiteralExpression
                 return LiteralExpression(value=False)
             else:
                 # This is a variable reference
