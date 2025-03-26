@@ -124,6 +124,7 @@ class Window:
     partition_by: List[Expression] = field(default_factory=list)
     order_by: List[Any] = field(default_factory=list)  # Will be OrderByClause
     frame: Optional[Any] = None  # Will be Frame
+    name: Optional[str] = None  # Name for the window if it's a named window
     
     def set_partition_by(self, expressions: List[Any]) -> None:
         """Set the partition by expressions."""
@@ -136,6 +137,10 @@ class Window:
     def set_frame(self, frame: Frame) -> None:
         """Set the frame specification."""
         self.frame = frame
+        
+    def set_name(self, name: str) -> None:
+        """Set the name for this window."""
+        self.name = name
 
 
 @dataclass
@@ -420,15 +425,17 @@ def dense_rank() -> DenseRankFunction:
     return DenseRankFunction(function_name="DENSE_RANK")
 
 
-def over(func: Union[WindowFunction, Callable], 
+def over(func: Union[WindowFunction, Callable, None] = None, 
          partition_by: Optional[Union[List[Expression], Callable]] = None,
          order_by: Optional[Union[List[Expression], Callable]] = None,
-         frame: Optional[Frame] = None) -> WindowFunction:
+         frame: Optional[Frame] = None,
+         window_name: Optional[str] = None) -> WindowFunction:
     """
-    Apply a window specification to a window function.
+    Apply a window specification to a window function or create a standalone window definition.
     
     Args:
-        func: The window function or lambda function expression
+        func: The window function or lambda function expression. 
+              If None, creates a standalone window definition without an aggregate function.
         partition_by: Optional list of expressions or lambda function to partition by
             Can be a lambda that returns:
             - A single column reference (lambda x: x.column)
@@ -439,9 +446,10 @@ def over(func: Union[WindowFunction, Callable],
             - A list of column references (lambda x: [x.col1, x.col2])
             - A list with tuples specifying sort direction (lambda x: [(x.col1, 'DESC'), (x.col2, 'ASC')])
         frame: Optional frame specification created with row() or range() functions
+        window_name: Optional name of a predefined window to use
         
     Returns:
-        The window function with the window specification applied
+        The window function with the window specification applied or a standalone window definition
     """
     from ..utils.lambda_parser import parse_lambda
     from ..core.dataframe import OrderByClause, Sort
@@ -450,19 +458,43 @@ def over(func: Union[WindowFunction, Callable],
     partition_by_list = []
     order_by_list = []
     
-    # Handle lambda function as func parameter
-    if callable(func) and not isinstance(func, WindowFunction):
-        # Parse lambda function expression
-        parsed_func = parse_lambda(func)
-        # Create a WindowFunction with the parsed expression
-        if isinstance(parsed_func, FunctionExpression):
-            window_func = WindowFunction(function_name=parsed_func.function_name, parameters=parsed_func.parameters)
+    if window_name:
+        window.name = window_name
+        
+        if func is None:
+            return WindowFunction(function_name="WINDOW_REF", window=window)
+        elif callable(func) and not isinstance(func, WindowFunction):
+            # Parse lambda function expression
+            parsed_func = parse_lambda(func)
+            # Create a WindowFunction with the parsed expression
+            if isinstance(parsed_func, FunctionExpression):
+                window_func = WindowFunction(function_name=parsed_func.function_name, parameters=parsed_func.parameters)
+            else:
+                # If not a function expression, wrap in a WindowFunction
+                window_func = WindowFunction(function_name="EXPR", parameters=[parsed_func])
         else:
-            # If not a function expression, wrap in a WindowFunction
-            window_func = WindowFunction(function_name="EXPR", parameters=[parsed_func])
+            # Use the provided WindowFunction
+            window_func = func
+        
+        window_func.window = window
+        return window_func
+    
+    # Handle lambda function as func parameter
+    if func is not None:
+        if callable(func) and not isinstance(func, WindowFunction):
+            # Parse lambda function expression
+            parsed_func = parse_lambda(func)
+            # Create a WindowFunction with the parsed expression
+            if isinstance(parsed_func, FunctionExpression):
+                window_func = WindowFunction(function_name=parsed_func.function_name, parameters=parsed_func.parameters)
+            else:
+                # If not a function expression, wrap in a WindowFunction
+                window_func = WindowFunction(function_name="EXPR", parameters=[parsed_func])
+        else:
+            # Use the provided WindowFunction
+            window_func = func
     else:
-        # Use the provided WindowFunction
-        window_func = func
+        window_func = WindowFunction(function_name="WINDOW_DEF")
     
     if partition_by:
         if callable(partition_by):

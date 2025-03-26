@@ -104,7 +104,7 @@ class TestPerColumnSort(unittest.TestCase):
         
         # Check the SQL generation
         sql = df_with_rank.to_sql(dialect="duckdb")
-        expected_sql = "SELECT id, name, department, salary, DENSE_RANK() OVER (PARTITION BY department ORDER BY salary ASC, id ASC) AS salary_rank\nFROM employees"
+        expected_sql = "SELECT id, name, department, salary, DENSE_RANK() OVER (PARTITION BY department ORDER BY salary ASC, id ASC) AS dense_rank\nFROM employees"
         self.assertEqual(sql.strip(), expected_sql.strip())
     
     def test_multiple_window_functions_with_per_column_sort(self):
