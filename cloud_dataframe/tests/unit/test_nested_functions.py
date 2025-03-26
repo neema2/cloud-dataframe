@@ -45,7 +45,7 @@ class TestNestedFunctions(unittest.TestCase):
         
         # Check the SQL generation
         sql = df.to_sql(dialect="duckdb")
-        expected_sql = "SELECT department, SUM((salary + bonus)) AS total_compensation\nFROM employees\nGROUP BY department"
+        expected_sql = "SELECT x.department, SUM((x.salary + x.bonus)) AS total_compensation\nFROM employees x\nGROUP BY x.department"
         self.assertEqual(sql.strip(), expected_sql.strip())
     
     def test_aggregate_with_complex_expression(self):
@@ -58,7 +58,7 @@ class TestNestedFunctions(unittest.TestCase):
         
         # Check the SQL generation
         sql = df.to_sql(dialect="duckdb")
-        expected_sql = "SELECT department, AVG(((salary * 0.8) + (bonus * 1.2))) AS weighted_comp\nFROM employees\nGROUP BY department"
+        expected_sql = "SELECT x.department, AVG(((x.salary * 0.8) + (x.bonus * 1.2))) AS weighted_comp\nFROM employees x\nGROUP BY x.department"
         self.assertEqual(sql.strip(), expected_sql.strip())
     
     def test_multiple_aggregates_with_expressions(self):
@@ -73,7 +73,7 @@ class TestNestedFunctions(unittest.TestCase):
         
         # Check the SQL generation
         sql = df.to_sql(dialect="duckdb")
-        expected_sql = "SELECT department, SUM(salary) AS total_salary, AVG((salary / 12)) AS avg_monthly_salary, MAX((salary + bonus)) AS max_total_comp\nFROM employees\nGROUP BY department"
+        expected_sql = "SELECT x.department, SUM(x.salary) AS total_salary, AVG((x.salary / 12)) AS avg_monthly_salary, MAX((x.salary + x.bonus)) AS max_total_comp\nFROM employees x\nGROUP BY x.department"
         self.assertEqual(sql.strip(), expected_sql.strip())
     
     def test_having_with_aggregate_expression(self):
@@ -90,7 +90,7 @@ class TestNestedFunctions(unittest.TestCase):
         
         # Check the SQL generation
         sql = df.to_sql(dialect="duckdb")
-        expected_sql = "SELECT *\nFROM employees\nWHERE salary > 50000 AND (bonus / salary) > 0.1"
+        expected_sql = "SELECT *\nFROM employees x\nWHERE x.salary > 50000 AND (x.bonus / x.salary) > 0.1"
         self.assertEqual(sql.strip(), expected_sql.strip())
     
     def test_scalar_function_date_diff(self):
@@ -108,7 +108,7 @@ class TestNestedFunctions(unittest.TestCase):
         
         # Check the SQL generation
         sql = df.to_sql(dialect="duckdb")
-        expected_sql = "SELECT name, department, DATEDIFF('day', CAST(start_date AS DATE), CAST(end_date AS DATE)) AS days_employed\nFROM employees"
+        expected_sql = "SELECT x.name, x.department, DATEDIFF('day', CAST(x.start_date AS DATE), CAST(x.end_date AS DATE)) AS days_employed\nFROM employees x"
         self.assertEqual(sql.strip(), expected_sql.strip())
     
     def test_scalar_function_in_filter(self):
@@ -120,7 +120,7 @@ class TestNestedFunctions(unittest.TestCase):
         
         # Check the SQL generation
         sql = df.to_sql(dialect="duckdb")
-        expected_sql = "SELECT *\nFROM employees\nWHERE DATEDIFF('day', CAST(start_date AS DATE), CAST(end_date AS DATE)) > 365"
+        expected_sql = "SELECT *\nFROM employees x\nWHERE DATEDIFF('day', CAST(x.start_date AS DATE), CAST(x.end_date AS DATE)) > 365"
         self.assertEqual(sql.strip(), expected_sql.strip())
 
 

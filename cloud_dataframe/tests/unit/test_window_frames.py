@@ -50,7 +50,7 @@ class TestWindowFrames(unittest.TestCase):
         
         # Check the SQL generation
         sql = df_with_frame.to_sql(dialect="duckdb")
-        expected_sql = "SELECT id, salary, ROW_NUMBER() OVER (PARTITION BY department ORDER BY salary ASC ROWS BETWEEN 2 PRECEDING AND CURRENT ROW) AS row_num\nFROM employees"
+        expected_sql = "SELECT x.id, x.salary, ROW_NUMBER() OVER (PARTITION BY x.department ORDER BY x.salary ASC ROWS BETWEEN 2 PRECEDING AND CURRENT ROW) AS row_num\nFROM employees x"
         self.assertEqual(sql.strip(), expected_sql.strip())
     
     def test_row_frame_preceding_following(self):
@@ -71,7 +71,7 @@ class TestWindowFrames(unittest.TestCase):
         
         # Check the SQL generation
         sql = df_with_frame.to_sql(dialect="duckdb")
-        expected_sql = "SELECT id, salary, RANK() OVER (PARTITION BY department ORDER BY salary ASC ROWS BETWEEN 2 PRECEDING AND 2 FOLLOWING) AS rank_val\nFROM employees"
+        expected_sql = "SELECT x.id, x.salary, RANK() OVER (PARTITION BY x.department ORDER BY x.salary ASC ROWS BETWEEN 2 PRECEDING AND 2 FOLLOWING) AS rank_val\nFROM employees x"
         self.assertEqual(sql.strip(), expected_sql.strip())
     
     def test_row_frame_current_following(self):
@@ -92,7 +92,7 @@ class TestWindowFrames(unittest.TestCase):
         
         # Check the SQL generation
         sql = df_with_frame.to_sql(dialect="duckdb")
-        expected_sql = "SELECT id, salary, DENSE_RANK() OVER (PARTITION BY department ORDER BY salary ASC ROWS BETWEEN CURRENT ROW AND 2 FOLLOWING) AS dense_rank_val\nFROM employees"
+        expected_sql = "SELECT x.id, x.salary, DENSE_RANK() OVER (PARTITION BY x.department ORDER BY x.salary ASC ROWS BETWEEN CURRENT ROW AND 2 FOLLOWING) AS dense_rank_val\nFROM employees x"
         self.assertEqual(sql.strip(), expected_sql.strip())
     
     def test_row_frame_unbounded_preceding(self):
@@ -113,7 +113,7 @@ class TestWindowFrames(unittest.TestCase):
         
         # Check the SQL generation
         sql = df_with_frame.to_sql(dialect="duckdb")
-        expected_sql = "SELECT id, salary, ROW_NUMBER() OVER (PARTITION BY department ORDER BY salary ASC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS row_num\nFROM employees"
+        expected_sql = "SELECT x.id, x.salary, ROW_NUMBER() OVER (PARTITION BY x.department ORDER BY x.salary ASC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS row_num\nFROM employees x"
         self.assertEqual(sql.strip(), expected_sql.strip())
     
     def test_row_frame_preceding_unbounded(self):
@@ -134,7 +134,7 @@ class TestWindowFrames(unittest.TestCase):
         
         # Check the SQL generation
         sql = df_with_frame.to_sql(dialect="duckdb")
-        expected_sql = "SELECT id, salary, RANK() OVER (PARTITION BY department ORDER BY salary ASC ROWS BETWEEN 2 PRECEDING AND UNBOUNDED FOLLOWING) AS rank_val\nFROM employees"
+        expected_sql = "SELECT x.id, x.salary, RANK() OVER (PARTITION BY x.department ORDER BY x.salary ASC ROWS BETWEEN 2 PRECEDING AND UNBOUNDED FOLLOWING) AS rank_val\nFROM employees x"
         self.assertEqual(sql.strip(), expected_sql.strip())
     
     def test_range_frame(self):
@@ -155,7 +155,7 @@ class TestWindowFrames(unittest.TestCase):
         
         # Check the SQL generation
         sql = df_with_frame.to_sql(dialect="duckdb")
-        expected_sql = "SELECT id, salary, DENSE_RANK() OVER (PARTITION BY department ORDER BY salary ASC RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS dense_rank_val\nFROM employees"
+        expected_sql = "SELECT x.id, x.salary, DENSE_RANK() OVER (PARTITION BY x.department ORDER BY x.salary ASC RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS dense_rank_val\nFROM employees x"
         self.assertEqual(sql.strip(), expected_sql.strip())
 
     def test_lambda_function_over(self):
@@ -177,7 +177,7 @@ class TestWindowFrames(unittest.TestCase):
         
         # Check the SQL generation
         sql = df_with_lambda.to_sql(dialect="duckdb")
-        expected_sql = "SELECT id, salary, SUM(salary) OVER (PARTITION BY department ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS sum_salary\nFROM employees"
+        expected_sql = "SELECT x.id, x.salary, SUM(x.salary) OVER (PARTITION BY x.department ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS sum_salary\nFROM employees x"
         self.assertEqual(sql.strip(), expected_sql.strip())
 
 
