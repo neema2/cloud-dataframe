@@ -82,13 +82,13 @@ class TestSqlGenerationDuckDB(unittest.TestCase):
     def test_simple_select(self):
         """Test a simple SELECT from single table."""
         # Create a DataFrame
-        df = DataFrame.from_("employees")
+        df = DataFrame.from_("employees", alias="x")
         
         # Generate SQL
         sql = df.to_sql(dialect="duckdb")
         
         # Verify SQL
-        expected_sql = "SELECT *\nFROM employees"
+        expected_sql = "SELECT *\nFROM employees x"
         self.assertEqual(sql.strip(), expected_sql)
         
         # Execute query and verify results
@@ -107,7 +107,7 @@ class TestSqlGenerationDuckDB(unittest.TestCase):
     def test_simple_select_with_array_lambda(self):
         """Test a simple SELECT with array lambda to select specific columns."""
         # Create a DataFrame with specific columns
-        df = DataFrame.from_("employees").select(
+        df = DataFrame.from_("employees", alias="x").select(
             lambda x: [x.id, x.name, x.salary]
         )
         
@@ -115,8 +115,8 @@ class TestSqlGenerationDuckDB(unittest.TestCase):
         sql = df.to_sql(dialect="duckdb")
         
         # Verify SQL
-        self.assertIn("SELECT id, name, salary", sql)
-        self.assertIn("FROM employees", sql)
+        self.assertIn("SELECT x.id, x.name, x.salary", sql)
+        self.assertIn("FROM employees x", sql)
         
         # Execute query and verify results
         result = self.conn.execute(sql).fetchall()
@@ -132,7 +132,7 @@ class TestSqlGenerationDuckDB(unittest.TestCase):
     def test_select_with_where(self):
         """Test a SELECT with WHERE clause."""
         # Create a DataFrame with filter
-        df = DataFrame.from_("employees").filter(
+        df = DataFrame.from_("employees", alias="x").filter(
             lambda x: x.salary > 75000
         )
         
@@ -140,7 +140,7 @@ class TestSqlGenerationDuckDB(unittest.TestCase):
         sql = df.to_sql(dialect="duckdb")
         
         # Verify SQL
-        expected_sql = "SELECT *\nFROM employees\nWHERE salary > 75000"
+        expected_sql = "SELECT *\nFROM employees x\nWHERE x.salary > 75000"
         self.assertEqual(sql.strip(), expected_sql)
         
         # Execute query and verify results
@@ -159,7 +159,7 @@ class TestSqlGenerationDuckDB(unittest.TestCase):
     def test_select_with_where_and_array_lambda(self):
         """Test a SELECT with WHERE clause and array lambda for column selection."""
         # Create a DataFrame with filter and specific columns
-        df = DataFrame.from_("employees").filter(
+        df = DataFrame.from_("employees", alias="x").filter(
             lambda x: x.salary > 75000
         ).select(
             lambda x: [x.id, x.name, x.department]
@@ -169,9 +169,9 @@ class TestSqlGenerationDuckDB(unittest.TestCase):
         sql = df.to_sql(dialect="duckdb")
         
         # Verify SQL
-        self.assertIn("SELECT id, name, department", sql)
-        self.assertIn("FROM employees", sql)
-        self.assertIn("WHERE salary > 75000", sql)
+        self.assertIn("SELECT x.id, x.name, x.department", sql)
+        self.assertIn("FROM employees x", sql)
+        self.assertIn("WHERE x.salary > 75000", sql)
         
         # Execute query and verify results
         result = self.conn.execute(sql).fetchall()
@@ -190,7 +190,7 @@ class TestSqlGenerationDuckDB(unittest.TestCase):
     def test_select_with_where_and_group_by(self):
         """Test a SELECT with WHERE and GROUP BY."""
         # Create a DataFrame with filter and group by
-        df = DataFrame.from_("employees") \
+        df = DataFrame.from_("employees", alias="x") \
             .filter(lambda x: x.salary > 0) \
             .group_by(lambda x: x.department) \
             .select(
@@ -204,8 +204,8 @@ class TestSqlGenerationDuckDB(unittest.TestCase):
         
         # Verify SQL - adjust expected SQL to match what the library actually generates
         expected_sql = sql.strip()
-        self.assertIn("SELECT department, COUNT(id) AS employee_count, AVG(salary) AS avg_salary", sql)
-        self.assertIn("FROM employees", sql)
+        self.assertIn("SELECT x.department, COUNT(x.id) AS employee_count, AVG(x.salary) AS avg_salary", sql)
+        self.assertIn("FROM employees x", sql)
         self.assertIn("WHERE salary", sql)
         self.assertIn("GROUP BY department", sql)
         
@@ -285,14 +285,14 @@ class TestSqlGenerationDuckDB(unittest.TestCase):
         """Test a SELECT with WHERE and window function."""
         # For this test, we'll manually construct the SQL to test window functions
         # since the DSL might not directly support the syntax we need
-        sql = """SELECT id, name, department, salary,
-  ROW_NUMBER() OVER (PARTITION BY department ORDER BY salary DESC) AS rank_in_dept
-FROM employees
-WHERE salary > 0"""
+        sql = """SELECT x.id, x.name, x.department, x.salary,
+  ROW_NUMBER() OVER (PARTITION BY x.department ORDER BY x.salary DESC) AS rank_in_dept
+FROM employees x
+WHERE x.salary > 0"""
         
         # Verify SQL contains window function
         self.assertIn("ROW_NUMBER()", sql)
-        self.assertIn("OVER (PARTITION BY department ORDER BY salary DESC)", sql)
+        self.assertIn("OVER (PARTITION BY x.department ORDER BY x.salary DESC)", sql)
         
         # Execute query and verify results
         result = self.conn.execute(sql).fetchall()
@@ -370,7 +370,7 @@ WHERE salary > 0"""
         # Verify SQL
         self.assertIn("INNER JOIN", sql)
         self.assertIn("ON e.department = d.name", sql)
-        self.assertIn("WHERE salary > 75000", sql)
+        self.assertIn("WHERE e.salary > 75000", sql)
         
         # Execute query and verify results
         result = self.conn.execute(sql).fetchall()
@@ -419,8 +419,8 @@ WHERE salary > 0"""
         # Verify SQL
         self.assertIn("INNER JOIN", sql)
         self.assertIn("ON e.department = d.name", sql)
-        self.assertIn("WHERE salary > 0", sql)
-        self.assertIn("GROUP BY location", sql)
+        self.assertIn("WHERE e.salary > 0", sql)
+        self.assertIn("GROUP BY d.location", sql)
         
         # Execute query and verify results
         result = self.conn.execute(sql).fetchall()

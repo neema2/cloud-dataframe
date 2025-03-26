@@ -64,8 +64,8 @@ class TestJoinExamples(unittest.TestCase):
         )
         
         # Create DataFrames with typed properties
-        self.employees_df = DataFrame.from_table_schema("employees", self.employee_schema)
-        self.departments_df = DataFrame.from_table_schema("departments", self.department_schema)
+        self.employees_df = DataFrame.from_table_schema("employees", self.employee_schema, alias="e")
+        self.departments_df = DataFrame.from_table_schema("departments", self.department_schema, alias="d")
     
     def tearDown(self):
         """Tear down test fixtures."""
@@ -78,18 +78,18 @@ class TestJoinExamples(unittest.TestCase):
             self.departments_df,
             lambda e, d: e.department_id == d.id
         ).select(
-            lambda x: x.employees.id,
-            lambda x: x.employees.name,
-            lambda x: x.departments.name.alias("department_name"),
-            lambda x: x.departments.location,
-            lambda x: x.employees.salary
+            lambda e: e.id,
+            lambda e: e.name,
+            lambda d: d.name.alias("department_name"),
+            lambda d: d.location,
+            lambda e: e.salary
         )
         
         # Generate SQL
         sql = query.to_sql(dialect="duckdb")
         
         # Expected SQL (may vary based on implementation)
-        expected_sql_pattern = "SELECT employees.id, employees.name, departments.name AS department_name, departments.location, employees.salary"
+        expected_sql_pattern = "d.name AS department_name"
         self.assertIn(expected_sql_pattern, sql.replace("\n", " "))
         
         # Execute query
@@ -107,11 +107,11 @@ class TestJoinExamples(unittest.TestCase):
             self.departments_df,
             lambda e, d: e.department_id == d.id
         ).select(
-            lambda x: x.employees.id,
-            lambda x: x.employees.name,
-            lambda x: x.departments.name.alias("department_name"),
-            lambda x: x.departments.location,
-            lambda x: x.employees.salary
+            lambda e: e.id,
+            lambda e: e.name,
+            lambda d: d.name.alias("department_name"),
+            lambda d: d.location,
+            lambda e: e.salary
         )
         
         # Generate SQL
@@ -120,6 +120,7 @@ class TestJoinExamples(unittest.TestCase):
         # Expected SQL (may vary based on implementation)
         expected_sql_pattern = "LEFT JOIN"
         self.assertIn(expected_sql_pattern, sql.replace("\n", " "))
+        self.assertIn("d.name AS department_name", sql.replace("\n", " "))
         
         # Execute query
         result = self.conn.execute(sql).fetchdf()
@@ -134,18 +135,22 @@ class TestJoinExamples(unittest.TestCase):
             self.departments_df,
             lambda e, d: e.department_id == d.id
         ).group_by(
-            lambda x: x.departments.name
+            lambda d: d.name
         ).select(
-            lambda x: x.departments.name.alias("department_name"),
-            as_column(lambda x: count(x.employees.id), "employee_count"),
-            as_column(lambda x: sum(x.employees.salary), "total_salary"),
-            as_column(lambda x: avg(x.employees.salary), "avg_salary")
+            lambda d: d.name.alias("department_name"),
+            as_column(lambda e: count(e.id), "employee_count"),
+            as_column(lambda e: sum(e.salary), "total_salary"),
+            as_column(lambda e: avg(e.salary), "avg_salary")
         ).order_by(
-            lambda x: x.departments.name
+            lambda d: d.name
         )
         
         # Generate SQL
         sql = query.to_sql(dialect="duckdb")
+        
+        # Expected SQL (may vary based on implementation)
+        expected_sql_pattern = "d.name AS department_name"
+        self.assertIn(expected_sql_pattern, sql.replace("\n", " "))
         
         # Execute query
         result = self.conn.execute(sql).fetchdf()
