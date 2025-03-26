@@ -55,7 +55,7 @@ class TestDuckDBSQLGeneration(unittest.TestCase):
         )
         
         sql = df.to_sql(dialect="duckdb")
-        expected_sql = "SELECT id AS id, name AS name\nFROM employees x"
+        expected_sql = "SELECT x.id AS id, x.name AS name\nFROM employees x"
         self.assertEqual(sql.strip(), expected_sql)
     
     def test_filter(self):
