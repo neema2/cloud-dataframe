@@ -41,6 +41,7 @@ class ColumnReference(Expression):
     """Reference to a column in a table."""
     name: str
     table_alias: Optional[str] = None
+    table_name: Optional[str] = None
 
 
 @dataclass
@@ -177,18 +178,19 @@ class Column:
 
 # Helper functions for creating expressions
 
-def col(name: str, table_alias: Optional[str] = None) -> ColumnReference:
+def col(name: str, table_alias: Optional[str] = None, table_name: Optional[str] = None) -> ColumnReference:
     """
     Create a column reference.
     
     Args:
         name: The name of the column
         table_alias: Optional table alias
+        table_name: Optional table name
         
     Returns:
         A ColumnReference expression
     """
-    return ColumnReference(name=name, table_alias=table_alias)
+    return ColumnReference(name=name, table_alias=table_alias, table_name=table_name)
 
 
 def literal(value: Any) -> LiteralExpression:
