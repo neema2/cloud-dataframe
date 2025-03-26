@@ -10,7 +10,7 @@ from enum import Enum
 import inspect
 from dataclasses import dataclass, field
 
-from ..type_system.column import Column, ColumnReference, Expression, LiteralExpression
+from ..type_system.column import Column, ColumnReference, Expression, LiteralExpression, Window, Frame
 from ..type_system.schema import TableSchema, ColSpec, create_dynamic_dataclass_from_schema
 
 T = TypeVar('T')
@@ -128,6 +128,7 @@ class DataFrame:
         self.offset_value: Optional[int] = None
         self.distinct: bool = False
         self.ctes: List[CommonTableExpression] = []
+        self.window_definitions: Dict[str, Window] = {}
         self._table_class: Optional[Type] = None
     
     def copy(self) -> 'DataFrame':
@@ -148,6 +149,7 @@ class DataFrame:
         result.offset_value = self.offset_value
         result.distinct = self.distinct
         result.ctes = self.ctes.copy()
+        result.window_definitions = self.window_definitions.copy() if hasattr(self, 'window_definitions') else {}
         result._table_class = self._table_class  # Copy the table class reference
         return result
     
@@ -199,117 +201,112 @@ class DataFrame:
                     # Handle array returns from lambda functions
                     column_list.extend(expr)
                 else:
-                    # Check if this is already a Column object
-                    if isinstance(expr, Column):
-                        column_list.append(expr)
-                    else:
-                        # Convert to a Column if it's not already
-                        column_list.append(expr)
+                    # Handle single column reference
+                    column_list.append(expr)
             else:
-                raise TypeError(f"Unsupported column type: {type(col)}")
+                raise ValueError(f"Unsupported column type: {type(col)}")
         
-        self.columns = column_list
-        return self
+        result = self.copy()
+        result.columns = column_list
+        return result
     
     @classmethod
-    def from_(cls, table_name: str, schema: Optional[str] = None, alias: Optional[str] = None) -> 'DataFrame':
+    def from_(cls, source: Union[str, 'DataFrame'], alias: Optional[str] = None) -> 'DataFrame':
         """
-        Create a new DataFrame from a database table.
+        Create a new DataFrame from a data source.
         
         Args:
-            table_name: The name of the table
-            schema: Optional schema name
-            alias: Optional table alias. If not provided, table_name will be used as the alias.
+            source: The data source (table name or subquery)
+            alias: Optional alias for the data source
             
         Returns:
             A new DataFrame instance
         """
-        if alias is None:
-            alias = "x"  # Use 'x' as the default table alias for single-table operations
-            
         df = cls()
-        df.source = TableReference(table_name=table_name, schema=schema, alias=alias)
         
-        # Create a basic schema with Any type for columns
-        # This is a placeholder until the actual schema is determined
-        basic_schema = TableSchema(name=table_name, columns={"*": type(Any)})
-        
-        # Create a dynamic dataclass and store it on the DataFrame
-        df._table_class = create_dynamic_dataclass_from_schema(table_name, basic_schema)
+        if isinstance(source, str):
+            # Handle table reference
+            df.source = TableReference(table_name=source, alias=alias)
+        elif isinstance(source, DataFrame):
+            # Handle subquery
+            if not alias:
+                raise ValueError("Alias is required for subquery")
+            df.source = SubquerySource(dataframe=source, alias=alias)
+        else:
+            raise ValueError(f"Unsupported source type: {type(source)}")
         
         return df
     
     @classmethod
-    def from_table_schema(cls, table_name: str, table_schema: TableSchema, alias: Optional[str] = None) -> 'DataFrame':
+    def from_table_schema(cls, table_name: str, schema: TableSchema, alias: Optional[str] = None) -> 'DataFrame':
         """
-        Create a new DataFrame from a table with a defined schema.
+        Create a new DataFrame from a table schema.
         
         Args:
             table_name: The name of the table
-            table_schema: The schema definition for the table
-            alias: Optional table alias
+            schema: The table schema
+            alias: Optional alias for the table
             
         Returns:
-            A new DataFrame instance with type information
+            A new DataFrame instance
         """
-        if alias is None:
-            alias = "x"  # Use 'x' as the default table alias for single-table operations
-            
         df = cls()
+        
+        # Create a TableReference with the schema
         df.source = TableReference(
-            table_name=table_name, 
-            table_schema=table_schema,
-            alias=alias
+            table_name=table_name,
+            alias=alias,
+            table_schema=schema
         )
         
-        # Create a dynamic dataclass and store it on the DataFrame
-        df._table_class = create_dynamic_dataclass_from_schema(table_name, table_schema)
+        # Create a dynamic dataclass for the table
+        df._table_class = create_dynamic_dataclass_from_schema(table_name, schema)
         
         return df
     
-    def filter(self, condition: Callable[[Any], bool]) -> 'DataFrame':
+    def filter(self, condition: Union[FilterCondition, Callable[[Any], Any]]) -> 'DataFrame':
         """
-        Filter the DataFrame based on a lambda function.
+        Filter the DataFrame based on a condition.
         
         Args:
-            condition: A lambda function or generator expression
+            condition: The filter condition. Can be:
+                - A FilterCondition object
+                - A lambda function that returns a boolean expression (e.g., lambda x: x.age > 30)
             
         Returns:
-            The DataFrame with the filter applied
+            The filtered DataFrame
         """
-        # Validate that the condition is a lambda function
-        if not callable(condition) or isinstance(condition, FilterCondition):
-            raise TypeError("Filter condition must be a lambda function or generator expression")
-        
-        # Create a new DataFrame with the filter condition
         result = self.copy()
         
-        # Convert the lambda to a filter condition
-        filter_condition = self._lambda_to_filter_condition(condition)
+        if isinstance(condition, FilterCondition):
+            # Use the provided FilterCondition
+            filter_condition = condition
+        else:
+            # Convert lambda to FilterCondition
+            filter_condition = self._lambda_to_filter_condition(condition)
         
-        # If we already have a filter condition, combine them with AND
         if result.filter_condition:
+            # Combine with existing filter using AND
             result.filter_condition = BinaryOperation(
                 left=result.filter_condition,
                 operator="AND",
                 right=filter_condition
             )
         else:
+            # Set as the only filter
             result.filter_condition = filter_condition
         
         return result
     
-    def _lambda_to_filter_condition(self, lambda_func: Callable[[Any], bool]) -> FilterCondition:
+    def _lambda_to_filter_condition(self, lambda_func: Callable[[Any], Any]) -> FilterCondition:
         """
         Convert a lambda function to a FilterCondition.
-        
-        This is a complex operation that requires parsing the lambda's AST.
         
         Args:
             lambda_func: The lambda function to convert
             
         Returns:
-            A FilterCondition representing the lambda
+            The converted FilterCondition
         """
         from ..utils.lambda_parser import LambdaParser
         
@@ -318,11 +315,14 @@ class DataFrame:
         if isinstance(self.source, TableReference):
             table_schema = self.source.table_schema
         
-        # Use the LambdaParser to convert the lambda to a FilterCondition
-        expr = LambdaParser.parse_lambda(lambda_func, table_schema)
-        
-        # Cast to FilterCondition (this is safe because the parser returns a compatible type)
-        return cast(FilterCondition, expr)
+        try:
+            # Parse the lambda function
+            parsed_condition = LambdaParser.parse_lambda(lambda_func, table_schema)
+            
+            # Create a FilterCondition with the parsed expression
+            return FilterCondition(parsed_condition)
+        except Exception as e:
+            raise ValueError(f"Error parsing filter lambda: {e}")
     
     def group_by(self, *columns: Union[Expression, Callable[[Any], Any]]) -> 'DataFrame':
         """
@@ -332,424 +332,524 @@ class DataFrame:
             *columns: The columns to group by. Can be:
                 - Expression objects
                 - Lambda functions that access dataclass properties (e.g., lambda x: x.column_name)
-                - Lambda functions that return arrays (e.g., lambda x: [x.department, x.location])
+                - Lambda functions that return arrays (e.g., lambda x: [x.name, x.age])
             
         Returns:
-            The DataFrame with the grouping applied
+            The grouped DataFrame
         """
-        # Create a copy of the DataFrame
-        df_copy = self.copy()
+        result = self.copy()
+        group_by_list = []
         
-        expressions = []
-        
-        # Get the table schema if available
-        table_schema = None
-        if isinstance(df_copy.source, TableReference):
-            table_schema = df_copy.source.table_schema
-            
         for col in columns:
-            if callable(col) and not isinstance(col, Expression):
-                # Handle lambda functions that access dataclass properties
+            if isinstance(col, Expression):
+                # Use the provided Expression
+                group_by_list.append(col)
+            elif callable(col) and not isinstance(col, Expression):
+                # Handle lambda functions
                 from ..utils.lambda_parser import LambdaParser
-                expr = LambdaParser.parse_lambda(col, table_schema)
-                if isinstance(expr, list):
-                    # Handle array returns from lambda functions
-                    expressions.extend(expr)
-                else:
-                    expressions.append(expr)
-            else:
-                expressions.append(col)
-        
-        # Set group_by_clauses with the parsed expressions
-        df_copy.group_by_clauses = expressions
-        
-        return df_copy
-    
-    def order_by(self, *clauses: Union[OrderByClause, Expression, Callable[[Any], Any]], 
-                 desc: bool = False) -> 'DataFrame':
-        """
-        Order the DataFrame by the specified columns.
-        
-        Args:
-            *clauses: The columns or OrderByClauses to order by. Can be:
-                - Expression objects
-                - OrderByClause objects
-                - Lambda functions that access dataclass properties (e.g., lambda x: x.column_name)
-                - Lambda functions that return arrays (e.g., lambda x: [x.department, x.salary])
-                - Lambda functions that return tuples with sort direction (e.g., lambda x: 
-                  [(x.department, 'DESC'), (x.salary, 'ASC'), x.name])
-            desc: Whether to sort in descending order (if not using OrderByClause or tuple specification)
-            
-        Returns:
-            The DataFrame with the ordering applied
-        """
-        direction = Sort.DESC if desc else Sort.ASC
-        
-        for clause in clauses:
-            if isinstance(clause, OrderByClause):
-                self.order_by_clauses.append(clause)
-            elif callable(clause) and not isinstance(clause, Expression):
-                # Handle lambda functions that access dataclass properties
-                from ..utils.lambda_parser import LambdaParser
+                
                 # Get the table schema if available
                 table_schema = None
                 if isinstance(self.source, TableReference):
                     table_schema = self.source.table_schema
-                expr = LambdaParser.parse_lambda(clause, table_schema)
+                
+                # Parse the lambda function
+                expr = LambdaParser.parse_lambda(col, table_schema)
+                
                 if isinstance(expr, list):
                     # Handle array returns from lambda functions
-                    # Track columns we've already added to avoid duplicates
-                    added_columns = set()
-                    for single_expr in expr:
-                        # Check if the expression is a tuple with a sort direction
-                        if isinstance(single_expr, tuple) and len(single_expr) == 2:
-                            col_expr, sort_dir = single_expr
-                            # Convert string sort direction to Sort enum
-                            if isinstance(sort_dir, str):
-                                sort_dir = Sort.DESC if sort_dir.upper() == 'DESC' else Sort.ASC
-                            
-                            # Skip if we've already added this column
-                            if isinstance(col_expr, ColumnReference) and col_expr.name in added_columns:
-                                continue
-                                
-                            # Track this column
-                            if isinstance(col_expr, ColumnReference):
-                                added_columns.add(col_expr.name)
-                                
-                            # Use provided sort direction
-                            self.order_by_clauses.append(OrderByClause(
-                                expression=col_expr,
-                                direction=sort_dir
-                            ))
-                        else:
-                            # Skip if we've already added this column
-                            if isinstance(single_expr, ColumnReference) and single_expr.name in added_columns:
-                                continue
-                                
-                            # Track this column
-                            if isinstance(single_expr, ColumnReference):
-                                added_columns.add(single_expr.name)
-                                
-                            # Use global sort direction
-                            self.order_by_clauses.append(OrderByClause(
-                                expression=single_expr,
-                                direction=direction
-                            ))
+                    group_by_list.extend(expr)
                 else:
-                    self.order_by_clauses.append(OrderByClause(
-                        expression=expr,
-                        direction=direction
-                    ))
+                    # Handle single column reference
+                    group_by_list.append(expr)
             else:
-                self.order_by_clauses.append(OrderByClause(
-                    expression=clause,
-                    direction=direction
-                ))
+                raise ValueError(f"Unsupported group by column type: {type(col)}")
         
-        return self
+        result.group_by_clauses = group_by_list
+        return result
     
-    def limit(self, limit: int) -> 'DataFrame':
+    def order_by(self, *columns: Union[Expression, Callable[[Any], Any], Tuple[Expression, Sort], Tuple[Expression, str]]) -> 'DataFrame':
+        """
+        Order the DataFrame by the specified columns.
+        
+        Args:
+            *columns: The columns to order by. Can be:
+                - Expression objects
+                - Lambda functions that access dataclass properties (e.g., lambda x: x.column_name)
+                - Lambda functions that return arrays (e.g., lambda x: [x.name, x.age])
+                - Lambda functions that return tuples with sort direction (e.g., lambda x: [(x.name, 'DESC'), (x.age, 'ASC')])
+                - Tuples of (Expression, Sort) or (Expression, str) for sort direction
+            
+        Returns:
+            The ordered DataFrame
+        """
+        result = self.copy()
+        order_by_list = []
+        
+        for col in columns:
+            if isinstance(col, Expression):
+                # Use the provided Expression with default ASC ordering
+                order_by_list.append(OrderByClause(expression=col, direction=Sort.ASC))
+            elif isinstance(col, tuple) and len(col) == 2:
+                # Handle tuple of (Expression, Sort) or (Expression, str)
+                expr, direction = col
+                
+                if isinstance(direction, Sort):
+                    # Use the provided Sort enum
+                    dir_enum = direction
+                elif isinstance(direction, str):
+                    # Convert string to Sort enum
+                    dir_enum = Sort.DESC if direction.upper() == 'DESC' else Sort.ASC
+                else:
+                    raise ValueError(f"Unsupported sort direction type: {type(direction)}")
+                
+                order_by_list.append(OrderByClause(expression=expr, direction=dir_enum))
+            elif callable(col) and not isinstance(col, Expression):
+                # Handle lambda functions
+                from ..utils.lambda_parser import LambdaParser
+                
+                # Get the table schema if available
+                table_schema = None
+                if isinstance(self.source, TableReference):
+                    table_schema = self.source.table_schema
+                
+                # Parse the lambda function
+                expr = LambdaParser.parse_lambda(col, table_schema)
+                
+                if isinstance(expr, list):
+                    # Process array lambdas
+                    for item in expr:
+                        # Check if this is a tuple with sort direction
+                        if isinstance(item, tuple) and len(item) == 2:
+                            col_expr, sort_dir = item
+                            # Convert string sort direction to Sort enum
+                            dir_enum = Sort.DESC if isinstance(sort_dir, str) and sort_dir.upper() == 'DESC' else Sort.ASC
+                            order_by_list.append(OrderByClause(expression=col_expr, direction=dir_enum))
+                        else:
+                            # Use default ASC ordering
+                            order_by_list.append(OrderByClause(expression=item, direction=Sort.ASC))
+                else:
+                    # Single expression with default ASC ordering
+                    order_by_list.append(OrderByClause(expression=expr, direction=Sort.ASC))
+            else:
+                raise ValueError(f"Unsupported order by column type: {type(col)}")
+        
+        result.order_by_clauses = order_by_list
+        return result
+    
+    def limit(self, value: int) -> 'DataFrame':
         """
         Limit the number of rows returned.
         
         Args:
-            limit: The maximum number of rows to return
+            value: The maximum number of rows to return
             
         Returns:
-            The DataFrame with the limit applied
+            The limited DataFrame
         """
-        self.limit_value = limit
-        return self
+        result = self.copy()
+        result.limit_value = value
+        return result
     
-    def offset(self, offset: int) -> 'DataFrame':
+    def offset(self, value: int) -> 'DataFrame':
         """
         Skip the specified number of rows.
         
         Args:
-            offset: The number of rows to skip
+            value: The number of rows to skip
             
         Returns:
-            The DataFrame with the offset applied
+            The offset DataFrame
         """
-        self.offset_value = offset
-        return self
+        result = self.copy()
+        result.offset_value = value
+        return result
     
     def distinct_rows(self) -> 'DataFrame':
         """
-        Make the query return distinct rows.
+        Return distinct rows.
         
         Returns:
-            The DataFrame with DISTINCT applied
+            The DataFrame with distinct rows
         """
-        self.distinct = True
-        return self
-        
-    def having(self, condition: Union[Expression, Callable]) -> 'DataFrame':
+        result = self.copy()
+        result.distinct = True
+        return result
+    
+    def having(self, condition: Union[FilterCondition, Callable[[Any], Any]]) -> 'DataFrame':
         """
-        Add a HAVING clause to filter grouped results.
+        Filter grouped rows based on a condition.
         
         Args:
-            condition: The condition to filter by. Can be:
-                - An Expression object
-                - A lambda function that returns a boolean expression
-                - A lambda function with nested function calls (e.g., lambda x: sum(x.salary) > 100000)
-                
+            condition: The having condition. Can be:
+                - A FilterCondition object
+                - A lambda function that returns a boolean expression (e.g., lambda x: count(x.id) > 10)
+            
         Returns:
-            The DataFrame with the HAVING clause applied
+            The filtered DataFrame
         """
-        # Create a copy of the DataFrame
+        if not self.group_by_clauses:
+            raise ValueError("HAVING requires a GROUP BY clause")
+        
         df_copy = self.copy()
         
-        if callable(condition) and not isinstance(condition, Expression):
-            # Handle lambda functions
+        if isinstance(condition, FilterCondition):
+            # Use the provided FilterCondition
+            df_copy.having_condition = condition
+        else:
+            # Convert lambda to FilterCondition
             from ..utils.lambda_parser import LambdaParser
+            
             # Get the table schema if available
             table_schema = None
-            if hasattr(self, 'source') and self.source is not None:
-                if isinstance(self.source, TableReference):
-                    table_schema = self.source.table_schema
+            if isinstance(self.source, TableReference):
+                table_schema = self.source.table_schema
             
             try:
-                # Parse the lambda function to get the expression
+                # Parse the lambda function
                 parsed_condition = LambdaParser.parse_lambda(condition, table_schema)
                 
                 # Create a FilterCondition with the parsed expression
                 df_copy.having_condition = FilterCondition(parsed_condition)
             except Exception as e:
                 raise ValueError(f"Error parsing having lambda: {e}")
-        else:
-            # If it's already an Expression, wrap it in a FilterCondition
-            if not isinstance(condition, FilterCondition) and isinstance(condition, Expression):
-                df_copy.having_condition = FilterCondition(condition)
-            else:
-                df_copy.having_condition = condition
-            
+        
         return df_copy
     
-    def with_cte(self, name: str, query: Union['DataFrame', str], 
-                 columns: Optional[List[str]] = None, is_recursive: bool = False) -> 'DataFrame':
+    def with_cte(self, name: str, query: Union['DataFrame', str], columns: Optional[List[str]] = None, recursive: bool = False) -> 'DataFrame':
         """
         Add a Common Table Expression (CTE) to the query.
         
         Args:
             name: The name of the CTE
-            query: The DataFrame or SQL string for the CTE
-            columns: Optional column names for the CTE
-            is_recursive: Whether the CTE is recursive
+            query: The query for the CTE (DataFrame or SQL string)
+            columns: Optional list of column names for the CTE
+            recursive: Whether the CTE is recursive
             
         Returns:
             The DataFrame with the CTE added
         """
-        self.ctes.append(CommonTableExpression(
+        result = self.copy()
+        
+        # Create a new CTE
+        cte = CommonTableExpression(
             name=name,
             query=query,
             columns=columns or [],
-            is_recursive=is_recursive
-        ))
-        return self
+            is_recursive=recursive
+        )
+        
+        # Add the CTE to the list
+        result.ctes.append(cte)
+        return result
     
-    def join(self, right: Union['DataFrame', TableReference], 
-             condition: Callable[[Any, Any], bool], 
-             join_type: JoinType = JoinType.INNER) -> 'DataFrame':
+    def join(self, right: Union[str, 'DataFrame'], condition: Union[FilterCondition, Callable[[Any, Any], Any]], join_type: JoinType = JoinType.INNER, right_alias: Optional[str] = None) -> 'DataFrame':
         """
         Join this DataFrame with another DataFrame or table.
         
         Args:
-            right: The DataFrame or table to join with
-            condition: A lambda function that defines the join condition
+            right: The right side of the join (table name or DataFrame)
+            condition: The join condition. Can be:
+                - A FilterCondition object
+                - A lambda function that returns a boolean expression (e.g., lambda x, y: x.id == y.user_id)
             join_type: The type of join to perform
+            right_alias: Optional alias for the right table
             
         Returns:
-            A new DataFrame representing the join
+            The joined DataFrame
         """
-        if self.source is None:
-            raise ValueError("Cannot join a DataFrame without a source")
-        
-        # Get the right source
-        if isinstance(right, DataFrame):
-            # If the right DataFrame has a TableReference source, use it directly
-            if isinstance(right.source, TableReference):
-                right_source = right.source
-            else:
-                # Otherwise, wrap it in a SubquerySource
-                right_source = SubquerySource(
-                    dataframe=right,
-                    alias=f"subquery_{len(self.ctes)}"
-                )
-        elif isinstance(right, TableReference):
-            right_source = right
-        else:
-            raise TypeError("Right side of join must be a DataFrame or TableReference")
-        
-        import inspect
-        lambda_params = list(inspect.signature(condition).parameters.keys())
-        left_alias = lambda_params[0] if len(lambda_params) > 0 else None
-        right_alias = lambda_params[1] if len(lambda_params) > 1 else None
-        
-        # Convert lambda to join condition
-        join_condition = self._lambda_to_join_condition(condition)
-        
         result = DataFrame()
-        result.source = JoinOperation(
+        
+        # Create the right DataSource
+        right_source = None
+        if isinstance(right, str):
+            # Handle table reference
+            right_source = TableReference(table_name=right, alias=right_alias)
+        elif isinstance(right, DataFrame):
+            # Handle subquery
+            if not right_alias:
+                raise ValueError("Alias is required for subquery in join")
+            right_source = SubquerySource(dataframe=right, alias=right_alias)
+        else:
+            raise ValueError(f"Unsupported right source type: {type(right)}")
+        
+        # Convert lambda to join condition if needed
+        if not isinstance(condition, FilterCondition) and callable(condition):
+            join_condition = self._lambda_to_join_condition(condition, right_source)
+        else:
+            join_condition = condition
+        
+        # Create the join operation
+        join_op = JoinOperation(
             left=self.source,
             right=right_source,
             join_type=join_type,
             condition=join_condition,
-            left_alias=left_alias,
             right_alias=right_alias
         )
         
-        # Combine columns from both sides
-        # This is a simplification - in reality, we'd need to handle column name conflicts
+        # Set the source of the result DataFrame
+        result.source = join_op
+        
+        # Copy other properties from the left DataFrame
         result.columns = self.columns.copy()
-        if isinstance(right, DataFrame):
-            result.columns.extend(right.columns)
+        result.filter_condition = self.filter_condition
+        result.group_by_clauses = self.group_by_clauses.copy() if hasattr(self, 'group_by_clauses') else []
+        result.having_condition = self.having_condition
+        result.order_by_clauses = self.order_by_clauses.copy()
+        result.limit_value = self.limit_value
+        result.offset_value = self.offset_value
+        result.distinct = self.distinct
+        result.ctes = self.ctes.copy()
         
         return result
     
-    def left_join(self, right: Union['DataFrame', TableReference], 
-                  condition: Callable[[Any, Any], bool]) -> 'DataFrame':
+    def left_join(self, right: Union[str, 'DataFrame'], condition: Union[FilterCondition, Callable[[Any, Any], Any]], right_alias: Optional[str] = None) -> 'DataFrame':
         """
         Perform a LEFT JOIN with another DataFrame or table.
         
         Args:
-            right: The DataFrame or table to join with
-            condition: A lambda function that defines the join condition
+            right: The right side of the join (table name or DataFrame)
+            condition: The join condition
+            right_alias: Optional alias for the right table
             
         Returns:
-            A new DataFrame representing the join
+            The joined DataFrame
         """
-        return self.join(right, condition, JoinType.LEFT)
+        return self.join(right, condition, JoinType.LEFT, right_alias)
     
-    def right_join(self, right: Union['DataFrame', TableReference], 
-                   condition: Callable[[Any, Any], bool]) -> 'DataFrame':
+    def right_join(self, right: Union[str, 'DataFrame'], condition: Union[FilterCondition, Callable[[Any, Any], Any]], right_alias: Optional[str] = None) -> 'DataFrame':
         """
         Perform a RIGHT JOIN with another DataFrame or table.
         
         Args:
-            right: The DataFrame or table to join with
-            condition: A lambda function that defines the join condition
+            right: The right side of the join (table name or DataFrame)
+            condition: The join condition
+            right_alias: Optional alias for the right table
             
         Returns:
-            A new DataFrame representing the join
+            The joined DataFrame
         """
-        return self.join(right, condition, JoinType.RIGHT)
+        return self.join(right, condition, JoinType.RIGHT, right_alias)
     
-    def full_join(self, right: Union['DataFrame', TableReference], 
-                  condition: Callable[[Any, Any], bool]) -> 'DataFrame':
+    def full_join(self, right: Union[str, 'DataFrame'], condition: Union[FilterCondition, Callable[[Any, Any], Any]], right_alias: Optional[str] = None) -> 'DataFrame':
         """
         Perform a FULL JOIN with another DataFrame or table.
         
         Args:
-            right: The DataFrame or table to join with
-            condition: A lambda function that defines the join condition
+            right: The right side of the join (table name or DataFrame)
+            condition: The join condition
+            right_alias: Optional alias for the right table
             
         Returns:
-            A new DataFrame representing the join
+            The joined DataFrame
         """
-        return self.join(right, condition, JoinType.FULL)
+        return self.join(right, condition, JoinType.FULL, right_alias)
     
-    def cross_join(self, right: Union['DataFrame', TableReference]) -> 'DataFrame':
+    def cross_join(self, right: Union[str, 'DataFrame'], right_alias: Optional[str] = None) -> 'DataFrame':
         """
         Perform a CROSS JOIN with another DataFrame or table.
         
         Args:
-            right: The DataFrame or table to join with
+            right: The right side of the join (table name or DataFrame)
+            right_alias: Optional alias for the right table
             
         Returns:
-            A new DataFrame representing the join
+            The joined DataFrame
         """
-        # For CROSS JOIN, we use a dummy condition that's always true
-        # We use a lambda function that always returns True to satisfy the type checker
-        return self.join(right, lambda x, y: True, JoinType.CROSS)
+        # For CROSS JOIN, we don't need a condition
+        return self.join(right, FilterCondition(LiteralExpression(True)), JoinType.CROSS, right_alias)
     
-    def _lambda_to_join_condition(self, lambda_func: Callable[[Any, Any], bool]) -> FilterCondition:
+    def _lambda_to_join_condition(self, lambda_func: Callable[[Any, Any], Any], right_source: DataSource) -> FilterCondition:
         """
         Convert a lambda function to a join condition.
         
-        This method parses a lambda function that takes two parameters (one for each table)
-        and converts it to a FilterCondition representing the join condition.
-        
         Args:
             lambda_func: The lambda function to convert
+            right_source: The right data source for the join
             
         Returns:
-            A FilterCondition representing the join condition
+            The converted FilterCondition
         """
         from ..utils.lambda_parser import LambdaParser
         
-        # Use the LambdaParser to convert the lambda to a FilterCondition
-        expr = LambdaParser.parse_join_lambda(lambda_func)
+        # Get the table schemas if available
+        left_schema = None
+        right_schema = None
         
-        # Cast to FilterCondition (this is safe because the parser returns a compatible type)
-        return cast(FilterCondition, expr)
+        if isinstance(self.source, TableReference):
+            left_schema = self.source.table_schema
+        
+        if isinstance(right_source, TableReference):
+            right_schema = right_source.table_schema
+        
+        try:
+            # Parse the lambda function with both schemas
+            parsed_condition = LambdaParser.parse_join_lambda(lambda_func, left_schema, right_schema)
+            
+            # Create a FilterCondition with the parsed expression
+            return FilterCondition(parsed_condition)
+        except Exception as e:
+            raise ValueError(f"Error parsing join lambda: {e}")
     
     def get_table_class(self) -> Optional[Type]:
         """
-        Get the dynamic dataclass for this DataFrame.
+        Get the table class for this DataFrame.
         
         Returns:
-            The dynamic dataclass for this DataFrame, or None if not available
+            The table class, or None if not available
         """
-        if hasattr(self, "_table_class") and self._table_class is not None:
-            return self._table_class
-        elif self.source and isinstance(self.source, TableReference) and self.source.table_schema:
-            self._table_class = create_dynamic_dataclass_from_schema(
-                self.source.table_name, self.source.table_schema)
-            return self._table_class
-        return None
-        
+        return self._table_class
+    
     def _lambda_to_column_reference(self, lambda_func: Callable[[Any], Any]) -> ColumnReference:
         """
-        Convert a lambda function that returns an attribute to a ColumnReference.
+        Convert a lambda function to a column reference.
         
         Args:
             lambda_func: The lambda function to convert
             
         Returns:
-            A ColumnReference representing the column accessed by the lambda
+            The converted ColumnReference
         """
-        # Try to determine the column name by inspecting the lambda source
-        import inspect
-        source = inspect.getsource(lambda_func).strip()
+        from ..utils.lambda_parser import LambdaParser
         
-        # Extract the column name from the lambda
-        # Example: "lambda x: x.name" -> "name"
-        if "lambda" in source and "." in source:
-            parts = source.split(".")
-            column_name = parts[-1].strip().rstrip(")")
-            return ColumnReference(column_name)
+        # Get the table schema if available
+        table_schema = None
+        if isinstance(self.source, TableReference):
+            table_schema = self.source.table_schema
         
-        # If we can't determine the column name, raise an error
-        raise ValueError("Could not determine column name from lambda function")
-        
+        try:
+            # Parse the lambda function
+            parsed_expr = LambdaParser.parse_lambda(lambda_func, table_schema)
+            
+            if isinstance(parsed_expr, ColumnReference):
+                return parsed_expr
+            else:
+                raise ValueError(f"Lambda function did not resolve to a column reference: {parsed_expr}")
+        except Exception as e:
+            raise ValueError(f"Error parsing column lambda: {e}")
+    
     def _create_sample_instance(self) -> Any:
         """
-        Create a sample instance of the table dataclass for testing.
+        Create a sample instance of the table class for this DataFrame.
         
         Returns:
-            A sample instance of the table dataclass
+            A sample instance of the table class
         """
-        table_class = self.get_table_class()
-        if not table_class:
-            return None
+        if not self._table_class:
+            raise ValueError("No table class available for this DataFrame")
         
-        # Create a sample instance with default values
+        table_class = self._table_class
+        
+        # Create a dictionary of sample data for each field
         sample_data = {}
         for field_name, field_type in table_class.__annotations__.items():
-            # Assign default values based on type
-            if field_type == int:
+            # Use appropriate default values based on field type
+            if field_type == str:
+                sample_data[field_name] = ""
+            elif field_type == int:
                 sample_data[field_name] = 0
             elif field_type == float:
                 sample_data[field_name] = 0.0
-            elif field_type == str:
-                sample_data[field_name] = ""
             elif field_type == bool:
                 sample_data[field_name] = False
             else:
                 sample_data[field_name] = None
         
         return table_class(**sample_data)
+    
+    def window(self, name: str, 
+              partition_by: Optional[Union[List[Expression], Callable]] = None,
+              order_by: Optional[Union[List[Expression], Callable]] = None,
+              frame: Optional[Frame] = None) -> 'DataFrame':
+        """
+        Define a named window specification.
+        
+        Args:
+            name: The name of the window
+            partition_by: Optional list of expressions or lambda function to partition by
+                Can be a lambda that returns:
+                - A single column reference (lambda x: x.column)
+                - A list of column references (lambda x: [x.col1, x.col2])
+            order_by: Optional list of expressions or lambda function to order by
+                Can be a lambda that returns:
+                - A single column reference (lambda x: x.column)
+                - A list of column references (lambda x: [x.col1, x.col2])
+                - A list with tuples specifying sort direction (lambda x: [(x.col1, 'DESC'), (x.col2, 'ASC')])
+            frame: Optional frame specification created with row() or range() functions
+            
+        Returns:
+            The DataFrame with the window definition added
+        """
+        from ..utils.lambda_parser import LambdaParser
+        
+        result = self.copy()
+        window = Window()
+        
+        # Set the window name
+        window.set_name(name)
+        
+        # Process partition_by
+        if partition_by:
+            partition_by_list = []
+            if callable(partition_by):
+                # Get the table schema if available
+                table_schema = None
+                if isinstance(self.source, TableReference):
+                    table_schema = self.source.table_schema
+                
+                # Parse the lambda function
+                parsed_expressions = LambdaParser.parse_lambda(partition_by, table_schema)
+                if isinstance(parsed_expressions, list):
+                    partition_by_list = parsed_expressions
+                else:
+                    partition_by_list = [parsed_expressions]
+            else:
+                # Handle list of expressions (already Expression objects)
+                partition_by_list = partition_by
+            
+            window.set_partition_by(partition_by_list)
+        
+        # Process order_by
+        if order_by:
+            order_by_list = []
+            if callable(order_by):
+                # Get the table schema if available
+                table_schema = None
+                if isinstance(self.source, TableReference):
+                    table_schema = self.source.table_schema
+                
+                # Parse the lambda function
+                parsed_expressions = LambdaParser.parse_lambda(order_by, table_schema)
+                
+                if isinstance(parsed_expressions, list):
+                    # Process array lambdas
+                    for item in parsed_expressions:
+                        # Check if this is a tuple with sort direction
+                        if isinstance(item, tuple) and len(item) == 2:
+                            col_expr, sort_dir = item
+                            # Convert string sort direction to OrderByClause equivalent
+                            dir_enum = Sort.DESC if isinstance(sort_dir, str) and sort_dir.upper() == 'DESC' else Sort.ASC
+                            order_by_list.append(OrderByClause(expression=col_expr, direction=dir_enum))
+                        else:
+                            # Use default ASC ordering
+                            order_by_list.append(OrderByClause(expression=item, direction=Sort.ASC))
+                else:
+                    # Single expression with default ASC ordering
+                    order_by_list.append(OrderByClause(expression=parsed_expressions, direction=Sort.ASC))
+            else:
+                # Handle list of expressions (already OrderByClause objects)
+                order_by_list = order_by
+            
+            window.set_order_by(order_by_list)
+        
+        # Add frame handling
+        if frame:
+            window.set_frame(frame)
+        
+        # Add the window definition to the DataFrame
+        result.window_definitions[name] = window
+        return result
     
     def to_sql(self, dialect: str = "duckdb") -> str:
         """
