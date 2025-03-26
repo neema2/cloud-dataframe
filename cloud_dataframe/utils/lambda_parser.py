@@ -323,17 +323,22 @@ class LambdaParser:
             return result
         
         elif isinstance(node, ast.Attribute):
-            # Handle attribute access (e.g., x.name, x.age)
-            if isinstance(node.value, ast.Name) and node.value.id == args[0].arg:
-                # This is accessing an attribute of the lambda parameter (e.g., x.name)
+            if isinstance(node.value, ast.Name):
+                table_alias = node.value.id
+                
                 # If table_schema is provided, validate the column name
                 if table_schema and not table_schema.validate_column(node.attr):
                     raise ValueError(f"Column '{node.attr}' not found in table schema '{table_schema.name}'")
-                return ColumnReference(name=node.attr)
-            else:
-                # This is a more complex attribute access
-                # In a real implementation, we would handle this more robustly
-                return ColumnReference(name=node.attr)
+                
+                return ColumnReference(name=node.attr, table_alias=table_alias)
+            elif isinstance(node.value, ast.Attribute) and node.attr == "alias":
+                return node
+            elif isinstance(node.value, ast.Attribute) and isinstance(node.value.value, ast.Name):
+                table_name = node.value.attr
+                column_name = node.attr
+                lambda_param = node.value.value.id
+                
+                return ColumnReference(name=column_name, table_alias=table_name, table_name=table_name)
         
         elif isinstance(node, ast.Constant):
             # Handle literal values (e.g., 5, 'value', True)
@@ -471,8 +476,32 @@ class LambdaParser:
                         raise ValueError(f"Function {node.func.id}() expects exactly two arguments")
                         
                     return DateDiffFunction(function_name="DATE_DIFF", parameters=args_list)
+            elif isinstance(node.func, ast.Attribute) and node.func.attr == "alias" and len(node.args) == 1:
+                if isinstance(node.args[0], ast.Constant):
+                    alias_name = node.args[0].value
+                    col_ref = LambdaParser._parse_expression(node.func.value, args, table_schema)
+                    if isinstance(col_ref, ColumnReference):
+                        return col_ref.alias(alias_name)
+                    else:
+                        raise ValueError(f"Cannot apply alias to non-column reference: {col_ref}")
+                else:
+                    raise ValueError("Alias name must be a string literal")
             # Handle nested function calls inside lambda expressions
-            elif isinstance(node.func, ast.Attribute) and isinstance(node.func.value, ast.Name):
+            elif isinstance(node.func, ast.Attribute):
+                if node.func.attr == "alias" and len(node.args) == 1 and isinstance(node.args[0], ast.Constant):
+                    alias_name = node.args[0].value
+                    
+                    if isinstance(node.func.value, ast.Attribute) and isinstance(node.func.value.value, ast.Attribute):
+                        table_name = node.func.value.value.attr
+                        column_name = node.func.value.attr
+                        
+                        return ColumnReference(
+                            name=column_name, 
+                            table_alias=table_name, 
+                            table_name=table_name,
+                            column_alias=alias_name
+                        )
+                
                 # This handles cases like lambda x: x.func(arg1, arg2)
                 # Parse the arguments to the function
                 args_list = []
@@ -530,7 +559,6 @@ class LambdaParser:
                 if isinstance(elt, ast.Tuple) and len(elt.elts) == 2:
                     # This is a tuple of (column, sort_direction)
                     col_expr = LambdaParser._parse_expression(elt.elts[0], args, table_schema)
-                    sort_dir = LambdaParser._parse_expression(elt.elts[1], args, table_schema)
                     
                     # Import needed classes
                     from ..type_system.column import LiteralExpression
@@ -541,12 +569,22 @@ class LambdaParser:
                         # Sort enum reference like Sort.DESC
                         sort_direction = Sort.DESC if elt.elts[1].attr == 'DESC' else Sort.ASC
                         elements.append((col_expr, sort_direction))
-                    elif isinstance(sort_dir, LiteralExpression):
-                        # Convert string literals to Sort enum
-                        raise ValueError(f"String literals for sort direction ('{sort_dir.value}') are no longer supported. Use Sort.DESC or Sort.ASC instead.")
+                    elif isinstance(elt.elts[1], ast.Name) and elt.elts[1].id in ('DESC', 'ASC'):
+                        sort_direction = Sort.DESC if elt.elts[1].id == 'DESC' else Sort.ASC
+                        elements.append((col_expr, sort_direction))
+                    elif isinstance(elt.elts[1], ast.Constant) and isinstance(elt.elts[1].value, str) and elt.elts[1].value.upper() in ('DESC', 'ASC'):
+                        sort_direction = Sort.DESC if elt.elts[1].value.upper() == 'DESC' else Sort.ASC
+                        elements.append((col_expr, sort_direction))
                     else:
-                        # Other cases - pass through the sort_dir as is
-                        elements.append((col_expr, sort_dir))
+                        try:
+                            sort_dir = LambdaParser._parse_expression(elt.elts[1], args, table_schema)
+                            elements.append((col_expr, sort_dir))
+                        except ValueError:
+                            if isinstance(elt.elts[1], ast.Attribute) and elt.elts[1].attr in ('desc', 'asc'):
+                                sort_direction = Sort.DESC if elt.elts[1].attr == 'desc' else Sort.ASC
+                                elements.append((col_expr, sort_direction))
+                            else:
+                                elements.append((col_expr, Sort.ASC))
                 else:
                     elements.append(LambdaParser._parse_expression(elt, args, table_schema))
             return elements
@@ -661,13 +699,20 @@ class LambdaParser:
             return result
         
         elif isinstance(node, ast.Attribute):
-            # Handle attribute access (e.g., x.col1, y.col2)
             if isinstance(node.value, ast.Name):
-                # Determine which table the attribute belongs to
-                if node.value.id == args[0].arg:  # First table
-                    return ColumnReference(name=node.attr, table_alias=args[0].arg)
-                elif node.value.id == args[1].arg:  # Second table
-                    return ColumnReference(name=node.attr, table_alias=args[1].arg)
+                table_alias = node.value.id
+                
+                # If table_schema is provided, validate the column name
+                if table_schema and not table_schema.validate_column(node.attr):
+                    raise ValueError(f"Column '{node.attr}' not found in table schema '{table_schema.name}'")
+                
+                return ColumnReference(name=node.attr, table_alias=table_alias)
+            elif isinstance(node.value, ast.Attribute) and isinstance(node.value.value, ast.Name):
+                table_name = node.value.attr
+                column_name = node.attr
+                lambda_param = node.value.value.id
+                
+                return ColumnReference(name=column_name, table_alias=table_name, table_name=table_name)
             
             # If we can't determine the table, return a default column reference
             return ColumnReference(name=node.attr)

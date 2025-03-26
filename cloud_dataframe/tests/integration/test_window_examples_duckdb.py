@@ -51,7 +51,7 @@ class TestWindowExamplesDuckDB(unittest.TestCase):
         )
         
         # Create a DataFrame with typed properties
-        self.df = DataFrame.from_table_schema("sales", self.schema)
+        self.df = DataFrame.from_table_schema("sales", self.schema, alias="x")
     
     def tearDown(self):
         """Tear down test fixtures."""
@@ -80,7 +80,7 @@ class TestWindowExamplesDuckDB(unittest.TestCase):
         
         # Generate SQL
         sql = query.to_sql(dialect="duckdb")
-        expected_sql = "SELECT product_id, date, sales, SUM(sales) OVER (PARTITION BY product_id ORDER BY date ASC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS running_total\nFROM sales\nORDER BY product_id ASC, date ASC"
+        expected_sql = "SELECT x.product_id, x.date, x.sales, SUM(x.sales) OVER (PARTITION BY x.product_id ORDER BY x.date ASC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS running_total\nFROM sales x\nORDER BY x.product_id ASC, x.date ASC"
         self.assertEqual(sql.strip(), expected_sql.strip())
         
         # Execute query
@@ -124,7 +124,7 @@ class TestWindowExamplesDuckDB(unittest.TestCase):
         
         # Generate SQL
         sql = query.to_sql(dialect="duckdb")
-        expected_sql = "SELECT product_id, date, sales, AVG(sales) OVER (PARTITION BY product_id ORDER BY date ASC ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING) AS moving_avg\nFROM sales\nORDER BY product_id ASC, date ASC"
+        expected_sql = "SELECT x.product_id, x.date, x.sales, AVG(x.sales) OVER (PARTITION BY x.product_id ORDER BY x.date ASC ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING) AS moving_avg\nFROM sales x\nORDER BY x.product_id ASC, x.date ASC"
         self.assertEqual(sql.strip(), expected_sql.strip())
         
         # Execute query
@@ -161,7 +161,7 @@ class TestWindowExamplesDuckDB(unittest.TestCase):
         
         # Generate SQL
         sql = query.to_sql(dialect="duckdb")
-        expected_sql = "SELECT product_id, region, sales, SUM((sales + 10)) OVER (PARTITION BY region RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS adjusted_total\nFROM sales\nORDER BY region ASC, product_id ASC"
+        expected_sql = "SELECT x.product_id, x.region, x.sales, SUM((x.sales + 10)) OVER (PARTITION BY x.region RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS adjusted_total\nFROM sales x\nORDER BY x.region ASC, x.product_id ASC"
         self.assertEqual(sql.strip(), expected_sql.strip())
         
         # Execute query

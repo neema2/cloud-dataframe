@@ -74,6 +74,18 @@ def _generate_ctes(ctes: List[CommonTableExpression]) -> str:
     return f"WITH {recursive_prefix}{', '.join(cte_parts)}"
 
 
+def _is_join_operation(df: DataFrame) -> bool:
+    """
+    Check if the DataFrame has a join operation as its source.
+    
+    Args:
+        df: The DataFrame to check
+        
+    Returns:
+        True if the DataFrame has a join operation, False otherwise
+    """
+    return hasattr(df, 'source') and isinstance(df.source, JoinOperation)
+
 def _generate_query(df: DataFrame) -> str:
     """
     Generate SQL for a DataFrame query.
@@ -89,6 +101,8 @@ def _generate_query(df: DataFrame) -> str:
     """
     # Validate SELECT vs GROUP BY
     _validate_select_vs_groupby(df)
+    
+    is_join = _is_join_operation(df)
     
     # Generate SELECT clause
     select_sql = _generate_select(df)
@@ -129,7 +143,12 @@ def _generate_query(df: DataFrame) -> str:
     if limit_offset_sql:
         query_parts.append(limit_offset_sql)
     
-    return "\n".join(query_parts)
+    sql = "\n".join(query_parts)
+    
+    if is_join:
+        pass
+    
+    return sql
 
 
 def _validate_select_vs_groupby(df: DataFrame) -> None:
@@ -213,13 +232,13 @@ def _generate_select(df: DataFrame) -> str:
     column_parts = []
     
     for col in df.columns:
-        column_sql = _generate_column(col)
+        column_sql = _generate_column(col, df)
         column_parts.append(column_sql)
     
     return f"SELECT {distinct_sql}{', '.join(column_parts)}"
 
 
-def _generate_column(col: Union[Column, ColumnReference, Expression]) -> str:
+def _generate_column(col: Union[Column, ColumnReference, Expression], df: Optional[DataFrame] = None) -> str:
     """
     Generate SQL for a column.
     
@@ -228,6 +247,7 @@ def _generate_column(col: Union[Column, ColumnReference, Expression]) -> str:
             - Column object
             - ColumnReference object
             - Expression object
+        df: Optional DataFrame context for determining if this is a join operation
         
     Returns:
         The generated SQL string for the column
@@ -252,15 +272,24 @@ def _generate_expression(expr: Any) -> str:
     
     Args:
         expr: The expression to generate SQL for
+        df: Optional DataFrame context for determining if this is a join operation
         
     Returns:
         The generated SQL string for the expression
     """
     if isinstance(expr, ColumnReference):
-        if expr.table_alias:
-            return f"{expr.table_alias}.{expr.name}"
-        else:
+        if expr.name == "*":
             return expr.name
+            
+        if expr.table_alias:
+            column_ref = f"{expr.table_alias}.{expr.name}"
+        else:
+            column_ref = expr.name
+        
+        if hasattr(expr, 'column_alias') and expr.column_alias:
+            return f"{column_ref} AS {expr.column_alias}"
+        else:
+            return column_ref
     
     elif isinstance(expr, LiteralExpression):
         if expr.value is None:
@@ -336,7 +365,7 @@ def _generate_aggregate_function(func: AggregateFunction) -> str:
     return f"{func.function_name}({params_sql})"
 
 
-def _generate_window_function(func: WindowFunction) -> str:
+def _generate_window_function(func: WindowFunction, df: Optional[DataFrame] = None) -> str:
     """
     Generate SQL for a window function.
     
@@ -478,17 +507,28 @@ def _generate_source(source: Any) -> str:
             table_sql = f"{source.schema}.{table_sql}"
         
         if source.alias:
-            return f"{table_sql} AS {source.alias}"
+            return f"{table_sql} {source.alias}"
         else:
             return table_sql
     
     elif isinstance(source, SubquerySource):
         subquery_sql = generate_sql(source.dataframe)
-        return f"({subquery_sql}) AS {source.alias}"
+        return f"({subquery_sql}) {source.alias}"
     
     elif isinstance(source, JoinOperation):
         left_sql = _generate_source(source.left)
         right_sql = _generate_source(source.right)
+        
+        left_table_alias = source.left_alias if hasattr(source, 'left_alias') and source.left_alias else None
+        right_table_alias = source.right_alias if hasattr(source, 'right_alias') and source.right_alias else None
+        
+        if isinstance(source.left, TableReference) and not source.left.alias and left_table_alias:
+            left_sql = f"{left_sql} {left_table_alias}"
+            source.left.alias = left_table_alias
+        
+        if isinstance(source.right, TableReference) and not source.right.alias and right_table_alias:
+            right_sql = f"{right_sql} {right_table_alias}"
+            source.right.alias = right_table_alias
         
         join_type_sql = source.join_type.value
         

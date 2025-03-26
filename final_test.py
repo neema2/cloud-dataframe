@@ -7,7 +7,7 @@ from cloud_dataframe.type_system.column import col, literal, as_column, count, a
 def main():
     """Run a complete test of SQL generation."""
     # Create a base DataFrame with a source table
-    df = DataFrame.from_("employees")
+    df = DataFrame.from_("employees", alias="x")
     
     # Apply filter
     filtered_df = df.filter(

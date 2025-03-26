@@ -96,6 +96,8 @@ class JoinOperation(DataSource):
     right: DataSource
     join_type: JoinType
     condition: FilterCondition
+    left_alias: Optional[str] = None
+    right_alias: Optional[str] = None
 
 
 @dataclass
@@ -217,11 +219,14 @@ class DataFrame:
         Args:
             table_name: The name of the table
             schema: Optional schema name
-            alias: Optional table alias
+            alias: Optional table alias. If not provided, table_name will be used as the alias.
             
         Returns:
             A new DataFrame instance
         """
+        if alias is None:
+            alias = "x"  # Use 'x' as the default table alias for single-table operations
+            
         df = cls()
         df.source = TableReference(table_name=table_name, schema=schema, alias=alias)
         
@@ -247,6 +252,9 @@ class DataFrame:
         Returns:
             A new DataFrame instance with type information
         """
+        if alias is None:
+            alias = "x"  # Use 'x' as the default table alias for single-table operations
+            
         df = cls()
         df.source = TableReference(
             table_name=table_name, 
@@ -573,6 +581,11 @@ class DataFrame:
         else:
             raise TypeError("Right side of join must be a DataFrame or TableReference")
         
+        import inspect
+        lambda_params = list(inspect.signature(condition).parameters.keys())
+        left_alias = lambda_params[0] if len(lambda_params) > 0 else None
+        right_alias = lambda_params[1] if len(lambda_params) > 1 else None
+        
         # Convert lambda to join condition
         join_condition = self._lambda_to_join_condition(condition)
         
@@ -581,7 +594,9 @@ class DataFrame:
             left=self.source,
             right=right_source,
             join_type=join_type,
-            condition=join_condition
+            condition=join_condition,
+            left_alias=left_alias,
+            right_alias=right_alias
         )
         
         # Combine columns from both sides
