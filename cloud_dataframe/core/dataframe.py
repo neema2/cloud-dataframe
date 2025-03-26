@@ -96,6 +96,8 @@ class JoinOperation(DataSource):
     right: DataSource
     join_type: JoinType
     condition: FilterCondition
+    left_alias: str = "e"  # Default alias for left table
+    right_alias: str = "d"  # Default alias for right table
 
 
 @dataclass

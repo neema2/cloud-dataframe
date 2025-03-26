@@ -41,6 +41,19 @@ class ColumnReference(Expression):
     """Reference to a column in a table."""
     name: str
     table_alias: Optional[str] = None
+    column_alias: Optional[str] = None
+    
+    def alias(self, alias_name: str) -> 'ColumnReference':
+        """
+        Set an alias for this column reference.
+        
+        Args:
+            alias_name: The alias to use for this column
+            
+        Returns:
+            A new ColumnReference with the specified alias
+        """
+        return ColumnReference(name=self.name, table_alias=self.table_alias, column_alias=alias_name)
 
 
 @dataclass

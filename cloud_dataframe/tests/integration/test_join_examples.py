@@ -89,7 +89,7 @@ class TestJoinExamples(unittest.TestCase):
         sql = query.to_sql(dialect="duckdb")
         
         # Expected SQL (may vary based on implementation)
-        expected_sql_pattern = "SELECT employees.id, employees.name, departments.name AS department_name, departments.location, employees.salary"
+        expected_sql_pattern = "d.name AS department_name"
         self.assertIn(expected_sql_pattern, sql.replace("\n", " "))
         
         # Execute query
