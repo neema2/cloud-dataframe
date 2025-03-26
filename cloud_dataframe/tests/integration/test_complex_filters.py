@@ -138,7 +138,7 @@ class TestComplexFilterConditions(unittest.TestCase):
         )
         
         sql = df.to_sql(dialect="duckdb")
-        expected_sql = "SELECT *\nFROM employees x\nWHERE (x.department = 'Engineering' AND x.salary > 80000) OR (x.department = 'Sales' AND x.salary > 60000) OR (x.is_manager = TRUE AND x.age > 40)"
+        expected_sql = "SELECT *\nFROM employees x\nWHERE (department = 'Engineering' AND salary > 80000) OR (department = 'Sales' AND salary > 60000) OR (is_manager = TRUE AND age > 40)"
         self.assertEqual(sql.strip(), expected_sql)
     
     def test_chained_filters(self):
@@ -149,7 +149,7 @@ class TestComplexFilterConditions(unittest.TestCase):
             .filter(lambda x: x.age > 30)
         
         sql = df.to_sql(dialect="duckdb")
-        expected_sql = "SELECT *\nFROM employees x\nWHERE x.salary > 50000 AND x.department = 'Engineering' AND x.age > 30"
+        expected_sql = "SELECT *\nFROM employees x\nWHERE salary > 50000 AND department = 'Engineering' AND age > 30"
         self.assertEqual(sql.strip(), expected_sql)
 
 

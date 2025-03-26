@@ -108,7 +108,7 @@ class TestNestedFunctions(unittest.TestCase):
         
         # Check the SQL generation
         sql = df.to_sql(dialect="duckdb")
-        expected_sql = "SELECT x.name, x.department, DATEDIFF('day', CAST(x.start_date AS DATE), CAST(x.end_date AS DATE)) AS days_employed\nFROM employees x"
+        expected_sql = "SELECT x.name, x.department, DATEDIFF('day', CAST(start_date AS DATE), CAST(end_date AS DATE)) AS days_employed\nFROM employees x"
         self.assertEqual(sql.strip(), expected_sql.strip())
     
     def test_scalar_function_in_filter(self):

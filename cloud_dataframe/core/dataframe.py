@@ -395,7 +395,19 @@ class DataFrame:
                 table_schema = None
                 if isinstance(self.source, TableReference):
                     table_schema = self.source.table_schema
-                expr = LambdaParser.parse_lambda(clause, table_schema)
+                
+                table_alias = None
+                if isinstance(self.source, JoinOperation):
+                    import inspect
+                    lambda_params = list(inspect.signature(clause).parameters.keys())
+                    param_name = lambda_params[0] if lambda_params else None
+                    
+                    if param_name == self.source.left_alias:
+                        table_alias = self.source.left_alias
+                    elif param_name == self.source.right_alias:
+                        table_alias = self.source.right_alias
+                
+                expr = LambdaParser.parse_lambda(clause, table_schema, table_alias)
                 if isinstance(expr, list):
                     # Handle array returns from lambda functions
                     # Track columns we've already added to avoid duplicates

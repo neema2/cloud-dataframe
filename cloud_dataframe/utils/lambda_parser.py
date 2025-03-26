@@ -16,7 +16,7 @@ from ..type_system.column import (
 from ..core.dataframe import BinaryOperation
 
 
-def parse_lambda(lambda_func: Callable, table_schema=None) -> Union[Expression, List[Union[Expression, Tuple[Expression, Any]]]]:
+def parse_lambda(lambda_func: Callable, table_schema=None, table_alias=None) -> Union[Expression, List[Union[Expression, Tuple[Expression, Any]]]]:
     """
     Parse a lambda function and convert it to an Expression or list of Expressions.
     
@@ -27,12 +27,13 @@ def parse_lambda(lambda_func: Callable, table_schema=None) -> Union[Expression, 
             - A lambda that returns an array of column references (e.g., lambda x: [x.name, x.age])
             - A lambda that returns tuples with sort direction (e.g., lambda x: [(x.department, Sort.DESC)])
         table_schema: Optional schema for type checking
+        table_alias: Optional table alias to use for column references
         
     Returns:
         An Expression or list of Expressions representing the lambda function,
         or list containing tuples of (Expression, sort_direction) for order_by clauses
     """
-    return LambdaParser.parse_lambda(lambda_func, table_schema)
+    return LambdaParser.parse_lambda(lambda_func, table_schema, table_alias)
 
 
 class LambdaParser:
@@ -44,7 +45,7 @@ class LambdaParser:
     """
     
     @staticmethod
-    def parse_lambda(lambda_func: Callable, table_schema=None) -> Union[Expression, List[Union[Expression, Tuple[Expression, Any]]]]:
+    def parse_lambda(lambda_func: Callable, table_schema=None, table_alias=None) -> Union[Expression, List[Union[Expression, Tuple[Expression, Any]]]]:
         """
         Parse a lambda function and convert it to an Expression or list of Expressions.
         
@@ -55,6 +56,7 @@ class LambdaParser:
                 - A lambda that returns an array of column references (e.g., lambda x: [x.name, x.age])
                 - A lambda that returns tuples with sort direction (e.g., lambda x: [(x.department, Sort.DESC)])
             table_schema: Optional schema for type checking
+            table_alias: Optional table alias to use for column references
             
         Returns:
             An Expression or list of Expressions representing the lambda function,
@@ -86,15 +88,15 @@ class LambdaParser:
             # Instead, we'll use a simpler approach for handling complex boolean operations
             
             # Parse the lambda body
-            result = LambdaParser._parse_expression(lambda_node.body, lambda_node.args.args, table_schema)
+            result = LambdaParser._parse_expression(lambda_node.body, lambda_node.args.args, table_schema, table_alias)
             return result
         except (SyntaxError, AttributeError):
             # Alternative approach for complex lambdas or when source extraction fails
             # Use the lambda's __code__ object directly
-            return LambdaParser._parse_lambda_directly(lambda_func, table_schema)
+            return LambdaParser._parse_lambda_directly(lambda_func, table_schema, table_alias)
     
     @staticmethod
-    def _parse_lambda_directly(lambda_func: Callable, table_schema=None) -> Expression:
+    def _parse_lambda_directly(lambda_func: Callable, table_schema=None, table_alias=None) -> Expression:
         """
         Parse a lambda function directly by evaluating it with test values.
         This is a fallback method when AST parsing fails.
@@ -211,7 +213,7 @@ class LambdaParser:
                     col_name = source.split("lambda x: x.")[1].strip()
                     # Remove any trailing characters like parentheses or whitespace
                     col_name = col_name.split()[0].rstrip(")")
-                    return ColumnReference(name=col_name)
+                    return ColumnReference(name=col_name, table_alias=table_alias)
                 else:
                     # Fallback to a default column reference
                     return ColumnReference(name="salary")
@@ -225,7 +227,7 @@ class LambdaParser:
                 )
     
     @staticmethod
-    def _parse_expression(node: ast.AST, args: List[ast.arg], table_schema=None) -> Union[Expression, List[Union[Expression, Tuple[Expression, Any]]]]:
+    def _parse_expression(node: ast.AST, args: List[ast.arg], table_schema=None, table_alias=None) -> Union[Expression, List[Union[Expression, Tuple[Expression, Any]]]]:
         """
         Parse an AST node and convert it to an Expression or list of Expressions.
         
@@ -233,6 +235,7 @@ class LambdaParser:
             node: The AST node to parse
             args: The lambda function arguments
             table_schema: Optional schema for type checking
+            table_alias: Optional table alias to use for column references
             
         Returns:
             An Expression or list of Expressions representing the AST node,
@@ -241,12 +244,12 @@ class LambdaParser:
         # Handle different types of AST nodes
         if isinstance(node, ast.Compare):
             # Handle comparison operations (e.g., x > 5, y == 'value')
-            left = LambdaParser._parse_expression(node.left, args, table_schema)
+            left = LambdaParser._parse_expression(node.left, args, table_schema, table_alias)
             
             # We only handle the first comparator for simplicity
             # In a real implementation, we would handle multiple comparators
             op = node.ops[0]
-            right = LambdaParser._parse_expression(node.comparators[0], args, table_schema)
+            right = LambdaParser._parse_expression(node.comparators[0], args, table_schema, table_alias)
             
             operator = LambdaParser._get_comparison_operator(op)
             
@@ -260,8 +263,8 @@ class LambdaParser:
         
         elif isinstance(node, ast.BinOp):
             # Handle binary operations (e.g., x + y, x - y, x * y)
-            left = LambdaParser._parse_expression(node.left, args, table_schema)
-            right = LambdaParser._parse_expression(node.right, args, table_schema)
+            left = LambdaParser._parse_expression(node.left, args, table_schema, table_alias)
+            right = LambdaParser._parse_expression(node.right, args, table_schema, table_alias)
             
             # Map Python operators to SQL operators
             op_map = {
@@ -287,7 +290,7 @@ class LambdaParser:
             
         elif isinstance(node, ast.BoolOp):
             # Handle boolean operations (e.g., x and y, x or y)
-            values = [LambdaParser._parse_expression(val, args, table_schema) for val in node.values]
+            values = [LambdaParser._parse_expression(val, args, table_schema, table_alias) for val in node.values]
             
             # Combine the values with the appropriate operator
             operator = "AND" if isinstance(node.op, ast.And) else "OR"
@@ -324,13 +327,15 @@ class LambdaParser:
         
         elif isinstance(node, ast.Attribute):
             if isinstance(node.value, ast.Name):
-                table_alias = node.value.id
+                node_table_alias = node.value.id
+                if table_alias is not None and args and node.value.id == args[0].arg:
+                    node_table_alias = table_alias
                 
                 # If table_schema is provided, validate the column name
                 if table_schema and not table_schema.validate_column(node.attr):
                     raise ValueError(f"Column '{node.attr}' not found in table schema '{table_schema.name}'")
                 
-                return ColumnReference(name=node.attr, table_alias=table_alias)
+                return ColumnReference(name=node.attr, table_alias=node_table_alias)
             elif isinstance(node.value, ast.Attribute) and node.attr == "alias":
                 return node
             elif isinstance(node.value, ast.Attribute) and isinstance(node.value.value, ast.Name):
@@ -364,7 +369,7 @@ class LambdaParser:
         
         elif isinstance(node, ast.UnaryOp):
             # Handle unary operations (e.g., not x)
-            operand = LambdaParser._parse_expression(node.operand, args, table_schema)
+            operand = LambdaParser._parse_expression(node.operand, args, table_schema, table_alias)
             
             # Ensure operand is an Expression object, not a list or tuple
             if isinstance(operand, list) or isinstance(operand, tuple):
@@ -417,7 +422,7 @@ class LambdaParser:
                 # Parse the arguments to the function
                 args_list = []
                 for arg in node.args:
-                    parsed_arg = LambdaParser._parse_expression(arg, args, table_schema)
+                    parsed_arg = LambdaParser._parse_expression(arg, args, table_schema, table_alias)
                     args_list.append(parsed_arg)
                 
                 # Handle keyword arguments
@@ -479,7 +484,7 @@ class LambdaParser:
             elif isinstance(node.func, ast.Attribute) and node.func.attr == "alias" and len(node.args) == 1:
                 if isinstance(node.args[0], ast.Constant):
                     alias_name = node.args[0].value
-                    col_ref = LambdaParser._parse_expression(node.func.value, args, table_schema)
+                    col_ref = LambdaParser._parse_expression(node.func.value, args, table_schema, table_alias)
                     if isinstance(col_ref, ColumnReference):
                         return col_ref.alias(alias_name)
                     else:
@@ -506,7 +511,7 @@ class LambdaParser:
                 # Parse the arguments to the function
                 args_list = []
                 for arg in node.args:
-                    parsed_arg = LambdaParser._parse_expression(arg, args, table_schema)
+                    parsed_arg = LambdaParser._parse_expression(arg, args, table_schema, table_alias)
                     args_list.append(parsed_arg)
                 
                 # Create a function expression with the attribute name as the function name
@@ -522,9 +527,9 @@ class LambdaParser:
         elif isinstance(node, ast.IfExp):
             # Handle conditional expressions (e.g., x if y else z)
             # In a real implementation, we would handle this more robustly
-            test = LambdaParser._parse_expression(node.test, args, table_schema)
-            body = LambdaParser._parse_expression(node.body, args, table_schema)
-            orelse = LambdaParser._parse_expression(node.orelse, args, table_schema)
+            test = LambdaParser._parse_expression(node.test, args, table_schema, table_alias)
+            body = LambdaParser._parse_expression(node.body, args, table_schema, table_alias)
+            orelse = LambdaParser._parse_expression(node.orelse, args, table_schema, table_alias)
             
             # Ensure all values are Expression objects, not lists or tuples
             if isinstance(test, list) or isinstance(test, tuple):
@@ -558,7 +563,7 @@ class LambdaParser:
             for elt in node.elts:
                 if isinstance(elt, ast.Tuple) and len(elt.elts) == 2:
                     # This is a tuple of (column, sort_direction)
-                    col_expr = LambdaParser._parse_expression(elt.elts[0], args, table_schema)
+                    col_expr = LambdaParser._parse_expression(elt.elts[0], args, table_schema, table_alias)
                     
                     # Import needed classes
                     from ..type_system.column import LiteralExpression
@@ -577,7 +582,7 @@ class LambdaParser:
                         elements.append((col_expr, sort_direction))
                     else:
                         try:
-                            sort_dir = LambdaParser._parse_expression(elt.elts[1], args, table_schema)
+                            sort_dir = LambdaParser._parse_expression(elt.elts[1], args, table_schema, table_alias)
                             elements.append((col_expr, sort_dir))
                         except ValueError:
                             if isinstance(elt.elts[1], ast.Attribute) and elt.elts[1].attr in ('desc', 'asc'):
@@ -586,7 +591,7 @@ class LambdaParser:
                             else:
                                 elements.append((col_expr, Sort.ASC))
                 else:
-                    elements.append(LambdaParser._parse_expression(elt, args, table_schema))
+                    elements.append(LambdaParser._parse_expression(elt, args, table_schema, table_alias))
             return elements
         
         elif isinstance(node, ast.Dict):
@@ -650,14 +655,21 @@ class LambdaParser:
             # We can't add parent references directly due to type checking issues
             # Instead, we'll use a simpler approach for handling complex boolean operations
             
-            # Parse the lambda body
-            return LambdaParser._parse_join_expression(lambda_node.body, lambda_node.args.args, table_schema)
+            left_alias = lambda_node.args.args[0].arg
+            right_alias = lambda_node.args.args[1].arg
+            
+            table_aliases = {
+                lambda_node.args.args[0].arg: left_alias,
+                lambda_node.args.args[1].arg: right_alias
+            }
+            
+            return LambdaParser._parse_join_expression(lambda_node.body, lambda_node.args.args, table_schema, table_aliases)
         except (SyntaxError, AttributeError) as e:
             # Alternative approach for complex lambdas or when source extraction fails
             raise ValueError(f"Failed to parse join lambda: {e}")
     
     @staticmethod
-    def _parse_join_expression(node: ast.AST, args: List[ast.arg], table_schema=None) -> Expression:
+    def _parse_join_expression(node: ast.AST, args: List[ast.arg], table_schema=None, table_aliases=None) -> Expression:
         """
         Parse a join expression AST node and convert it to an Expression.
         
@@ -665,6 +677,7 @@ class LambdaParser:
             node: The AST node to parse
             args: The lambda function arguments (left table, right table)
             table_schema: Optional schema for type checking
+            table_aliases: Dictionary mapping lambda parameter names to table aliases
             
         Returns:
             An Expression representing the AST node
@@ -672,11 +685,11 @@ class LambdaParser:
         # Handle different types of AST nodes
         if isinstance(node, ast.Compare):
             # Handle comparison operations (e.g., x.col1 == y.col2)
-            left = LambdaParser._parse_join_expression(node.left, args, table_schema)
+            left = LambdaParser._parse_join_expression(node.left, args, table_schema, table_aliases)
             
             # We only handle the first comparator for simplicity
             op = node.ops[0]
-            right = LambdaParser._parse_join_expression(node.comparators[0], args, table_schema)
+            right = LambdaParser._parse_join_expression(node.comparators[0], args, table_schema, table_aliases)
             
             operator = LambdaParser._get_comparison_operator(op)
             
@@ -684,7 +697,7 @@ class LambdaParser:
         
         elif isinstance(node, ast.BoolOp):
             # Handle boolean operations (e.g., x.col1 == y.col2 and x.col3 > y.col4)
-            values = [LambdaParser._parse_join_expression(val, args, table_schema) for val in node.values]
+            values = [LambdaParser._parse_join_expression(val, args, table_schema, table_aliases) for val in node.values]
             
             # Combine the values with the appropriate operator
             operator = "AND" if isinstance(node.op, ast.And) else "OR"
@@ -700,13 +713,19 @@ class LambdaParser:
         
         elif isinstance(node, ast.Attribute):
             if isinstance(node.value, ast.Name):
-                table_alias = node.value.id
+                param_name = node.value.id
+                node_table_alias = param_name
+                
+                if isinstance(table_aliases, dict) and param_name in table_aliases:
+                    node_table_alias = table_aliases[param_name]
+                elif isinstance(table_aliases, str) and args and param_name == args[0].arg:
+                    node_table_alias = table_aliases
                 
                 # If table_schema is provided, validate the column name
                 if table_schema and not table_schema.validate_column(node.attr):
                     raise ValueError(f"Column '{node.attr}' not found in table schema '{table_schema.name}'")
                 
-                return ColumnReference(name=node.attr, table_alias=table_alias)
+                return ColumnReference(name=node.attr, table_alias=node_table_alias)
             elif isinstance(node.value, ast.Attribute) and isinstance(node.value.value, ast.Name):
                 table_name = node.value.attr
                 column_name = node.attr
@@ -726,7 +745,10 @@ class LambdaParser:
             # Handle variable names
             if node.id in [arg.arg for arg in args]:
                 # This is one of the lambda parameters
-                return ColumnReference(name="*", table_alias=node.id)
+                param_alias = node.id
+                if isinstance(table_aliases, dict) and node.id in table_aliases:
+                    param_alias = table_aliases[node.id]
+                return ColumnReference(name="*", table_alias=param_alias)
             elif node.id == "True":
                 from ..type_system.column import LiteralExpression
                 return LiteralExpression(value=True)

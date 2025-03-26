@@ -253,20 +253,20 @@ def _generate_column(col: Union[Column, ColumnReference, Expression], df: Option
         The generated SQL string for the column
     """
     if isinstance(col, Column):
-        expr_sql = _generate_expression(col.expression)
+        expr_sql = _generate_expression(col.expression, df)
         
         if col.alias:
             return f"{expr_sql} AS {col.alias}"
         else:
             return expr_sql
     elif isinstance(col, ColumnReference) or isinstance(col, Expression):
-        return _generate_expression(col)
+        return _generate_expression(col, df)
     else:
         # For other types, convert to string
         return str(col)
 
 
-def _generate_expression(expr: Any) -> str:
+def _generate_expression(expr: Any, df=None) -> str:
     """
     Generate SQL for an expression.
     
@@ -283,10 +283,16 @@ def _generate_expression(expr: Any) -> str:
             
         source_alias = expr.table_alias
         
-        if not source_alias:
-            source_alias = "x"
-            
-        column_ref = f"{source_alias}.{expr.name}"
+        default_alias = None
+        if df and hasattr(df, 'source') and hasattr(df.source, 'alias'):
+            default_alias = df.source.alias
+        
+        if source_alias:
+            column_ref = f"{source_alias}.{expr.name}"
+        elif default_alias:
+            column_ref = f"{default_alias}.{expr.name}"
+        else:
+            column_ref = expr.name
         
         if hasattr(expr, 'column_alias') and expr.column_alias:
             return f"{column_ref} AS {expr.column_alias}"
@@ -358,7 +364,18 @@ def _generate_aggregate_function(func: AggregateFunction) -> str:
         return "COUNT(1)"
     
     # Process parameters (handles expressions like x.col1 - x.col2)
-    params_sql = ", ".join(_generate_expression(param) for param in func.parameters)
+    params = []
+    for param in func.parameters:
+        if isinstance(param, ColumnReference) and param.column_alias:
+            params.append(_generate_expression(ColumnReference(
+                name=param.name,
+                table_alias=param.table_alias,
+                table_name=param.table_name
+            )))
+        else:
+            params.append(_generate_expression(param))
+    
+    params_sql = ", ".join(params)
     
     # Handle DISTINCT for COUNT
     if isinstance(func, CountFunction) and func.distinct:
@@ -565,7 +582,7 @@ def _generate_where(df: DataFrame) -> str:
     if not df.filter_condition:
         return ""
     
-    condition_sql = _generate_expression(df.filter_condition)
+    condition_sql = _generate_expression(df.filter_condition, df)
     return f"WHERE {condition_sql}"
 
 
@@ -584,7 +601,7 @@ def _generate_group_by(df: DataFrame) -> str:
         
     group_by_cols = []
     for col in df.group_by_clauses:
-        col_sql = _generate_expression(col)
+        col_sql = _generate_expression(col, df)
         group_by_cols.append(col_sql)
     
     return f"GROUP BY {', '.join(group_by_cols)}"
@@ -628,7 +645,7 @@ def _generate_order_by(df: DataFrame) -> str:
     
     for clause in df.order_by_clauses:
         if isinstance(clause, OrderByClause):
-            expr_sql = _generate_expression(clause.expression)
+            expr_sql = _generate_expression(clause.expression, df)
             
             # Handle both Sort enum and string values
             if hasattr(clause.direction, 'value'):
@@ -639,7 +656,7 @@ def _generate_order_by(df: DataFrame) -> str:
             order_by_parts.append(f"{expr_sql} {direction_sql}")
         else:
             # For backward compatibility with non-OrderByClause objects
-            order_by_parts.append(_generate_expression(clause))
+            order_by_parts.append(_generate_expression(clause, df))
     
     # Join the order by parts with commas
     # Check if there's a trailing comma issue in the SQL
