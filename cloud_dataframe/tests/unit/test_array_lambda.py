@@ -42,7 +42,7 @@ class TestArrayLambda(unittest.TestCase):
         
         # Check the SQL generation
         sql = selected_df.to_sql(dialect="duckdb")
-        expected_sql = "SELECT name, department, salary\nFROM employees"
+        expected_sql = "SELECT x.name, x.department, x.salary\nFROM employees x"
         self.assertEqual(sql.strip(), expected_sql.strip())
     
     def test_group_by_with_array_lambda(self):
@@ -56,7 +56,7 @@ class TestArrayLambda(unittest.TestCase):
         
         # Check the SQL generation
         sql = grouped_df.to_sql(dialect="duckdb")
-        expected_sql = "SELECT department, location, AVG(salary) AS avg_salary\nFROM employees\nGROUP BY department"
+        expected_sql = "SELECT x.department, x.location, AVG(x.salary) AS avg_salary\nFROM employees x\nGROUP BY x.department"
         self.assertEqual(sql.strip(), expected_sql.strip())
     
     def test_order_by_with_array_lambda(self):
@@ -66,7 +66,7 @@ class TestArrayLambda(unittest.TestCase):
         
         # Check the SQL generation
         sql = ordered_df.to_sql(dialect="duckdb")
-        expected_sql = "SELECT *\nFROM employees\nORDER BY department DESC, salary DESC"
+        expected_sql = "SELECT *\nFROM employees x\nORDER BY x.department DESC, x.salary DESC"
         self.assertEqual(sql.strip(), expected_sql.strip())
     
     def test_mixed_array_and_single_lambdas(self):
@@ -79,7 +79,7 @@ class TestArrayLambda(unittest.TestCase):
         
         # Check the SQL generation
         sql = selected_df.to_sql(dialect="duckdb")
-        expected_sql = "SELECT name, department, salary\nFROM employees"
+        expected_sql = "SELECT x.name, x.department, x.salary\nFROM employees x"
         self.assertEqual(sql.strip(), expected_sql.strip())
         
         # Test mixing array and single lambdas in group_by
@@ -95,7 +95,7 @@ class TestArrayLambda(unittest.TestCase):
         
         # Check the SQL generation
         sql = grouped_df.to_sql(dialect="duckdb")
-        expected_sql = "SELECT department, location, is_manager, AVG(salary) AS avg_salary\nFROM employees\nGROUP BY department, location, is_manager"
+        expected_sql = "SELECT x.department, x.location, x.is_manager, AVG(x.salary) AS avg_salary\nFROM employees x\nGROUP BY x.department, x.location, x.is_manager"
         self.assertEqual(sql.strip(), expected_sql.strip())
         
         # Test mixing array and single lambdas in order_by

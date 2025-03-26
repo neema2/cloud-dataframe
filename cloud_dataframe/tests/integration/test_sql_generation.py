@@ -55,7 +55,7 @@ class TestDuckDBSQLGeneration(unittest.TestCase):
         )
         
         sql = df.to_sql(dialect="duckdb")
-        expected_sql = "SELECT id AS id, name AS name\nFROM employees x"
+        expected_sql = "SELECT x.id AS id, x.name AS name\nFROM employees x"
         self.assertEqual(sql.strip(), expected_sql)
     
     def test_filter(self):
@@ -79,7 +79,7 @@ class TestDuckDBSQLGeneration(unittest.TestCase):
             )
         
         sql = df.to_sql(dialect="duckdb")
-        expected_sql = "SELECT x.department, COUNT(x.id) AS employee_count, AVG(x.salary) AS avg_salary\nFROM employees x\nGROUP BY department"
+        expected_sql = "SELECT x.department, COUNT(x.id) AS employee_count, AVG(x.salary) AS avg_salary\nFROM employees x\nGROUP BY x.department"
         self.assertEqual(sql.strip(), expected_sql)
     
     def test_order_by(self):
@@ -88,7 +88,7 @@ class TestDuckDBSQLGeneration(unittest.TestCase):
             .order_by(lambda x: x.salary, desc=True)
         
         sql = df.to_sql(dialect="duckdb")
-        expected_sql = "SELECT *\nFROM employees x\nORDER BY salary DESC"
+        expected_sql = "SELECT *\nFROM employees x\nORDER BY x.salary DESC"
         self.assertEqual(sql.strip(), expected_sql)
     
     def test_limit_offset(self):
@@ -110,7 +110,7 @@ class TestDuckDBSQLGeneration(unittest.TestCase):
             )
         
         sql = df.to_sql(dialect="duckdb")
-        expected_sql = "SELECT DISTINCT department AS department\nFROM employees x"
+        expected_sql = "SELECT DISTINCT x.department AS department\nFROM employees x"
         self.assertEqual(sql.strip(), expected_sql)
     
     def test_join(self):
@@ -183,7 +183,7 @@ class TestDuckDBSQLGeneration(unittest.TestCase):
         )
         
         sql = filtered_df.to_sql(dialect="duckdb")
-        expected_sql = "SELECT *\nFROM employees e\nWHERE x.salary > 50000"
+        expected_sql = "SELECT *\nFROM employees e\nWHERE e.salary > 50000"
         self.assertEqual(sql.strip(), expected_sql)
 
 

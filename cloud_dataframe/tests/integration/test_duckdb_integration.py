@@ -162,7 +162,7 @@ class TestDuckDBIntegration(unittest.TestCase):
         joined_df = employees.left_join(
             departments,
             lambda e, d: e.department_id == d.id
-        ).order_by(lambda x: x.salary, desc=True)
+        ).order_by(lambda e: e.salary, desc=True)
         
         sql = joined_df.to_sql(dialect="duckdb")
         result = self.conn.execute(sql).fetchall()

@@ -206,8 +206,8 @@ class TestSqlGenerationDuckDB(unittest.TestCase):
         expected_sql = sql.strip()
         self.assertIn("SELECT x.department, COUNT(x.id) AS employee_count, AVG(x.salary) AS avg_salary", sql)
         self.assertIn("FROM employees x", sql)
-        self.assertIn("WHERE salary", sql)
-        self.assertIn("GROUP BY department", sql)
+        self.assertIn("WHERE x.salary", sql)
+        self.assertIn("GROUP BY x.department", sql)
         
         # Execute query and verify results
         result = self.conn.execute(sql).fetchall()

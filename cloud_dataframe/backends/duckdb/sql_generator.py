@@ -281,10 +281,12 @@ def _generate_expression(expr: Any) -> str:
         if expr.name == "*":
             return expr.name
             
-        if expr.table_alias:
-            column_ref = f"{expr.table_alias}.{expr.name}"
-        else:
-            column_ref = expr.name
+        source_alias = expr.table_alias
+        
+        if not source_alias:
+            source_alias = "x"
+            
+        column_ref = f"{source_alias}.{expr.name}"
         
         if hasattr(expr, 'column_alias') and expr.column_alias:
             return f"{column_ref} AS {expr.column_alias}"
@@ -458,14 +460,21 @@ def _generate_function(func: FunctionExpression) -> str:
             # Use stored column names if available
             params_sql = ", ".join(func.column_names)
         elif not func.parameters or "*" in str(func.parameters):
-            # Use start_date and end_date as defaults for date_diff
-            params_sql = "start_date, end_date"
+            if func.parameters and hasattr(func.parameters[0], 'table_alias') and func.parameters[0].table_alias:
+                table_alias = func.parameters[0].table_alias
+                params_sql = f"{table_alias}.start_date, {table_alias}.end_date"
+            else:
+                params_sql = "start_date, end_date"
         else:
             # Normal case: generate SQL for each parameter
             params_sql = ", ".join(_generate_expression(param) for param in func.parameters)
         
         # Add 'day' as the first parameter and cast date columns for DuckDB
-        params_sql = f"'day', CAST({params_sql.split(',')[0].strip()} AS DATE), CAST({params_sql.split(',')[1].strip()} AS DATE)"
+        date_parts = params_sql.split(',')
+        start_date = date_parts[0].strip()
+        end_date = date_parts[1].strip()
+        
+        params_sql = f"'day', CAST({start_date} AS DATE), CAST({end_date} AS DATE)"
     else:
         # Normal case for other functions
         params_sql = ", ".join(_generate_expression(param) for param in func.parameters)
@@ -620,6 +629,7 @@ def _generate_order_by(df: DataFrame) -> str:
     for clause in df.order_by_clauses:
         if isinstance(clause, OrderByClause):
             expr_sql = _generate_expression(clause.expression)
+            
             # Handle both Sort enum and string values
             if hasattr(clause.direction, 'value'):
                 direction_sql = clause.direction.value

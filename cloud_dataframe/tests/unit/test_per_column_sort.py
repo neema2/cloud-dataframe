@@ -48,7 +48,7 @@ class TestPerColumnSort(unittest.TestCase):
         
         # Check the SQL generation
         sql = ordered_df.to_sql(dialect="duckdb")
-        expected_sql = "SELECT *\nFROM employees\nORDER BY department DESC, salary ASC, name ASC"
+        expected_sql = "SELECT *\nFROM employees x\nORDER BY x.department DESC, x.salary ASC, x.name ASC"
         self.assertEqual(sql.strip(), expected_sql.strip())
     
     def test_mixed_sort_direction_specifications(self):
@@ -62,7 +62,7 @@ class TestPerColumnSort(unittest.TestCase):
         
         # Check the SQL generation
         sql = ordered_df.to_sql(dialect="duckdb")
-        expected_sql = "SELECT *\nFROM employees\nORDER BY department DESC, salary DESC"
+        expected_sql = "SELECT *\nFROM employees x\nORDER BY x.department DESC, x.salary DESC"
         self.assertEqual(sql.strip(), expected_sql.strip())
     
     def test_enum_sort_direction(self):
@@ -78,7 +78,7 @@ class TestPerColumnSort(unittest.TestCase):
         # Check the SQL generation
         # Note: The SQL generator will convert Sort enum to string values
         sql = ordered_df.to_sql(dialect="duckdb")
-        expected_sql = "SELECT *\nFROM employees\nORDER BY department DESC, salary ASC"
+        expected_sql = "SELECT *\nFROM employees x\nORDER BY x.department DESC, x.salary ASC"
         self.assertEqual(sql.strip(), expected_sql.strip())
     
     def test_window_function_with_per_column_sort(self):
@@ -104,7 +104,7 @@ class TestPerColumnSort(unittest.TestCase):
         
         # Check the SQL generation
         sql = df_with_rank.to_sql(dialect="duckdb")
-        expected_sql = "SELECT id, name, department, salary, DENSE_RANK() OVER (PARTITION BY department ORDER BY salary ASC, id ASC) AS salary_rank\nFROM employees"
+        expected_sql = "SELECT x.id, x.name, x.department, x.salary, DENSE_RANK() OVER (PARTITION BY x.department ORDER BY x.salary ASC, x.id ASC) AS salary_rank\nFROM employees x"
         self.assertEqual(sql.strip(), expected_sql.strip())
     
     def test_multiple_window_functions_with_per_column_sort(self):
@@ -135,7 +135,7 @@ class TestPerColumnSort(unittest.TestCase):
         
         # Check the SQL generation
         sql = df_with_ranks.to_sql(dialect="duckdb")
-        expected_sql = "SELECT id, name, department, salary, ROW_NUMBER() OVER (PARTITION BY department ORDER BY salary ASC) AS row_num, RANK() OVER (PARTITION BY department, location ORDER BY salary ASC, id ASC) AS rank\nFROM employees"
+        expected_sql = "SELECT x.id, x.name, x.department, x.salary, ROW_NUMBER() OVER (PARTITION BY x.department ORDER BY x.salary ASC) AS row_num, RANK() OVER (PARTITION BY x.department, x.location ORDER BY x.salary ASC, x.id ASC) AS rank\nFROM employees x"
         self.assertEqual(sql.strip(), expected_sql.strip())
 
 

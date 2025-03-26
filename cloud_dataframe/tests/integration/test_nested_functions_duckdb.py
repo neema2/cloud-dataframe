@@ -140,10 +140,10 @@ class TestNestedFunctionsDuckDB(unittest.TestCase):
         # Use a direct SQL query for now until we fix the SQL generator
         # This matches what our DSL should generate
         direct_sql = """
-        SELECT department, COUNT(1) AS employee_count
-        FROM employees
-        GROUP BY department
-        HAVING SUM(salary) > 100000
+        SELECT x.department, COUNT(1) AS employee_count
+        FROM employees x
+        GROUP BY x.department
+        HAVING SUM(x.salary) > 100000
         """
         result = self.conn.execute(direct_sql).fetchdf()
         

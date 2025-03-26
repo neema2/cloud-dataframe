@@ -76,7 +76,7 @@ class TestDataframeWithTypedProperties(unittest.TestCase):
         
         # Check the SQL generation
         sql = filtered_df.to_sql(dialect="duckdb")
-        expected_sql = "SELECT *\nFROM employees\nWHERE salary > 50000"
+        expected_sql = "SELECT *\nFROM employees x\nWHERE x.salary > 50000"
         self.assertEqual(sql.strip(), expected_sql.strip())
         
         # Test filter with multiple conditions
@@ -84,7 +84,7 @@ class TestDataframeWithTypedProperties(unittest.TestCase):
         
         # Check the SQL generation
         sql = filtered_df.to_sql(dialect="duckdb")
-        expected_sql = "SELECT *\nFROM employees\nWHERE salary > 50000 AND department = 'Engineering'"
+        expected_sql = "SELECT *\nFROM employees x\nWHERE x.salary > 50000 AND x.department = 'Engineering'"
         self.assertEqual(sql.strip(), expected_sql.strip())
     
     def test_select_with_typed_properties(self):
@@ -98,7 +98,7 @@ class TestDataframeWithTypedProperties(unittest.TestCase):
         
         # Check the SQL generation
         sql = selected_df.to_sql(dialect="duckdb")
-        expected_sql = "SELECT name, department, salary\nFROM employees"
+        expected_sql = "SELECT x.name, x.department, x.salary\nFROM employees x"
         self.assertEqual(sql.strip(), expected_sql.strip())
     
     def test_group_by_with_typed_properties(self):
@@ -111,7 +111,7 @@ class TestDataframeWithTypedProperties(unittest.TestCase):
         
         # Check the SQL generation
         sql = grouped_df.to_sql(dialect="duckdb")
-        expected_sql = "SELECT department, AVG(salary) AS avg_salary\nFROM employees\nGROUP BY department"
+        expected_sql = "SELECT x.department, AVG(x.salary) AS avg_salary\nFROM employees x\nGROUP BY x.department"
         self.assertEqual(sql.strip(), expected_sql.strip())
     
     def test_order_by_with_typed_properties(self):
@@ -121,7 +121,7 @@ class TestDataframeWithTypedProperties(unittest.TestCase):
         
         # Check the SQL generation
         sql = ordered_df.to_sql(dialect="duckdb")
-        expected_sql = "SELECT *\nFROM employees\nORDER BY salary DESC"
+        expected_sql = "SELECT *\nFROM employees x\nORDER BY x.salary DESC"
         self.assertEqual(sql.strip(), expected_sql.strip())
         
         # Test order_by with multiple columns
@@ -133,7 +133,7 @@ class TestDataframeWithTypedProperties(unittest.TestCase):
         
         # Check the SQL generation
         sql = ordered_df.to_sql(dialect="duckdb")
-        expected_sql = "SELECT *\nFROM employees\nORDER BY salary DESC, department DESC, salary DESC"
+        expected_sql = "SELECT *\nFROM employees x\nORDER BY x.salary DESC, x.department DESC, x.salary DESC"
         self.assertEqual(sql.strip(), expected_sql.strip())
     
     def test_get_table_class(self):
