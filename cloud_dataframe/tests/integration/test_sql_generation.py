@@ -179,7 +179,7 @@ class TestDuckDBSQLGeneration(unittest.TestCase):
         
         # Filter using the schema
         filtered_df = df.filter(
-            lambda x: x.salary > 50000
+            lambda e: e.salary > 50000
         )
         
         sql = filtered_df.to_sql(dialect="duckdb")
