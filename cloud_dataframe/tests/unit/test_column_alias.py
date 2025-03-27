@@ -39,7 +39,8 @@ class TestColumnAlias(unittest.TestCase):
         
         self.assertIsNotNone(expr)
         
-        sql = str(expr)
+        from cloud_dataframe.backends.duckdb.sql_generator import _generate_expression
+        sql = _generate_expression(expr)
         expected_sql = "e.id AS employee_id"
         self.assertEqual(sql, expected_sql)
     
@@ -52,8 +53,9 @@ class TestColumnAlias(unittest.TestCase):
         
         self.assertIsNotNone(expr)
         
-        sql = str(expr)
-        expected_sql = "e.salary * 1.1 AS salary_bonus"
+        from cloud_dataframe.backends.duckdb.sql_generator import _generate_expression
+        sql = _generate_expression(expr)
+        expected_sql = "(e.salary * 1.1) AS salary_bonus"
         self.assertEqual(sql, expected_sql)
     
     def test_function_call_alias(self):
@@ -65,7 +67,8 @@ class TestColumnAlias(unittest.TestCase):
         
         self.assertIsNotNone(expr)
         
-        sql = str(expr)
+        from cloud_dataframe.backends.duckdb.sql_generator import _generate_expression
+        sql = _generate_expression(expr)
         expected_sql = "SUM(e.salary) AS total_salary"
         self.assertEqual(sql, expected_sql)
     
@@ -79,7 +82,7 @@ class TestColumnAlias(unittest.TestCase):
         )
         
         sql = df.to_sql(dialect="duckdb")
-        expected_sql = "SELECT e.id AS employee_id, e.name AS employee_name, e.department AS department, e.salary * 12 AS annual_salary\nFROM employees e"
+        expected_sql = "SELECT e.id AS employee_id, e.name AS employee_name, e.department AS department, (e.salary * 12) AS annual_salary\nFROM employees e"
         self.assertEqual(sql.strip(), expected_sql)
 
 if __name__ == "__main__":
