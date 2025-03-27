@@ -103,6 +103,20 @@ class TestJoinWithLambda(unittest.TestCase):
         sql = joined_df.to_sql(dialect="duckdb")
         expected_sql = "SELECT *\nFROM employees e INNER JOIN departments d ON e.department_id = d.id AND e.salary > 50000"
         self.assertEqual(sql.strip(), expected_sql)
+    
+    def test_join_with_multiple_conditions(self):
+        """Test a join with multiple conditions using two lambda arguments."""
+        employees = DataFrame.from_("employees", alias="e")
+        departments = DataFrame.from_("departments", alias="d")
+        
+        joined_df = employees.join(
+            departments,
+            lambda e, d: (e.department_id == d.id) and (e.salary > 50000) and (d.location == "New York")
+        )
+        
+        sql = joined_df.to_sql(dialect="duckdb")
+        expected_sql = "SELECT *\nFROM employees e INNER JOIN departments d ON e.department_id = d.id AND e.salary > 50000 AND d.location = 'New York'"
+        self.assertEqual(sql.strip(), expected_sql)
 
 
 if __name__ == "__main__":
