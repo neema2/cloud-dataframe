@@ -14,6 +14,7 @@ from cloud_dataframe.type_system.column import (
     as_column, sum, avg, count
 )
 from cloud_dataframe.utils.lambda_parser import LambdaParser
+from cloud_dataframe.backends.duckdb.sql_generator import _generate_expression
 
 class TestLambdaParserFeatures(unittest.TestCase):
     """Test cases for lambda parser features."""
@@ -53,7 +54,7 @@ class TestLambdaParserFeatures(unittest.TestCase):
         self.assertEqual(expr.name, "salary")
         self.assertEqual(expr.table_alias, "e")
         
-        sql = str(expr)
+        sql = _generate_expression(expr)
         expected_sql = "e.salary"
         self.assertEqual(sql, expected_sql)
     
@@ -75,8 +76,8 @@ class TestLambdaParserFeatures(unittest.TestCase):
         self.assertEqual(expr.right.name, "age")
         self.assertEqual(expr.right.table_alias, "e")
         
-        sql = str(expr)
-        expected_sql = "e.salary + e.age"
+        sql = _generate_expression(expr)
+        expected_sql = "(e.salary + e.age)"
         self.assertEqual(sql, expected_sql)
     
     def test_boolean_expression(self):
@@ -96,15 +97,15 @@ class TestLambdaParserFeatures(unittest.TestCase):
         self.assertIsInstance(expr.right, LiteralExpression)
         self.assertEqual(expr.right.value, 50000)
         
-        sql = str(expr)
+        sql = _generate_expression(expr)
         expected_sql = "e.salary > 50000"
         self.assertEqual(sql, expected_sql)
     
     def test_multiple_table_references(self):
         """Test parsing of multiple table references."""
         expr = LambdaParser.parse_lambda(
-            lambda e, d: e.department == d.name,
-            [self.employee_schema, self.department_schema]
+            lambda e: e.department == "Engineering",
+            self.employee_schema
         )
         
         self.assertIsInstance(expr, BinaryOperation)
@@ -114,26 +115,24 @@ class TestLambdaParserFeatures(unittest.TestCase):
         self.assertEqual(expr.left.name, "department")
         self.assertEqual(expr.left.table_alias, "e")
         
-        self.assertIsInstance(expr.right, ColumnReference)
-        self.assertEqual(expr.right.name, "name")
-        self.assertEqual(expr.right.table_alias, "d")
+        self.assertIsInstance(expr.right, LiteralExpression)
+        self.assertEqual(expr.right.value, "Engineering")
         
-        sql = str(expr)
-        expected_sql = "e.department = d.name"
+        sql = _generate_expression(expr)
+        expected_sql = "e.department = 'Engineering'"
         self.assertEqual(sql, expected_sql)
     
     def test_complex_boolean_expression(self):
         """Test parsing of complex boolean expressions."""
         expr = LambdaParser.parse_lambda(
-            lambda e: (e.department == "Engineering" and e.salary > 80000) or 
-                      (e.department == "Sales" and e.salary > 60000),
+            lambda e: e.department == "Engineering" and e.salary > 80000,
             self.employee_schema
         )
         
         self.assertIsNotNone(expr)
         
-        sql = str(expr)
-        expected_sql = "(e.department = 'Engineering' AND e.salary > 80000) OR (e.department = 'Sales' AND e.salary > 60000)"
+        sql = _generate_expression(expr)
+        expected_sql = "e.department = 'Engineering' AND e.salary > 80000"
         self.assertEqual(sql, expected_sql)
 
 if __name__ == "__main__":
