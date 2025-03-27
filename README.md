@@ -33,7 +33,7 @@ pip install cloud-dataframe
 
 ```python
 from cloud_dataframe.core.dataframe import DataFrame
-from cloud_dataframe.type_system.column import col, literal, as_column, sum, avg, count
+from cloud_dataframe.type_system.column import sum, avg, count
 
 # Create a DataFrame from a table
 df = DataFrame.from_table("employees")
@@ -41,19 +41,19 @@ df = DataFrame.from_table("employees")
 # Filter rows
 filtered_df = df.filter(lambda x: x.salary > 50000)
 
-# Select specific columns
+# Select specific columns with walrus operator
 selected_df = DataFrame.select(
-    as_column(col("id"), "id"),
-    as_column(col("name"), "name"),
-    as_column(col("salary"), "salary")
+    id := df.id,
+    name := df.name,
+    salary := df.salary
 )
 
-# Group by and aggregate
+# Group by and aggregate with walrus operator
 summary_df = df.group_by_columns("department") \
     .select(
-        as_column(col("department"), "department"),
-        as_column(avg(lambda x: x.salary), "avg_salary"),
-        as_column(count(lambda x: x.id), "employee_count")
+        department := df.department,
+        avg_salary := lambda x: avg(x.salary),
+        employee_count := lambda x: count(x.id)
     )
 
 # Generate SQL for DuckDB
@@ -66,8 +66,9 @@ print(sql)
 ```python
 from dataclasses import dataclass
 from typing import Optional, int, str, float
-from cloud_dataframe.type_system.decorators import dataclass_to_schema, col
+from cloud_dataframe.type_system.decorators import dataclass_to_schema
 from cloud_dataframe.type_system.schema import TableSchema
+from cloud_dataframe.core.dataframe import DataFrame, Sort
 
 @dataclass_to_schema()
 class Employee:
@@ -80,12 +81,114 @@ class Employee:
 # Create a DataFrame with type information
 df = DataFrame.from_table_schema("employees", Employee.__table_schema__)
 
-# Type-safe column references
-dept_col = col("department")(Employee)
-salary_col = col("salary")(Employee)
-
-# Type-safe operations
+# Type-safe operations with walrus operator
 filtered_df = df.filter(lambda x: x.salary > 50000 and x.department == "Engineering")
+
+# Select with column aliases using walrus operator
+result_df = filtered_df.select(
+    employee_id := df.id,
+    employee_name := df.name,
+    dept := df.department,
+    annual_salary := lambda x: x.salary * 12
+)
+
+# Order by with multiple columns and sort directions
+ordered_df = result_df.order_by(lambda x: [
+    (x.dept, Sort.ASC),
+    (x.annual_salary, Sort.DESC)
+])
+```
+
+### Join Operations with Lambda Expressions
+
+```python
+from cloud_dataframe.core.dataframe import DataFrame
+
+# Create DataFrames for employees and departments
+employees = DataFrame.from_table("employees", alias="e")
+departments = DataFrame.from_table("departments", alias="d")
+
+# Simple join with single condition
+joined_df = employees.join(
+    departments,
+    lambda e, d: e.department_id == d.id
+)
+
+# Join with multiple conditions
+complex_join_df = employees.join(
+    departments,
+    lambda e, d: (e.department_id == d.id) and 
+                 (e.salary > 50000) and 
+                 (d.location == "New York")
+)
+
+# Left join with condition
+left_joined_df = employees.left_join(
+    departments,
+    lambda e, d: e.department_id == d.id
+)
+
+# Select columns from joined tables with walrus operator
+result_df = joined_df.select(
+    employee_id := employees.id,
+    employee_name := employees.name,
+    department_name := departments.name,
+    location := departments.location
+)
+```
+
+### Conditional Expressions
+
+```python
+from cloud_dataframe.core.dataframe import DataFrame
+
+df = DataFrame.from_table("employees")
+
+# Simple if-else with walrus operator
+result_df = df.select(
+    id := df.id,
+    name := df.name,
+    bonus_eligible := lambda x: x.salary > 50000
+)
+
+# CASE WHEN expression with calculations
+result_df = df.select(
+    id := df.id,
+    name := df.name,
+    salary := df.salary,
+    bonus := lambda x: x.salary * 1.2 if x.is_manager else x.salary * 1.1 if x.age > 40 else x.salary
+)
+```
+
+### Window Functions and Advanced Aggregations
+
+```python
+from cloud_dataframe.core.dataframe import DataFrame
+from cloud_dataframe.type_system.column import sum, avg, row_number, rank, dense_rank
+
+df = DataFrame.from_table("employees")
+
+# Window functions with PARTITION BY and ORDER BY
+result_df = df.select(
+    id := df.id,
+    name := df.name,
+    department := df.department,
+    salary := df.salary,
+    dept_rank := lambda x: rank().over(
+        partition_by=[x.department],
+        order_by=[(x.salary, "DESC")]
+    )
+)
+
+# Group by with multiple aggregations
+summary_df = df.group_by_columns("department", "location") \
+    .select(
+        department := df.department,
+        location := df.location,
+        avg_salary := lambda x: avg(x.salary),
+        total_salary := lambda x: sum(x.salary),
+        employee_count := lambda x: count(x.id)
+    )
 ```
 
 ### Extending with New Database Backends
