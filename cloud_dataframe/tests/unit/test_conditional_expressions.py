@@ -11,6 +11,7 @@ from cloud_dataframe.core.dataframe import DataFrame
 from cloud_dataframe.type_system.schema import TableSchema
 from cloud_dataframe.type_system.column import as_column, sum, avg, count
 from cloud_dataframe.utils.lambda_parser import LambdaParser
+from cloud_dataframe.backends.duckdb.sql_generator import _generate_expression
 
 class TestConditionalExpressions(unittest.TestCase):
     """Test cases for conditional expressions in lambda parser."""
@@ -38,8 +39,8 @@ class TestConditionalExpressions(unittest.TestCase):
         
         self.assertIsNotNone(expr)
         
-        sql = str(expr)
-        expected_sql = "CASE WHEN e.is_manager THEN e.salary ELSE e.salary * 0.8 END"
+        sql = _generate_expression(expr)
+        expected_sql = "CASE WHEN e.is_manager THEN e.salary ELSE (e.salary * 0.8) END"
         self.assertEqual(sql, expected_sql)
     
     def test_nested_if_else(self):
@@ -51,8 +52,8 @@ class TestConditionalExpressions(unittest.TestCase):
         
         self.assertIsNotNone(expr)
         
-        sql = str(expr)
-        expected_sql = "CASE WHEN e.is_manager THEN e.salary * 1.2 ELSE CASE WHEN e.age > 40 THEN e.salary * 1.1 ELSE e.salary END END"
+        sql = _generate_expression(expr)
+        expected_sql = "CASE WHEN e.is_manager THEN (e.salary * 1.2) ELSE CASE WHEN e.age > 40 THEN (e.salary * 1.1) ELSE e.salary END END"
         self.assertEqual(sql, expected_sql)
     
     def test_if_else_with_column_references(self):
@@ -64,7 +65,7 @@ class TestConditionalExpressions(unittest.TestCase):
         
         self.assertIsNotNone(expr)
         
-        sql = str(expr)
+        sql = _generate_expression(expr)
         expected_sql = "CASE WHEN e.salary > 50000 THEN e.department ELSE 'Other' END"
         self.assertEqual(sql, expected_sql)
     
@@ -77,8 +78,8 @@ class TestConditionalExpressions(unittest.TestCase):
         
         self.assertIsNotNone(expr)
         
-        sql = str(expr)
-        expected_sql = "CASE WHEN e.department = 'Engineering' AND e.age > 30 THEN e.salary * 1.1 ELSE e.salary END"
+        sql = _generate_expression(expr)
+        expected_sql = "CASE WHEN e.department = 'Engineering' AND e.age > 30 THEN (e.salary * 1.1) ELSE e.salary END"
         self.assertEqual(sql, expected_sql)
 
 if __name__ == "__main__":
