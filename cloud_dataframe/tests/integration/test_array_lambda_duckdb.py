@@ -170,7 +170,8 @@ class TestArrayLambdaDuckDB(unittest.TestCase):
             lambda x: x.department,
             lambda x: x.location,
             lambda x: x.is_manager,
-            as_column(sum(lambda x: x.salary), "total_salary")
+            as_column(sum(lambda x: x.salary), "total_salary"),
+            as_column(avg(lambda x: x.salary), "avg_salary")
         )
         
         # Execute the query
@@ -181,7 +182,7 @@ class TestArrayLambdaDuckDB(unittest.TestCase):
         self.assertTrue(len(result) > 4)  # More groups than just department/location
         
         # Check that we have the right columns
-        self.assertEqual(len(result[0]), 4)  # department, location, is_manager, total_salary
+        self.assertEqual(len(result[0]), 5)  # department, location, is_manager, total_salary, avg_salary
 
 
 if __name__ == "__main__":
