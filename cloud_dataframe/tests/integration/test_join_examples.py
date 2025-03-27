@@ -78,11 +78,11 @@ class TestJoinExamples(unittest.TestCase):
             self.departments_df,
             lambda e, d: e.department_id == d.id
         ).select(
-            lambda e: e.id.alias("employee_id"),
-            lambda e: e.name.alias("employee_name"),
-            lambda d: d.name.alias("department_name"),
-            lambda d: d.location.alias("department_location"),
-            lambda e: e.salary.alias("employee_salary")
+            lambda e: (employee_id := e.id),
+            lambda e: (employee_name := e.name),
+            lambda d: (department_name := d.name),
+            lambda d: (department_location := d.location),
+            lambda e: (employee_salary := e.salary)
         )
         
         # Generate SQL
@@ -117,7 +117,7 @@ class TestJoinExamples(unittest.TestCase):
         ).select(
             lambda e: e.id,
             lambda e: e.name,
-            lambda d: d.name.alias("department_name"),
+            lambda d: (department_name := d.name),
             lambda d: d.location,
             lambda e: e.salary
         )
@@ -145,10 +145,10 @@ class TestJoinExamples(unittest.TestCase):
         ).group_by(
             lambda d: d.name
         ).select(
-            lambda d: d.name.alias("department_name"),
-            as_column(lambda e: count(e.id.alias("employee_id")), "employee_count"),
-            as_column(lambda e: sum(e.salary.alias("employee_salary")), "total_salary"),
-            as_column(lambda e: avg(e.salary.alias("employee_salary")), "avg_salary")
+            lambda d: (department_name := d.name),
+            as_column(lambda e: (employee_count := count(e.id)), "employee_count"),
+            as_column(lambda e: (total_salary := sum(e.salary)), "total_salary"),
+            as_column(lambda e: (avg_salary := avg(e.salary)), "avg_salary")
         ).order_by(
             lambda d: d.name
         )
