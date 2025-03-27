@@ -49,13 +49,13 @@ class TestDuckDBSQLGeneration(unittest.TestCase):
     
     def test_select_columns(self):
         """Test generating SQL for a SELECT query with specific columns."""
-        df = DataFrame.from_("employees", alias="x").select(
-            as_column(col("id"), "id"),
-            as_column(col("name"), "name")
+        df = DataFrame.from_("employees", alias="e").select(
+            lambda e: (id := e.id),
+            lambda e: (name := e.name)
         )
         
         sql = df.to_sql(dialect="duckdb")
-        expected_sql = "SELECT x.id AS id, x.name AS name\nFROM employees x"
+        expected_sql = "SELECT e.id AS id, e.name AS name\nFROM employees e"
         self.assertEqual(sql.strip(), expected_sql)
     
     def test_filter(self):
