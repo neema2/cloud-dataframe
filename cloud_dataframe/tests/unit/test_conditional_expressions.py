@@ -12,7 +12,6 @@ from cloud_dataframe.type_system.schema import TableSchema
 from cloud_dataframe.type_system.column import as_column, sum, avg, count
 from cloud_dataframe.utils.lambda_parser import LambdaParser
 
-
 class TestConditionalExpressions(unittest.TestCase):
     """Test cases for conditional expressions in lambda parser."""
     
@@ -81,7 +80,6 @@ class TestConditionalExpressions(unittest.TestCase):
         sql = str(expr)
         expected_sql = "CASE WHEN e.department = 'Engineering' AND e.age > 30 THEN e.salary * 1.1 ELSE e.salary END"
         self.assertEqual(sql, expected_sql)
-
 
 if __name__ == "__main__":
     unittest.main()
