@@ -78,11 +78,11 @@ class TestJoinExamples(unittest.TestCase):
             self.departments_df,
             lambda e, d: e.department_id == d.id
         ).select(
-            lambda e: e.id.alias("employee_id"),
-            lambda e: e.name.alias("employee_name"),
-            lambda d: d.name.alias("department_name"),
-            lambda d: d.location.alias("department_location"),
-            lambda e: e.salary.alias("employee_salary")
+            lambda e: (employee_id := e.id),
+            lambda e: (employee_name := e.name),
+            lambda d: (department_name := d.name),
+            lambda d: (department_location := d.location),
+            lambda e: (employee_salary := e.salary)
         )
         
         # Generate SQL
