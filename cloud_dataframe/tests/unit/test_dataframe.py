@@ -43,9 +43,9 @@ class TestDataFrame(unittest.TestCase):
     
     def test_filter(self):
         """Test the filter method."""
-        df = DataFrame.from_("employees")
+        df = DataFrame.from_("employees", alias="e")
         filtered_df = df.filter(
-            lambda x: x.salary > 50000
+            lambda e: e.salary > 50000
         )
         
         self.assertIsNotNone(filtered_df.filter_condition)
