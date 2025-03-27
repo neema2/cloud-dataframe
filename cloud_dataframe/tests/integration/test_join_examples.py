@@ -146,9 +146,9 @@ class TestJoinExamples(unittest.TestCase):
             lambda d: d.name
         ).select(
             lambda d: (department_name := d.name),
-            as_column(count(lambda e: e.id), "employee_count"),
-            as_column(sum(lambda e: e.salary), "total_salary"),
-            as_column(avg(lambda e: e.salary), "avg_salary")
+            lambda e: (employee_count := count(e.id)),
+            lambda e: (total_salary := sum(e.salary)),
+            lambda e: (avg_salary := avg(e.salary))
         ).order_by(
             lambda d: d.name
         )
