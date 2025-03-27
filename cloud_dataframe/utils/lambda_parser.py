@@ -106,7 +106,30 @@ class LambdaParser:
             or list containing tuples of (Expression, sort_direction) for order_by clauses
         """
         # Handle different types of AST nodes
-        if isinstance(node, ast.Compare):
+        if isinstance(node, ast.NamedExpr):
+            target_name = node.target.id if isinstance(node.target, ast.Name) else "expr"
+            expr = LambdaParser._parse_expression(node.value, args, table_schema)
+            
+            if isinstance(expr, list) or isinstance(expr, tuple):
+                if expr and len(expr) > 0:
+                    first_expr = expr[0]
+                    if isinstance(first_expr, Expression):
+                        return BinaryOperation(
+                            left=first_expr,
+                            operator="AS",
+                            right=LiteralExpression(value=target_name)
+                        )
+                return ColumnReference(name="*")
+            elif isinstance(expr, Expression):
+                return BinaryOperation(
+                    left=expr,
+                    operator="AS",
+                    right=LiteralExpression(value=target_name)
+                )
+            else:
+                raise ValueError("Lambda expressions must use explicit column references (e.g., x.column_name)")
+                
+        elif isinstance(node, ast.Compare):
             # Handle comparison operations (e.g., x > 5, y == 'value')
             left = LambdaParser._parse_expression(node.left, args, table_schema)
             
