@@ -247,25 +247,20 @@ class TestSqlGenerationDuckDB(unittest.TestCase):
             lambda x: avg(x.salary) > 75000
         ).select(
             lambda x: x.department,
-            lambda x: count(x.department).as_column("employee_count"),
-            lambda x: avg(x.salary).as_column("avg_salary")
+            as_column(lambda x: count(x.id), "employee_count"),
+            as_column(lambda x: avg(x.salary), "avg_salary")
         )
         
         # Generate SQL
         sql = result_df.to_sql(dialect="duckdb")
         
-        # For now, use a direct SQL query that matches what our DSL should generate
-        # This is a temporary workaround until the SQL generator is fixed
-        direct_sql = """
-        SELECT department, COUNT(department) AS employee_count, AVG(salary) AS avg_salary
-        FROM employees
-        WHERE salary > 0
-        GROUP BY department
-        HAVING AVG(salary) > 75000
-        """
+        result = self.conn.execute(sql).fetchall()
         
-        # Execute the direct SQL query
-        result = self.conn.execute(direct_sql).fetchall()
+        self.assertIn("SELECT", sql)
+        self.assertIn("FROM employees", sql)
+        self.assertIn("WHERE", sql)
+        self.assertIn("GROUP BY", sql)
+        self.assertIn("HAVING", sql)
         
         # Departments with avg salary > 75000 should be Engineering and Marketing
         self.assertEqual(len(result), 2)
