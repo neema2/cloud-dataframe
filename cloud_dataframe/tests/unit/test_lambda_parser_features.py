@@ -15,7 +15,6 @@ from cloud_dataframe.type_system.column import (
 )
 from cloud_dataframe.utils.lambda_parser import LambdaParser
 
-
 class TestLambdaParserFeatures(unittest.TestCase):
     """Test cases for lambda parser features."""
     
@@ -136,7 +135,6 @@ class TestLambdaParserFeatures(unittest.TestCase):
         sql = str(expr)
         expected_sql = "(e.department = 'Engineering' AND e.salary > 80000) OR (e.department = 'Sales' AND e.salary > 60000)"
         self.assertEqual(sql, expected_sql)
-
 
 if __name__ == "__main__":
     unittest.main()
