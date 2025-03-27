@@ -31,102 +31,102 @@ class TestComplexFilterConditions(unittest.TestCase):
     
     def test_simple_comparison(self):
         """Test simple comparison filter."""
-        df = DataFrame.from_("employees", alias="x").filter(
-            lambda x: x.salary > 50000
+        df = DataFrame.from_("employees", alias="e").filter(
+            lambda e: e.salary > 50000
         )
         
         sql = df.to_sql(dialect="duckdb")
-        expected_sql = "SELECT *\nFROM employees x\nWHERE x.salary > 50000"
+        expected_sql = "SELECT *\nFROM employees e\nWHERE e.salary > 50000"
         self.assertEqual(sql.strip(), expected_sql)
     
     def test_boolean_and_condition(self):
         """Test filter with AND boolean condition."""
-        df = DataFrame.from_("employees", alias="x").filter(
-            lambda x: x.salary > 50000 and x.department == "Engineering"
+        df = DataFrame.from_("employees", alias="e").filter(
+            lambda e: e.salary > 50000 and e.department == "Engineering"
         )
         
         sql = df.to_sql(dialect="duckdb")
-        expected_sql = "SELECT *\nFROM employees x\nWHERE x.salary > 50000 AND x.department = 'Engineering'"
+        expected_sql = "SELECT *\nFROM employees e\nWHERE e.salary > 50000 AND e.department = 'Engineering'"
         self.assertEqual(sql.strip(), expected_sql)
     
     def test_boolean_or_condition(self):
         """Test filter with OR boolean condition."""
-        df = DataFrame.from_("employees", alias="x").filter(
-            lambda x: x.department == "Engineering" or x.department == "Sales"
+        df = DataFrame.from_("employees", alias="e").filter(
+            lambda e: e.department == "Engineering" or e.department == "Sales"
         )
         
         sql = df.to_sql(dialect="duckdb")
-        expected_sql = "SELECT *\nFROM employees x\nWHERE (x.department = 'Engineering' OR x.department = 'Sales')"
+        expected_sql = "SELECT *\nFROM employees e\nWHERE (e.department = 'Engineering' OR e.department = 'Sales')"
         self.assertEqual(sql.strip(), expected_sql)
     
     def test_complex_boolean_condition(self):
         """Test filter with complex boolean condition (AND + OR)."""
-        df = DataFrame.from_("employees", alias="x").filter(
-            lambda x: (x.department == "Engineering" or x.department == "Sales") and x.salary > 60000
+        df = DataFrame.from_("employees", alias="e").filter(
+            lambda e: (e.department == "Engineering" or e.department == "Sales") and e.salary > 60000
         )
         
         sql = df.to_sql(dialect="duckdb")
-        expected_sql = "SELECT *\nFROM employees x\nWHERE (x.department = 'Engineering' OR x.department = 'Sales') AND x.salary > 60000"
+        expected_sql = "SELECT *\nFROM employees e\nWHERE (e.department = 'Engineering' OR e.department = 'Sales') AND e.salary > 60000"
         self.assertEqual(sql.strip(), expected_sql)
     
     def test_multiple_and_conditions(self):
         """Test filter with multiple AND conditions."""
-        df = DataFrame.from_("employees", alias="x").filter(
-            lambda x: x.salary > 50000 and x.age > 30 and x.is_manager == True
+        df = DataFrame.from_("employees", alias="e").filter(
+            lambda e: e.salary > 50000 and e.age > 30 and e.is_manager == True
         )
         
         sql = df.to_sql(dialect="duckdb")
-        expected_sql = "SELECT *\nFROM employees x\nWHERE x.salary > 50000 AND x.age > 30 AND x.is_manager = TRUE"
+        expected_sql = "SELECT *\nFROM employees e\nWHERE e.salary > 50000 AND e.age > 30 AND e.is_manager = TRUE"
         self.assertEqual(sql.strip(), expected_sql)
     
     def test_multiple_or_conditions(self):
         """Test filter with multiple OR conditions."""
-        df = DataFrame.from_("employees", alias="x").filter(
-            lambda x: x.department == "Engineering" or x.department == "Sales" or x.department == "Marketing"
+        df = DataFrame.from_("employees", alias="e").filter(
+            lambda e: e.department == "Engineering" or e.department == "Sales" or e.department == "Marketing"
         )
         
         sql = df.to_sql(dialect="duckdb")
-        expected_sql = "SELECT *\nFROM employees x\nWHERE x.department = 'Engineering' OR x.department = 'Sales' OR x.department = 'Marketing'"
+        expected_sql = "SELECT *\nFROM employees e\nWHERE e.department = 'Engineering' OR e.department = 'Sales' OR e.department = 'Marketing'"
         self.assertEqual(sql.strip(), expected_sql)
     
     def test_not_equal_condition(self):
         """Test filter with not equal condition."""
-        df = DataFrame.from_("employees", alias="x").filter(
-            lambda x: x.department != "HR"
+        df = DataFrame.from_("employees", alias="e").filter(
+            lambda e: e.department != "HR"
         )
         
         sql = df.to_sql(dialect="duckdb")
-        expected_sql = "SELECT *\nFROM employees x\nWHERE x.department != 'HR'"
+        expected_sql = "SELECT *\nFROM employees e\nWHERE e.department != 'HR'"
         self.assertEqual(sql.strip(), expected_sql)
     
     def test_less_than_equal_condition(self):
         """Test filter with less than or equal condition."""
-        df = DataFrame.from_("employees", alias="x").filter(
-            lambda x: x.age <= 40
+        df = DataFrame.from_("employees", alias="e").filter(
+            lambda e: e.age <= 40
         )
         
         sql = df.to_sql(dialect="duckdb")
-        expected_sql = "SELECT *\nFROM employees x\nWHERE x.age <= 40"
+        expected_sql = "SELECT *\nFROM employees e\nWHERE e.age <= 40"
         self.assertEqual(sql.strip(), expected_sql)
     
     def test_greater_than_equal_condition(self):
         """Test filter with greater than or equal condition."""
-        df = DataFrame.from_("employees", alias="x").filter(
-            lambda x: x.salary >= 75000
+        df = DataFrame.from_("employees", alias="e").filter(
+            lambda e: e.salary >= 75000
         )
         
         sql = df.to_sql(dialect="duckdb")
-        expected_sql = "SELECT *\nFROM employees x\nWHERE x.salary >= 75000"
+        expected_sql = "SELECT *\nFROM employees e\nWHERE e.salary >= 75000"
         self.assertEqual(sql.strip(), expected_sql)
     
     def test_boolean_equality(self):
         """Test filter with boolean equality."""
-        df = DataFrame.from_("employees", alias="x").filter(
-            lambda x: x.is_manager == True
+        df = DataFrame.from_("employees", alias="e").filter(
+            lambda e: e.is_manager == True
         )
         
         sql = df.to_sql(dialect="duckdb")
-        expected_sql = "SELECT *\nFROM employees x\nWHERE x.is_manager = TRUE"
+        expected_sql = "SELECT *\nFROM employees e\nWHERE e.is_manager = TRUE"
         self.assertEqual(sql.strip(), expected_sql)
     
     def test_complex_nested_condition(self):
@@ -146,7 +146,7 @@ class TestComplexFilterConditions(unittest.TestCase):
         )
         
         sql = df.to_sql(dialect="duckdb")
-        expected_sql = "SELECT *\nFROM employees x\nWHERE x.salary > 50000 AND x.department = 'Engineering' AND x.age > 30"
+        expected_sql = "SELECT *\nFROM employees e\nWHERE e.salary > 50000 AND e.department = 'Engineering' AND e.age > 30"
         self.assertEqual(sql.strip(), expected_sql)
 
 
