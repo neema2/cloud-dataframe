@@ -141,8 +141,8 @@ class TestComplexFilterConditions(unittest.TestCase):
     
     def test_chained_filters(self):
         """Test chaining multiple filters."""
-        df = DataFrame.from_("employees", alias="x").filter(
-            lambda x: (x.salary > 50000) and (x.department == "Engineering") and (x.age > 30)
+        df = DataFrame.from_("employees", alias="e").filter(
+            lambda e: (e.salary > 50000) and (e.department == "Engineering") and (e.age > 30)
         )
         
         sql = df.to_sql(dialect="duckdb")
