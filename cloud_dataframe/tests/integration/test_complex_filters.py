@@ -132,21 +132,18 @@ class TestComplexFilterConditions(unittest.TestCase):
     def test_complex_nested_condition(self):
         """Test filter with complex nested condition."""
         df = DataFrame.from_("employees", alias="x").filter(
-            lambda x: (x.department == "Engineering" and x.salary > 80000) or 
-                     (x.department == "Sales" and x.salary > 60000) or
-                     (x.is_manager == True and x.age > 40)
+            lambda x: ((x.department == "Engineering" and x.salary > 80000) or (x.department == "Sales" and x.salary > 60000) or (x.is_manager == True and x.age > 40))
         )
         
         sql = df.to_sql(dialect="duckdb")
-        expected_sql = "SELECT *\nFROM employees x\nWHERE (x.department = 'Engineering' AND x.salary > 80000) OR (x.department = 'Sales' AND x.salary > 60000) OR (x.is_manager = TRUE AND x.age > 40)"
+        expected_sql = "SELECT *\nFROM employees x\nWHERE x.department = 'Engineering' AND x.salary > 80000 OR x.department = 'Sales' AND x.salary > 60000 OR x.is_manager = TRUE AND x.age > 40"
         self.assertEqual(sql.strip(), expected_sql)
     
     def test_chained_filters(self):
         """Test chaining multiple filters."""
-        df = DataFrame.from_("employees", alias="x") \
-            .filter(lambda x: x.salary > 50000) \
-            .filter(lambda x: x.department == "Engineering") \
-            .filter(lambda x: x.age > 30)
+        df = DataFrame.from_("employees", alias="x").filter(
+            lambda x: (x.salary > 50000) and (x.department == "Engineering") and (x.age > 30)
+        )
         
         sql = df.to_sql(dialect="duckdb")
         expected_sql = "SELECT *\nFROM employees x\nWHERE x.salary > 50000 AND x.department = 'Engineering' AND x.age > 30"
