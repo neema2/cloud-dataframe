@@ -82,6 +82,5 @@ class TestColumnAlias(unittest.TestCase):
         expected_sql = "SELECT e.id AS employee_id, e.name AS employee_name, e.department AS department, e.salary * 12 AS annual_salary\nFROM employees e"
         self.assertEqual(sql.strip(), expected_sql)
 
-
 if __name__ == "__main__":
     unittest.main()

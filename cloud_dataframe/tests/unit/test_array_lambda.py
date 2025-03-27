@@ -56,7 +56,7 @@ class TestArrayLambda(unittest.TestCase):
         
         # Check the SQL generation
         sql = grouped_df.to_sql(dialect="duckdb")
-        expected_sql = "SELECT x.department, x.location, AVG(x.salary) AS avg_salary\nFROM employees x\nGROUP BY x.department"
+        expected_sql = "SELECT x.department, x.location, AVG(x.salary) AS avg_salary\nFROM employees x\nGROUP BY x.department, x.location"
         self.assertEqual(sql.strip(), expected_sql.strip())
     
     def test_order_by_with_array_lambda(self):
