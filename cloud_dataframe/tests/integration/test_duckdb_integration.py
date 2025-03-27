@@ -70,8 +70,8 @@ class TestDuckDBIntegration(unittest.TestCase):
     
     def test_simple_filter(self):
         """Test a simple filter query."""
-        df = DataFrame.from_("employees")
-        filtered_df = df.filter(lambda x: x.salary > 70000)
+        df = DataFrame.from_("employees", alias="e")
+        filtered_df = df.filter(lambda e: e.salary > 70000)
         sql = filtered_df.to_sql(dialect="duckdb")
         
         result = self.conn.execute(sql).fetchall()
