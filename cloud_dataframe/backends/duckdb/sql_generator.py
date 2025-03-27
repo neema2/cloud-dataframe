@@ -279,12 +279,15 @@ def _generate_expression(expr: Any) -> str:
     """
     if isinstance(expr, ColumnReference):
         if expr.name == "*":
+            if expr.table_alias:
+                return f"{expr.table_alias}.*"
             return expr.name
             
         source_alias = expr.table_alias
         
         if not source_alias:
             source_alias = "x"
+            expr.table_alias = source_alias
             
         column_ref = f"{source_alias}.{expr.name}"
         
@@ -309,8 +312,26 @@ def _generate_expression(expr: Any) -> str:
         left_sql = _generate_expression(expr.left)
         right_sql = _generate_expression(expr.right)
         
+        if expr.operator == "AS" and isinstance(expr.right, LiteralExpression):
+            return f"{left_sql} AS {expr.right.value}"
+            
+        elif expr.operator == "CASE":
+            condition = expr.left
+            condition_sql = _generate_expression(condition)
+            
+            if isinstance(expr.right, BinaryOperation) and expr.right.operator == "ELSE":
+                then_expr = expr.right.left
+                else_expr = expr.right.right
+                
+                then_sql = _generate_expression(then_expr)
+                else_sql = _generate_expression(else_expr)
+                
+                return f"CASE WHEN {condition_sql} THEN {then_sql} ELSE {else_sql} END"
+            else:
+                return f"CASE WHEN {condition_sql} THEN {right_sql} END"
+        
         # Handle special cases for certain operators
-        if expr.operator.upper() in ("IN", "NOT IN"):
+        elif expr.operator.upper() in ("IN", "NOT IN"):
             if isinstance(expr.right, list):
                 values_sql = ", ".join(_generate_expression(val) for val in expr.right)
                 return f"{left_sql} {expr.operator} ({values_sql})"
@@ -318,7 +339,7 @@ def _generate_expression(expr: Any) -> str:
                 return f"{left_sql} {expr.operator} ({right_sql})"
         else:
             # Add parentheses if needed for complex boolean operations
-            if expr.needs_parentheses:
+            if hasattr(expr, 'needs_parentheses') and expr.needs_parentheses:
                 return f"({left_sql} {expr.operator} {right_sql})"
             else:
                 return f"{left_sql} {expr.operator} {right_sql}"
