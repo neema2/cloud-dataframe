@@ -62,7 +62,8 @@ class TestArrayLambda(unittest.TestCase):
     def test_order_by_with_array_lambda(self):
         """Test ordering with array lambda."""
         # Test order_by with array lambda
-        ordered_df = self.df.order_by(lambda x: [x.department, x.salary], desc=True)
+        from cloud_dataframe.core.dataframe import Sort
+        ordered_df = self.df.order_by(lambda x: [(x.department, Sort.DESC), (x.salary, Sort.DESC)])
         
         # Check the SQL generation
         sql = ordered_df.to_sql(dialect="duckdb")
