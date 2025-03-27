@@ -395,11 +395,33 @@ class DataFrame:
                 table_schema = None
                 if isinstance(self.source, TableReference):
                     table_schema = self.source.table_schema
+                
+                try:
+                    from ...type_system.column import ColumnReference
+                    
+                    class SampleInstance:
+                        def __init__(self):
+                            pass
+                        
+                        def __getattr__(self, name):
+                            return ColumnReference(name=name, table_alias='x')
+                    
+                    result = clause(SampleInstance())
+                    
+                    if isinstance(result, list) and len(result) > 0:
+                        for item in result:
+                            if isinstance(item, ColumnReference):
+                                self.order_by_clauses.append(OrderByClause(
+                                    expression=item,
+                                    direction=direction
+                                ))
+                        continue
+                except Exception:
+                    pass
+                
                 expr = LambdaParser.parse_lambda(clause, table_schema)
                 if isinstance(expr, list):
                     # Handle array returns from lambda functions
-                    # Track columns we've already added to avoid duplicates
-                    added_columns = set()
                     for single_expr in expr:
                         # Check if the expression is a tuple with a sort direction
                         if isinstance(single_expr, tuple) and len(single_expr) == 2:
@@ -408,28 +430,12 @@ class DataFrame:
                             if isinstance(sort_dir, str):
                                 sort_dir = Sort.DESC if sort_dir.upper() == 'DESC' else Sort.ASC
                             
-                            # Skip if we've already added this column
-                            if isinstance(col_expr, ColumnReference) and col_expr.name in added_columns:
-                                continue
-                                
-                            # Track this column
-                            if isinstance(col_expr, ColumnReference):
-                                added_columns.add(col_expr.name)
-                                
                             # Use provided sort direction
                             self.order_by_clauses.append(OrderByClause(
                                 expression=col_expr,
                                 direction=sort_dir
                             ))
                         else:
-                            # Skip if we've already added this column
-                            if isinstance(single_expr, ColumnReference) and single_expr.name in added_columns:
-                                continue
-                                
-                            # Track this column
-                            if isinstance(single_expr, ColumnReference):
-                                added_columns.add(single_expr.name)
-                                
                             # Use global sort direction
                             self.order_by_clauses.append(OrderByClause(
                                 expression=single_expr,

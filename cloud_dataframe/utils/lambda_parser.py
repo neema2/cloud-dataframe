@@ -600,6 +600,9 @@ class LambdaParser:
                                 elements.append((col_expr, sort_direction))
                             else:
                                 elements.append((col_expr, Sort.ASC))
+                elif isinstance(elt, ast.Attribute) and isinstance(elt.value, ast.Name):
+                    col_expr = LambdaParser._parse_expression(elt, args, table_schema)
+                    elements.append(col_expr)
                 else:
                     elements.append(LambdaParser._parse_expression(elt, args, table_schema))
             return elements
