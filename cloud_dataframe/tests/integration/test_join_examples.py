@@ -117,7 +117,7 @@ class TestJoinExamples(unittest.TestCase):
         ).select(
             lambda e: e.id,
             lambda e: e.name,
-            lambda d: d.name.alias("department_name"),
+            lambda d: (department_name := d.name),
             lambda d: d.location,
             lambda e: e.salary
         )
@@ -145,10 +145,10 @@ class TestJoinExamples(unittest.TestCase):
         ).group_by(
             lambda d: d.name
         ).select(
-            lambda d: d.name.alias("department_name"),
-            as_column(lambda e: count(e.id.alias("employee_id")), "employee_count"),
-            as_column(lambda e: sum(e.salary.alias("employee_salary")), "total_salary"),
-            as_column(lambda e: avg(e.salary.alias("employee_salary")), "avg_salary")
+            lambda d: (department_name := d.name),
+            as_column(count(lambda e: e.id), "employee_count"),
+            as_column(sum(lambda e: e.salary), "total_salary"),
+            as_column(avg(lambda e: e.salary), "avg_salary")
         ).order_by(
             lambda d: d.name
         )
