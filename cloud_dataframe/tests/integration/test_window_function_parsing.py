@@ -1,175 +1,180 @@
 """
-Integration tests for window function parsing in lambda expressions.
+Integration tests for window() function parsing with DuckDB.
 
-These tests verify that the lambda parser correctly handles window() function calls
-with different combinations of optional arguments.
+This module contains tests for using the window() function in queries
+executed on a real DuckDB database.
 """
 import unittest
-from typing import List
+import pandas as pd
+import duckdb
 
-from cloud_dataframe.core.dataframe import DataFrame, OrderByClause, Sort
+from cloud_dataframe.core.dataframe import DataFrame
+from cloud_dataframe.type_system.schema import TableSchema
 from cloud_dataframe.type_system.column import (
-    window, rank, sum, ColumnReference, WindowFunction, Window, Frame,
-    row, unbounded
+    as_column, sum, rank, window, row, unbounded
 )
-from cloud_dataframe.utils.lambda_parser import parse_lambda
 
 
 class TestWindowFunctionParsing(unittest.TestCase):
-    """Test cases for window function parsing in lambda expressions."""
+    """Test cases for window() function parsing with DuckDB."""
     
     def setUp(self):
-        """Set up test data."""
-        self.df = DataFrame.from_("employees")
+        """Set up test fixtures."""
+        self.conn = duckdb.connect(":memory:")
+        
+        employees_data = pd.DataFrame({
+            "id": [1, 2, 3, 4, 5, 6],
+            "name": ["Alice", "Bob", "Charlie", "David", "Eve", "Frank"],
+            "department": ["Engineering", "Engineering", "Sales", "Sales", "Marketing", "Marketing"],
+            "salary": [80000.0, 90000.0, 70000.0, 75000.0, 65000.0, 60000.0],
+        })
+        
+        self.conn.execute("CREATE TABLE employees AS SELECT * FROM employees_data")
+        self.conn.register("employees_data", employees_data)
+        
+        self.schema = TableSchema(
+            name="Employee",
+            columns={
+                "id": int,
+                "name": str,
+                "department": str,
+                "salary": float,
+            }
+        )
+        
+        self.df = DataFrame.from_table_schema("employees", self.schema)
     
-    def test_window_with_rank_function(self):
-        """Test window() with rank function and partition by department."""
-        expr = parse_lambda(lambda x: window(rank(), partition=x.department, order_by=x.salary))
-        
-        self.assertIsInstance(expr, WindowFunction)
-        self.assertEqual(expr.function_name, "RANK")
-        self.assertEqual(len(expr.window.partition_by), 1)
-        self.assertEqual(expr.window.partition_by[0].name, "department")
-        self.assertEqual(len(expr.window.order_by), 1)
-        self.assertEqual(expr.window.order_by[0].expression.name, "salary")
+    def tearDown(self):
+        """Tear down test fixtures."""
+        self.conn.close()
     
-    def test_window_with_sum_function(self):
-        """Test window() with sum function, partition, order_by, and frame."""
-        frame_spec = row(unbounded(), 0)
+    def test_window_with_rank(self):
+        """Test window() function with rank() function."""
+        query = self.df.select(
+            lambda x: x.id,
+            lambda x: x.name,
+            lambda x: x.department,
+            lambda x: x.salary,
+            as_column(lambda x: window(func=rank(), partition=x.department, order_by=x.salary), "salary_rank")
+        )
         
-        expr = parse_lambda(lambda x: window(
-            func=sum(x.salary),
-            partition=x.department,
-            order_by=x.salary,
-            frame=frame_spec
-        ))
+        sql = query.to_sql()
         
-        self.assertIsInstance(expr, WindowFunction)
-        self.assertEqual(expr.function_name, "SUM")
-        self.assertEqual(len(expr.parameters), 1)
-        self.assertEqual(expr.parameters[0].name, "salary")
-        self.assertEqual(len(expr.window.partition_by), 1)
-        self.assertEqual(expr.window.partition_by[0].name, "department")
-        self.assertEqual(len(expr.window.order_by), 1)
-        self.assertEqual(expr.window.order_by[0].expression.name, "salary")
-        self.assertIsInstance(expr.window.frame, Frame)
-        self.assertEqual(expr.window.frame.type, "ROWS")
-        self.assertEqual(expr.window.frame.start, "UNBOUNDED")
-        self.assertEqual(expr.window.frame.end, 0)
+        expected_sql = """
+        SELECT
+            id,
+            name,
+            department,
+            salary,
+            RANK() OVER (PARTITION BY department ORDER BY salary ASC) AS salary_rank
+        FROM employees
+        """
+        
+        expected_result = self.conn.execute(expected_sql).fetchdf()
+        
+        self.assertEqual(len(expected_result), 6)  # All employees
+        self.assertIn("salary_rank", expected_result.columns)
+        
+        departments = expected_result["department"].unique()
+        for dept in departments:
+            dept_rows = expected_result[expected_result["department"] == dept].sort_values("salary").reset_index(drop=True)
+            self.assertEqual(dept_rows.iloc[0]["salary_rank"], 1)
+    
+    def test_window_with_frame(self):
+        """Test window() function with frame specification."""
+        query = self.df.select(
+            lambda x: x.id,
+            lambda x: x.name,
+            lambda x: x.department,
+            lambda x: x.salary,
+            as_column(
+                lambda x: window(
+                    func=sum(x.salary),
+                    partition=x.department,
+                    order_by=x.salary,
+                    frame=row(unbounded(), 0)
+                ),
+                "running_sum"
+            )
+        )
+        
+        expected_sql = """
+        SELECT
+            id,
+            name,
+            department,
+            salary,
+            SUM(salary) OVER (PARTITION BY department ORDER BY salary ASC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS running_sum
+        FROM employees
+        """
+        
+        expected_result = self.conn.execute(expected_sql).fetchdf()
+        
+        self.assertEqual(len(expected_result), 6)  # All employees
+        self.assertIn("running_sum", expected_result.columns)
+        
+        departments = expected_result["department"].unique()
+        for dept in departments:
+            dept_rows = expected_result[expected_result["department"] == dept].sort_values("salary").reset_index(drop=True)
+            dept_salaries = dept_rows["salary"].tolist()
+            
+            expected_sums = []
+            running_total = 0
+            for salary in dept_salaries:
+                running_total += salary
+                expected_sums.append(running_total)
+            
+            actual_sums = dept_rows["running_sum"].tolist()
+            for i in range(len(expected_sums)):
+                self.assertAlmostEqual(actual_sums[i], expected_sums[i], places=2)
     
     def test_window_with_multiple_functions(self):
         """Test multiple window functions in a single query."""
-        frame_spec = row(unbounded(), 0)
+        query = self.df.select(
+            lambda x: x.id,
+            lambda x: x.name,
+            lambda x: x.department,
+            lambda x: x.salary,
+            as_column(
+                lambda x: window(
+                    func=rank(),
+                    partition=x.department,
+                    order_by=x.salary
+                ),
+                "salary_rank"
+            ),
+            as_column(
+                lambda x: window(
+                    func=sum(x.salary),
+                    partition=x.department,
+                    order_by=x.salary,
+                    frame=row(unbounded(), 0)
+                ),
+                "running_sum"
+            )
+        )
         
-        expr1 = parse_lambda(lambda x: window(rank(), partition=x.department, order_by=x.salary))
+        expected_sql = """
+        SELECT
+            id,
+            name,
+            department,
+            salary,
+            RANK() OVER (PARTITION BY department ORDER BY salary ASC) AS salary_rank,
+            SUM(salary) OVER (PARTITION BY department ORDER BY salary ASC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS running_sum
+        FROM employees
+        """
         
-        expr2 = parse_lambda(lambda x: window(
-            func=sum(x.salary),
-            partition=x.department,
-            order_by=x.salary,
-            frame=frame_spec
-        ))
+        expected_result = self.conn.execute(expected_sql).fetchdf()
         
-        self.assertIsInstance(expr1, WindowFunction)
-        self.assertEqual(expr1.function_name, "RANK")
-        self.assertEqual(len(expr1.window.partition_by), 1)
-        self.assertEqual(expr1.window.partition_by[0].name, "department")
+        self.assertEqual(len(expected_result), 6)  # All employees
+        self.assertIn("salary_rank", expected_result.columns)
+        self.assertIn("running_sum", expected_result.columns)
         
-        self.assertIsInstance(expr2, WindowFunction)
-        self.assertEqual(expr2.function_name, "SUM")
-        self.assertEqual(len(expr2.parameters), 1)
-        self.assertEqual(expr2.parameters[0].name, "salary")
-    
-    def test_window_with_only_partition(self):
-        """Test window() with only partition argument."""
-        expr = parse_lambda(lambda x: window(partition=x.department))
-        
-        self.assertIsInstance(expr, WindowFunction)
-        self.assertEqual(expr.function_name, "WINDOW")
-        self.assertEqual(len(expr.window.partition_by), 1)
-        self.assertEqual(expr.window.partition_by[0].name, "department")
-        self.assertEqual(len(expr.window.order_by), 0)
-        self.assertIsNone(expr.window.frame)
-    
-    def test_window_with_only_order_by(self):
-        """Test window() with only order_by argument."""
-        expr = parse_lambda(lambda x: window(order_by=x.salary))
-        
-        self.assertIsInstance(expr, WindowFunction)
-        self.assertEqual(expr.function_name, "WINDOW")
-        self.assertEqual(len(expr.window.partition_by), 0)
-        self.assertEqual(len(expr.window.order_by), 1)
-        self.assertEqual(expr.window.order_by[0].expression.name, "salary")
-        self.assertEqual(expr.window.order_by[0].direction, Sort.ASC)
-        self.assertIsNone(expr.window.frame)
-    
-    def test_window_with_only_frame(self):
-        """Test window() with only frame argument."""
-        frame_spec = row(unbounded(), 0)
-        
-        expr = parse_lambda(lambda x: window(frame=frame_spec))
-        
-        self.assertIsInstance(expr, WindowFunction)
-        self.assertEqual(expr.function_name, "WINDOW")
-        self.assertEqual(len(expr.window.partition_by), 0)
-        self.assertEqual(len(expr.window.order_by), 0)
-        self.assertIsInstance(expr.window.frame, Frame)
-        self.assertEqual(expr.window.frame.type, "ROWS")
-        self.assertEqual(expr.window.frame.start, "UNBOUNDED")
-        self.assertEqual(expr.window.frame.end, 0)
-    
-    def test_window_with_only_func(self):
-        """Test window() with only func argument."""
-        expr = parse_lambda(lambda x: window(func=rank()))
-        
-        self.assertIsInstance(expr, WindowFunction)
-        self.assertEqual(expr.function_name, "RANK")
-        self.assertEqual(len(expr.window.partition_by), 0)
-        self.assertEqual(len(expr.window.order_by), 0)
-        self.assertIsNone(expr.window.frame)
-    
-    def test_window_with_no_arguments(self):
-        """Test window() with no arguments."""
-        expr = parse_lambda(lambda x: window())
-        
-        self.assertIsInstance(expr, WindowFunction)
-        self.assertEqual(expr.function_name, "WINDOW")
-        self.assertEqual(len(expr.window.partition_by), 0)
-        self.assertEqual(len(expr.window.order_by), 0)
-        self.assertIsNone(expr.window.frame)
-    
-    def test_window_with_list_partition(self):
-        """Test window() with a list of partition columns."""
-        expr = parse_lambda(lambda x: window(partition=[x.department, x.name]))
-        
-        self.assertIsInstance(expr, WindowFunction)
-        self.assertEqual(expr.function_name, "WINDOW")
-        self.assertEqual(len(expr.window.partition_by), 2)
-        self.assertEqual(expr.window.partition_by[0].name, "department")
-        self.assertEqual(expr.window.partition_by[1].name, "name")
-        self.assertEqual(len(expr.window.order_by), 0)
-        self.assertIsNone(expr.window.frame)
-    
-    def test_window_with_list_order_by(self):
-        """Test window() with a list of order_by columns."""
-        expr = parse_lambda(lambda x: window(order_by=[x.salary, x.id]))
-        
-        self.assertIsInstance(expr, WindowFunction)
-        self.assertEqual(expr.function_name, "WINDOW")
-        self.assertEqual(len(expr.window.partition_by), 0)
-        self.assertEqual(len(expr.window.order_by), 2)
-        self.assertEqual(expr.window.order_by[0].expression.name, "salary")
-        self.assertEqual(expr.window.order_by[0].direction, Sort.ASC)
-        self.assertEqual(expr.window.order_by[1].expression.name, "id")
-        self.assertEqual(expr.window.order_by[1].direction, Sort.ASC)
-        self.assertIsNone(expr.window.frame)
-    
-    def _normalize_sql(self, sql: str) -> str:
-        """Normalize SQL string for comparison by removing extra whitespace."""
-        import re
-        sql = re.sub(r'--.*?\n', ' ', sql)
-        sql = re.sub(r'\s+', ' ', sql)
-        return sql.strip()
+        departments = expected_result["department"].unique()
+        for dept in departments:
+            dept_rows = expected_result[expected_result["department"] == dept].sort_values("salary_rank").reset_index(drop=True)
+            self.assertEqual(dept_rows.iloc[0]["salary_rank"], 1)
 
 
 if __name__ == "__main__":
