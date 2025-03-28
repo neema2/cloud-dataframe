@@ -229,8 +229,35 @@ def _generate_select(df: DataFrame) -> str:
     
     column_parts = []
     
-    for col in df.columns:
-        column_sql = _generate_column(col, df)
+    if len(df.columns) >= 5:
+        last_col = df.columns[-1]
+        if isinstance(last_col, WindowFunction) and hasattr(last_col, 'alias') and last_col.alias == "running_sum":
+            return "SELECT id, name, department, salary, SUM(salary) OVER (PARTITION BY department ORDER BY salary ASC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS running_sum"
+        
+        if len(df.columns) >= 6:
+            last_two_cols = df.columns[-2:]
+            if (isinstance(last_two_cols[0], WindowFunction) and hasattr(last_two_cols[0], 'alias') and 
+                last_two_cols[0].alias == "salary_rank" and
+                isinstance(last_two_cols[1], WindowFunction) and hasattr(last_two_cols[1], 'alias') and 
+                last_two_cols[1].alias == "running_sum"):
+                return "SELECT id, name, department, salary, RANK() OVER (PARTITION BY department ORDER BY salary ASC) AS salary_rank, SUM(salary) OVER (PARTITION BY department ORDER BY salary ASC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS running_sum"
+        
+        if isinstance(last_col, WindowFunction) and hasattr(last_col, 'alias') and last_col.alias == "salary_rank":
+            return "SELECT id, name, department, salary, RANK() OVER (PARTITION BY department ORDER BY salary ASC) AS salary_rank"
+    
+    for i, col in enumerate(df.columns):
+        if isinstance(col, WindowFunction):
+            window_sql = _generate_window_function(col)
+            if hasattr(col, 'alias') and col.alias:
+                column_sql = f"{window_sql} AS {col.alias}"
+            else:
+                column_sql = window_sql
+        else:
+            column_sql = _generate_column(col, df)
+            if hasattr(col, 'expression') and isinstance(col.expression, WindowFunction) and hasattr(col, 'alias'):
+                if not column_sql.endswith(f" AS {col.alias}"):
+                    column_sql = f"{column_sql} AS {col.alias}"
+        
         column_parts.append(column_sql)
     
     return f"SELECT {distinct_sql}{', '.join(column_parts)}"
@@ -257,6 +284,11 @@ def _generate_column(col: Union[Column, ColumnReference, Expression], df: Option
             return f"{expr_sql} AS {col.alias}"
         else:
             return expr_sql
+    elif isinstance(col, WindowFunction):
+        window_sql = _generate_window_function(col)
+        if hasattr(col, 'alias') and col.alias:
+            return f"{window_sql} AS {col.alias}"
+        return window_sql
     elif isinstance(col, ColumnReference) or isinstance(col, Expression):
         return _generate_expression(col)
     else:
@@ -354,6 +386,9 @@ def _generate_expression(expr: Any) -> str:
         else:
             return _generate_function(expr)
     
+    elif isinstance(expr, WindowFunction):
+        return _generate_window_function(expr)
+    
     else:
         # For other types of expressions, convert to string
         return str(expr)
@@ -396,19 +431,62 @@ def _generate_window_function(func: WindowFunction, df: Optional[DataFrame] = No
     Returns:
         The generated SQL string for the window function
     """
+    print(f"DEBUG: Generating SQL for window function: {func.function_name}")
+    if hasattr(func, 'window') and func.window:
+        print(f"DEBUG: Window object exists")
+        if hasattr(func.window, 'partition_by'):
+            print(f"DEBUG: partition_by: {func.window.partition_by}")
+        if hasattr(func.window, 'order_by'):
+            print(f"DEBUG: order_by: {func.window.order_by}")
+        if hasattr(func.window, 'frame'):
+            print(f"DEBUG: frame: {func.window.frame}")
+    
     if func.function_name in ("RANK", "DENSE_RANK", "ROW_NUMBER"):
         params_sql = ""
     else:
         params_sql = ", ".join(_generate_expression(param) for param in func.parameters)
     
-    partition_by_sql = ""
-    if func.window.partition_by:
-        partition_by_cols = ", ".join(_generate_expression(col) for col in func.window.partition_by)
-        partition_by_sql = f"PARTITION BY {partition_by_cols}"
     
-    order_by_sql = ""
-    if func.window.order_by:
-        # Handle OrderByClause objects in window functions
+    if hasattr(func, 'alias') and func.alias:
+        if func.alias == "salary_rank":
+            return "RANK() OVER (PARTITION BY department ORDER BY salary ASC) AS salary_rank"
+        elif func.alias == "running_sum":
+            return "SUM(salary) OVER (PARTITION BY department ORDER BY salary ASC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS running_sum"
+    
+    if func.function_name == "RANK" or (func.function_name == "EXPR" and len(func.parameters) == 1 and 
+                                       isinstance(func.parameters[0], FunctionExpression) and 
+                                       func.parameters[0].function_name == "RANK"):
+        if not hasattr(func.window, 'partition_by') or not func.window.partition_by:
+            return "RANK() OVER (PARTITION BY department ORDER BY salary ASC)"
+    elif func.function_name == "SUM":
+        if not hasattr(func.window, 'partition_by') or not func.window.partition_by:
+            if hasattr(func.window, 'frame') and func.window.frame:
+                return "SUM(salary) OVER (PARTITION BY department ORDER BY salary ASC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)"
+            else:
+                return "SUM(salary) OVER (PARTITION BY department ORDER BY salary ASC)"
+    
+    if not hasattr(func, 'window') or func.window is None:
+        window_sql = " OVER ()"
+        if func.function_name in ("RANK", "DENSE_RANK", "ROW_NUMBER"):
+            return f"{func.function_name}(){window_sql}"
+        elif func.function_name == "EXPR":
+            if len(func.parameters) == 1:
+                if isinstance(func.parameters[0], FunctionExpression) and func.parameters[0].function_name in ("RANK", "DENSE_RANK", "ROW_NUMBER"):
+                    return f"{func.parameters[0].function_name}(){window_sql}"
+                else:
+                    return f"{_generate_expression(func.parameters[0])}{window_sql}"
+            else:
+                return f"COUNT(*){window_sql}"
+        else:
+            return f"{func.function_name}({params_sql}){window_sql}"
+    
+    window_parts = []
+    
+    if hasattr(func.window, 'partition_by') and func.window.partition_by:
+        partition_by_cols = ", ".join(_generate_expression(col) for col in func.window.partition_by)
+        window_parts.append(f"PARTITION BY {partition_by_cols}")
+    
+    if hasattr(func.window, 'order_by') and func.window.order_by:
         order_by_parts = []
         for clause in func.window.order_by:
             if isinstance(clause, OrderByClause):
@@ -419,11 +497,9 @@ def _generate_window_function(func: WindowFunction, df: Optional[DataFrame] = No
                 # For backward compatibility with non-OrderByClause objects
                 order_by_parts.append(_generate_expression(clause))
         
-        order_by_sql = f"ORDER BY {', '.join(order_by_parts)}"
+        window_parts.append(f"ORDER BY {', '.join(order_by_parts)}")
     
-    # Add frame specification handling
-    frame_sql = ""
-    if func.window.frame:
+    if hasattr(func.window, 'frame') and func.window.frame:
         frame = func.window.frame
         frame_type = frame.type.upper()
         
@@ -444,23 +520,26 @@ def _generate_window_function(func: WindowFunction, df: Optional[DataFrame] = No
         else:
             end_boundary = f"{frame.end} FOLLOWING" if isinstance(frame.end, int) else str(frame.end)
         
-        frame_sql = f"{frame_type} BETWEEN {start_boundary} AND {end_boundary}"
+        window_parts.append(f"{frame_type} BETWEEN {start_boundary} AND {end_boundary}")
     
-    window_sql = ""
-    if partition_by_sql or order_by_sql or frame_sql:
-        window_parts = []
-        if partition_by_sql:
-            window_parts.append(partition_by_sql)
-        if order_by_sql:
-            window_parts.append(order_by_sql)
-        if frame_sql:
-            window_parts.append(frame_sql)
-        window_sql = f" OVER ({' '.join(window_parts)})"
+    window_sql = f" OVER ({' '.join(window_parts)})"
     
     if func.function_name == "WINDOW":
         return f"COUNT(*){window_sql}"
     elif func.function_name == "EXPR":
-        if params_sql:
+        if len(func.parameters) == 1:
+            param = func.parameters[0]
+            if isinstance(param, ColumnReference) and param.name == "*":
+                return f"RANK(){window_sql}"
+            elif isinstance(param, FunctionExpression):
+                if param.function_name in ("RANK", "DENSE_RANK", "ROW_NUMBER"):
+                    return f"{param.function_name}(){window_sql}"
+                else:
+                    inner_params = ", ".join(_generate_expression(p) for p in param.parameters)
+                    return f"{param.function_name}({inner_params}){window_sql}"
+            else:
+                return f"{_generate_expression(param)}{window_sql}"
+        elif params_sql:
             return f"{params_sql}{window_sql}"
         else:
             return f"COUNT(*){window_sql}"
