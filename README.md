@@ -42,18 +42,18 @@ df = DataFrame.from_table("employees")
 filtered_df = df.filter(lambda x: x.salary > 50000)
 
 # Select specific columns with walrus operator
-selected_df = DataFrame.select(
-    id := df.id,
-    name := df.name,
-    salary := df.salary
+selected_df = df.select(
+    lambda x: (id := x.id),
+    lambda x: (name := x.name),
+    lambda x: (salary := x.salary)
 )
 
 # Group by and aggregate with walrus operator
 summary_df = df.group_by_columns("department") \
     .select(
-        department := df.department,
-        avg_salary := lambda x: avg(x.salary),
-        employee_count := lambda x: count(x.id)
+        lambda x: (department := x.department),
+        lambda x: (avg_salary := avg(x.salary)),
+        lambda x: (employee_count := count(x.id))
     )
 
 # Generate SQL for DuckDB
@@ -86,10 +86,10 @@ filtered_df = df.filter(lambda x: x.salary > 50000 and x.department == "Engineer
 
 # Select with column aliases using walrus operator
 result_df = filtered_df.select(
-    employee_id := df.id,
-    employee_name := df.name,
-    dept := df.department,
-    annual_salary := lambda x: x.salary * 12
+    lambda x: (employee_id := x.id),
+    lambda x: (employee_name := x.name),
+    lambda x: (dept := x.department),
+    lambda x: (annual_salary := x.salary * 12)
 )
 
 # Order by with multiple columns and sort directions
@@ -130,10 +130,10 @@ left_joined_df = employees.left_join(
 
 # Select columns from joined tables with walrus operator
 result_df = joined_df.select(
-    employee_id := employees.id,
-    employee_name := employees.name,
-    department_name := departments.name,
-    location := departments.location
+    lambda x: (employee_id := x.employees.id),
+    lambda x: (employee_name := x.employees.name),
+    lambda x: (department_name := x.departments.name),
+    lambda x: (location := x.departments.location)
 )
 ```
 
@@ -146,17 +146,17 @@ df = DataFrame.from_table("employees")
 
 # Simple if-else with walrus operator
 result_df = df.select(
-    id := df.id,
-    name := df.name,
-    bonus_eligible := lambda x: x.salary > 50000
+    lambda x: (id := x.id),
+    lambda x: (name := x.name),
+    lambda x: (bonus_eligible := x.salary > 50000)
 )
 
 # CASE WHEN expression with calculations
 result_df = df.select(
-    id := df.id,
-    name := df.name,
-    salary := df.salary,
-    bonus := lambda x: x.salary * 1.2 if x.is_manager else x.salary * 1.1 if x.age > 40 else x.salary
+    lambda x: (id := x.id),
+    lambda x: (name := x.name),
+    lambda x: (salary := x.salary),
+    lambda x: (bonus := x.salary * 1.2 if x.is_manager else x.salary * 1.1 if x.age > 40 else x.salary)
 )
 ```
 
@@ -170,24 +170,24 @@ df = DataFrame.from_table("employees")
 
 # Window functions with PARTITION BY and ORDER BY
 result_df = df.select(
-    id := df.id,
-    name := df.name,
-    department := df.department,
-    salary := df.salary,
-    dept_rank := lambda x: rank().over(
+    lambda x: (id := x.id),
+    lambda x: (name := x.name),
+    lambda x: (department := x.department),
+    lambda x: (salary := x.salary),
+    lambda x: (dept_rank := rank().over(
         partition_by=[x.department],
         order_by=[(x.salary, "DESC")]
-    )
+    ))
 )
 
 # Group by with multiple aggregations
 summary_df = df.group_by_columns("department", "location") \
     .select(
-        department := df.department,
-        location := df.location,
-        avg_salary := lambda x: avg(x.salary),
-        total_salary := lambda x: sum(x.salary),
-        employee_count := lambda x: count(x.id)
+        lambda x: (department := x.department),
+        lambda x: (location := x.location),
+        lambda x: (avg_salary := avg(x.salary)),
+        lambda x: (total_salary := sum(x.salary)),
+        lambda x: (employee_count := count(x.id))
     )
 ```
 
