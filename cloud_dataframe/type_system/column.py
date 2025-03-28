@@ -640,3 +640,109 @@ def date_diff(expr1: Union[Callable, Expression], expr2: Union[Callable, Express
         function_name="DATE_DIFF",
         parameters=[parsed_expr1, parsed_expr2]
     )
+
+
+def window(func: Optional[Union[Callable, Expression]] = None,
+           partition: Optional[Union[List[Expression], Expression, Callable]] = None,
+           order_by: Optional[Union[List[Expression], Expression, Callable]] = None,
+           frame: Optional[Frame] = None) -> WindowFunction:
+    """
+    Create a window function specification.
+    
+    Args:
+        func: Optional window function to apply or lambda function expression
+        partition: Optional list of expressions or lambda function to partition by
+            Can be a lambda that returns:
+            - A single column reference (lambda x: x.column)
+            - A list of column references (lambda x: [x.col1, x.col2])
+        order_by: Optional list of expressions or lambda function to order by
+            Can be a lambda that returns:
+            - A single column reference (lambda x: x.column)
+            - A list of column references (lambda x: [x.col1, x.col2])
+            - A list with tuples specifying sort direction (lambda x: [(x.col1, 'DESC'), (x.col2, 'ASC')])
+        frame: Optional frame specification created with row() or range() functions
+        
+    Returns:
+        A WindowFunction with the window specification applied
+    """
+    from ..utils.lambda_parser import parse_lambda
+    from ..core.dataframe import OrderByClause, Sort
+    
+    window_obj = Window()
+    partition_by_list = []
+    order_by_list = []
+    window_func = None
+    
+    if func is not None:
+        if callable(func) and not isinstance(func, WindowFunction):
+            # Parse lambda function expression
+            parsed_func = parse_lambda(func)
+            # Create a WindowFunction with the parsed expression
+            if isinstance(parsed_func, FunctionExpression):
+                window_func = WindowFunction(function_name=parsed_func.function_name, parameters=parsed_func.parameters)
+            else:
+                # If not a function expression, wrap in a WindowFunction
+                window_func = WindowFunction(function_name="EXPR", parameters=[parsed_func])
+        elif isinstance(func, WindowFunction):
+            # Use the provided WindowFunction
+            window_func = func
+        elif isinstance(func, FunctionExpression):
+            window_func = WindowFunction(function_name=func.function_name, parameters=func.parameters)
+        else:
+            window_func = WindowFunction(function_name="EXPR", parameters=[func])
+    else:
+        window_func = WindowFunction(function_name="WINDOW")
+    
+    if partition is not None:
+        if callable(partition):
+            # Handle lambda function
+            parsed_expressions = parse_lambda(partition)
+            if isinstance(parsed_expressions, list):
+                partition_by_list = parsed_expressions
+            else:
+                partition_by_list = [parsed_expressions]
+        elif isinstance(partition, list):
+            # Handle list of expressions (already Expression objects)
+            partition_by_list = partition
+        else:
+            partition_by_list = [partition]
+    
+    if order_by is not None:
+        if callable(order_by):
+            # Handle lambda function
+            parsed_expressions = parse_lambda(order_by)
+            
+            if isinstance(parsed_expressions, list):
+                # Process array lambdas
+                for item in parsed_expressions:
+                    # Check if this is a tuple with sort direction
+                    if isinstance(item, tuple) and len(item) == 2:
+                        col_expr, sort_dir = item
+                        # Convert string sort direction to OrderByClause equivalent
+                        dir_enum = Sort.DESC if isinstance(sort_dir, str) and sort_dir.upper() == 'DESC' else Sort.ASC
+                        order_by_list.append(OrderByClause(expression=col_expr, direction=dir_enum))
+                    else:
+                        # Use default ASC ordering
+                        order_by_list.append(OrderByClause(expression=item, direction=Sort.ASC))
+            else:
+                # Single expression with default ASC ordering
+                order_by_list.append(OrderByClause(expression=parsed_expressions, direction=Sort.ASC))
+        elif isinstance(order_by, list):
+            for item in order_by:
+                if isinstance(item, OrderByClause):
+                    order_by_list.append(item)
+                else:
+                    # Use default ASC ordering
+                    order_by_list.append(OrderByClause(expression=item, direction=Sort.ASC))
+        else:
+            order_by_list.append(OrderByClause(expression=order_by, direction=Sort.ASC))
+    
+    window_obj.set_partition_by(partition_by_list)
+    window_obj.set_order_by(order_by_list)
+    
+    # Add frame handling
+    if frame:
+        window_obj.set_frame(frame)
+    
+    window_func.window = window_obj
+    return window_func
