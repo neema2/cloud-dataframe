@@ -32,18 +32,31 @@ class TestWindowSQL(unittest.TestCase):
         self.conn.close()
     
     def test_window_with_rank(self):
-        """Test window function with rank() function."""
-        sql = """
-        SELECT 
-            id, 
-            name, 
-            department, 
-            salary,
-            RANK() OVER (PARTITION BY department ORDER BY salary) AS salary_rank
-        FROM employees
-        """
+        """Test window function with rank() function using DSL."""
+        from cloud_dataframe.core.dataframe import DataFrame
+        from cloud_dataframe.type_system.schema import TableSchema
+        from cloud_dataframe.type_system.column import as_column, rank, window
         
-        result = self.conn.execute(sql).fetchdf()
+        schema = TableSchema(
+            name="Employee",
+            columns={
+                "id": int,
+                "name": str,
+                "department": str,
+                "salary": float,
+            }
+        )
+        
+        df = DataFrame.from_table_schema("employees", schema)
+        query = df.select(
+            lambda x: x.id,
+            lambda x: x.name,
+            lambda x: x.department,
+            lambda x: x.salary,
+            as_column(lambda x: window(func=rank(), partition=x.department, order_by=x.salary), "salary_rank")
+        )
+        
+        result = self.conn.execute(query.to_sql()).fetchdf()
         
         self.assertEqual(len(result), 6)  # All employees
         self.assertIn("salary_rank", result.columns)
@@ -54,22 +67,39 @@ class TestWindowSQL(unittest.TestCase):
             self.assertEqual(dept_rows.iloc[0]["salary_rank"], 1)
     
     def test_window_with_frame(self):
-        """Test window function with frame specification."""
-        sql = """
-        SELECT 
-            id, 
-            name, 
-            department, 
-            salary,
-            SUM(salary) OVER (
-                PARTITION BY department 
-                ORDER BY salary 
-                ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-            ) AS running_sum
-        FROM employees
-        """
+        """Test window function with frame specification using DSL."""
+        from cloud_dataframe.core.dataframe import DataFrame
+        from cloud_dataframe.type_system.schema import TableSchema
+        from cloud_dataframe.type_system.column import as_column, sum, window, row, unbounded
         
-        result = self.conn.execute(sql).fetchdf()
+        schema = TableSchema(
+            name="Employee",
+            columns={
+                "id": int,
+                "name": str,
+                "department": str,
+                "salary": float,
+            }
+        )
+        
+        df = DataFrame.from_table_schema("employees", schema)
+        query = df.select(
+            lambda x: x.id,
+            lambda x: x.name,
+            lambda x: x.department,
+            lambda x: x.salary,
+            as_column(
+                lambda x: window(
+                    func=sum(x.salary),
+                    partition=x.department,
+                    order_by=x.salary,
+                    frame=row(unbounded(), 0)
+                ),
+                "running_sum"
+            )
+        )
+        
+        result = self.conn.execute(query.to_sql()).fetchdf()
         
         self.assertEqual(len(result), 6)  # All employees
         self.assertIn("running_sum", result.columns)
@@ -90,23 +120,40 @@ class TestWindowSQL(unittest.TestCase):
                 self.assertAlmostEqual(actual_sums[i], expected_sums[i], places=2)
     
     def test_window_with_multiple_functions(self):
-        """Test multiple window functions in a single query."""
-        sql = """
-        SELECT 
-            id, 
-            name, 
-            department, 
-            salary,
-            RANK() OVER (PARTITION BY department ORDER BY salary) AS salary_rank,
-            SUM(salary) OVER (
-                PARTITION BY department 
-                ORDER BY salary 
-                ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-            ) AS running_sum
-        FROM employees
-        """
+        """Test multiple window functions in a single query using DSL."""
+        from cloud_dataframe.core.dataframe import DataFrame
+        from cloud_dataframe.type_system.schema import TableSchema
+        from cloud_dataframe.type_system.column import as_column, sum, rank, window, row, unbounded
         
-        result = self.conn.execute(sql).fetchdf()
+        schema = TableSchema(
+            name="Employee",
+            columns={
+                "id": int,
+                "name": str,
+                "department": str,
+                "salary": float,
+            }
+        )
+        
+        df = DataFrame.from_table_schema("employees", schema)
+        query = df.select(
+            lambda x: x.id,
+            lambda x: x.name,
+            lambda x: x.department,
+            lambda x: x.salary,
+            as_column(lambda x: window(func=rank(), partition=x.department, order_by=x.salary), "salary_rank"),
+            as_column(
+                lambda x: window(
+                    func=sum(x.salary),
+                    partition=x.department,
+                    order_by=x.salary,
+                    frame=row(unbounded(), 0)
+                ),
+                "running_sum"
+            )
+        )
+        
+        result = self.conn.execute(query.to_sql()).fetchdf()
         
         self.assertEqual(len(result), 6)  # All employees
         self.assertIn("salary_rank", result.columns)

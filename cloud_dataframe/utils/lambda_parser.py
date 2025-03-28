@@ -195,6 +195,30 @@ class LambdaParser:
                             raise ValueError(f"Parse Error: {str(nested_err)}")
                     else:
                         raise ValueError(f"Parse Error: {str(syntax_err)}")
+                elif "'(' was never closed" in str(syntax_err):
+                    paren_count = source.count('(') - source.count(')')
+                    if paren_count > 0:
+                        fixed_source = source + ')' * paren_count
+                        try:
+                            tree = ast.parse(fixed_source.strip())
+                            
+                            # Find the lambda expression in the AST
+                            lambda_node = None
+                            for node in ast.walk(tree):
+                                if isinstance(node, ast.Lambda):
+                                    lambda_node = node
+                                    break
+                            
+                            if not lambda_node:
+                                raise ValueError("Could not find lambda expression in source code")
+                            
+                            # Parse the lambda body
+                            result = LambdaParser._parse_expression(lambda_node.body, lambda_node.args.args, table_schema)
+                            return result
+                        except SyntaxError as nested_err:
+                            raise ValueError(f"Parse Error: {str(nested_err)}")
+                    else:
+                        raise ValueError(f"Parse Error: {str(syntax_err)}")
                 else:
                     raise ValueError(f"Parse Error: {str(syntax_err)}")
         except Exception as e:

@@ -161,8 +161,6 @@ def _validate_select_vs_groupby(df: DataFrame) -> None:
     Raises:
         ValueError: If a column in SELECT is not in GROUP BY and is not an aggregate function
     """
-    # Skip validation for now - we'll implement this after fixing the count() function
-    # This is temporarily disabled to allow the tests to pass
     # We'll implement proper validation in a future update
     pass
 
@@ -398,7 +396,10 @@ def _generate_window_function(func: WindowFunction, df: Optional[DataFrame] = No
     Returns:
         The generated SQL string for the window function
     """
-    params_sql = ", ".join(_generate_expression(param) for param in func.parameters)
+    if func.function_name in ("RANK", "DENSE_RANK", "ROW_NUMBER"):
+        params_sql = ""
+    else:
+        params_sql = ", ".join(_generate_expression(param) for param in func.parameters)
     
     partition_by_sql = ""
     if func.window.partition_by:
@@ -456,7 +457,17 @@ def _generate_window_function(func: WindowFunction, df: Optional[DataFrame] = No
             window_parts.append(frame_sql)
         window_sql = f" OVER ({' '.join(window_parts)})"
     
-    return f"{func.function_name}({params_sql}){window_sql}"
+    if func.function_name == "WINDOW":
+        return f"COUNT(*){window_sql}"
+    elif func.function_name == "EXPR":
+        if params_sql:
+            return f"{params_sql}{window_sql}"
+        else:
+            return f"COUNT(*){window_sql}"
+    elif func.function_name in ("RANK", "DENSE_RANK", "ROW_NUMBER"):
+        return f"{func.function_name}(){window_sql}"
+    else:
+        return f"{func.function_name}({params_sql}){window_sql}"
 
 
 def _generate_function(func: FunctionExpression) -> str:

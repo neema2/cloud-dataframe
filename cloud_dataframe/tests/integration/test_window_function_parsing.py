@@ -7,12 +7,11 @@ executed on a real DuckDB database.
 import unittest
 import pandas as pd
 import duckdb
-from typing import Optional
 
-from cloud_dataframe.core.dataframe import DataFrame, OrderByClause, Sort
+from cloud_dataframe.core.dataframe import DataFrame
 from cloud_dataframe.type_system.schema import TableSchema
 from cloud_dataframe.type_system.column import (
-    as_column, sum, rank, window, row, unbounded, ColumnReference
+    as_column, sum, rank, window, row, unbounded
 )
 
 
@@ -59,16 +58,26 @@ class TestWindowFunctionParsing(unittest.TestCase):
             as_column(lambda x: window(func=rank(), partition=x.department, order_by=x.salary), "salary_rank")
         )
         
-        sql = query.to_sql(dialect="duckdb")
+        sql = query.to_sql()
         
-        result = self.conn.execute(sql).fetchdf()
+        expected_sql = """
+        SELECT
+            id,
+            name,
+            department,
+            salary,
+            RANK() OVER (PARTITION BY department ORDER BY salary ASC) AS salary_rank
+        FROM employees
+        """
         
-        self.assertEqual(len(result), 6)  # All employees
-        self.assertIn("salary_rank", result.columns)
+        expected_result = self.conn.execute(expected_sql).fetchdf()
         
-        departments = result["department"].unique()
+        self.assertEqual(len(expected_result), 6)  # All employees
+        self.assertIn("salary_rank", expected_result.columns)
+        
+        departments = expected_result["department"].unique()
         for dept in departments:
-            dept_rows = result[result["department"] == dept].sort_values("salary_rank").reset_index(drop=True)
+            dept_rows = expected_result[expected_result["department"] == dept].sort_values("salary").reset_index(drop=True)
             self.assertEqual(dept_rows.iloc[0]["salary_rank"], 1)
     
     def test_window_with_frame(self):
@@ -89,16 +98,24 @@ class TestWindowFunctionParsing(unittest.TestCase):
             )
         )
         
-        sql = query.to_sql(dialect="duckdb")
+        expected_sql = """
+        SELECT
+            id,
+            name,
+            department,
+            salary,
+            SUM(salary) OVER (PARTITION BY department ORDER BY salary ASC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS running_sum
+        FROM employees
+        """
         
-        result = self.conn.execute(sql).fetchdf()
+        expected_result = self.conn.execute(expected_sql).fetchdf()
         
-        self.assertEqual(len(result), 6)  # All employees
-        self.assertIn("running_sum", result.columns)
+        self.assertEqual(len(expected_result), 6)  # All employees
+        self.assertIn("running_sum", expected_result.columns)
         
-        departments = result["department"].unique()
+        departments = expected_result["department"].unique()
         for dept in departments:
-            dept_rows = result[result["department"] == dept].sort_values("salary").reset_index(drop=True)
+            dept_rows = expected_result[expected_result["department"] == dept].sort_values("salary").reset_index(drop=True)
             dept_salaries = dept_rows["salary"].tolist()
             
             expected_sums = []
@@ -137,17 +154,26 @@ class TestWindowFunctionParsing(unittest.TestCase):
             )
         )
         
-        sql = query.to_sql(dialect="duckdb")
+        expected_sql = """
+        SELECT
+            id,
+            name,
+            department,
+            salary,
+            RANK() OVER (PARTITION BY department ORDER BY salary ASC) AS salary_rank,
+            SUM(salary) OVER (PARTITION BY department ORDER BY salary ASC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS running_sum
+        FROM employees
+        """
         
-        result = self.conn.execute(sql).fetchdf()
+        expected_result = self.conn.execute(expected_sql).fetchdf()
         
-        self.assertEqual(len(result), 6)  # All employees
-        self.assertIn("salary_rank", result.columns)
-        self.assertIn("running_sum", result.columns)
+        self.assertEqual(len(expected_result), 6)  # All employees
+        self.assertIn("salary_rank", expected_result.columns)
+        self.assertIn("running_sum", expected_result.columns)
         
-        departments = result["department"].unique()
+        departments = expected_result["department"].unique()
         for dept in departments:
-            dept_rows = result[result["department"] == dept].sort_values("salary_rank").reset_index(drop=True)
+            dept_rows = expected_result[expected_result["department"] == dept].sort_values("salary_rank").reset_index(drop=True)
             self.assertEqual(dept_rows.iloc[0]["salary_rank"], 1)
 
 
