@@ -12,7 +12,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union, cast
 from ..type_system.column import (
     Expression, LiteralExpression, ColumnReference, 
     SumFunction, AvgFunction, CountFunction, MinFunction, MaxFunction,
-    DateDiffFunction, FunctionExpression
+    DateDiffFunction, FunctionExpression, WindowFunction, Window
 )
 from ..core.dataframe import BinaryOperation, OrderByClause, Sort
 
@@ -442,9 +442,10 @@ class LambdaParser:
                         kwargs[kw.arg] = kw.value.value
                 
                 # Create the appropriate Function object based on function name
-                if node.func.id in ('sum', 'avg', 'count', 'min', 'max'):
+                if node.func.id in ('sum', 'avg', 'count', 'min', 'max', 'window'):
                     from ..type_system.column import (
-                        SumFunction, AvgFunction, CountFunction, MinFunction, MaxFunction
+                        SumFunction, AvgFunction, CountFunction, MinFunction, MaxFunction,
+                        WindowFunction, Window
                     )
                     
                     # Allow complex expressions as arguments (e.g., sum(x.col1 - x.col2))
@@ -483,6 +484,70 @@ class LambdaParser:
                         func = MaxFunction(function_name="MAX", parameters=args_list)
                         
                         return func
+                    elif node.func.id == 'window':
+                        func_expr = None
+                        partition_expr = None
+                        order_by_expr = None
+                        frame_expr = None
+                        
+                        if args_list:
+                            func_expr = args_list[0]
+                        
+                        for kw in node.keywords:
+                            kw_name = kw.arg
+                            kw_value = kw.value
+                            
+                            if kw_name == 'func':
+                                func_expr = LambdaParser._parse_expression(kw_value, args, table_schema)
+                            elif kw_name == 'partition':
+                                partition_expr = LambdaParser._parse_expression(kw_value, args, table_schema)
+                            elif kw_name == 'order_by':
+                                order_by_expr = LambdaParser._parse_expression(kw_value, args, table_schema)
+                            elif kw_name == 'frame':
+                                frame_expr = LambdaParser._parse_expression(kw_value, args, table_schema)
+                        
+                        window_obj = Window()
+                        
+                        if partition_expr is not None:
+                            if isinstance(partition_expr, list):
+                                window_obj.set_partition_by(partition_expr)
+                            else:
+                                window_obj.set_partition_by([partition_expr])
+                        
+                        if order_by_expr is not None:
+                            from ..core.dataframe import OrderByClause, Sort
+                            order_by_list = []
+                            
+                            if isinstance(order_by_expr, list):
+                                for item in order_by_expr:
+                                    if isinstance(item, tuple) and len(item) == 2:
+                                        col_expr, sort_dir = item
+                                        dir_enum = Sort.DESC if isinstance(sort_dir, str) and sort_dir.upper() == 'DESC' else Sort.ASC
+                                        order_by_list.append(OrderByClause(expression=col_expr, direction=dir_enum))
+                                    else:
+                                        order_by_list.append(OrderByClause(expression=item, direction=Sort.ASC))
+                            else:
+                                order_by_list.append(OrderByClause(expression=order_by_expr, direction=Sort.ASC))
+                            
+                            window_obj.set_order_by(order_by_list)
+                        
+                        if frame_expr is not None:
+                            window_obj.set_frame(frame_expr)
+                        
+                        if func_expr is not None:
+                            if isinstance(func_expr, FunctionExpression):
+                                window_func = WindowFunction(
+                                    function_name=func_expr.function_name,
+                                    parameters=func_expr.parameters
+                                )
+                            else:
+                                window_func = WindowFunction(function_name="EXPR", parameters=[func_expr])
+                        else:
+                            window_func = WindowFunction(function_name="WINDOW")
+                        
+                        window_func.window = window_obj
+                        
+                        return window_func
                 # Support for scalar functions
                 elif node.func.id in ('date_diff'):
                     from ..type_system.column import DateDiffFunction
