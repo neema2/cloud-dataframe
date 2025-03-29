@@ -13,7 +13,8 @@ from ..type_system.column import (
     Expression, LiteralExpression, ColumnReference, 
     SumFunction, AvgFunction, CountFunction, MinFunction, MaxFunction,
     DateDiffFunction, FunctionExpression, WindowFunction, Window,
-    window
+    RankFunction, RowNumberFunction, DenseRankFunction,
+    window, rank, row_number, dense_rank
 )
 from ..core.dataframe import BinaryOperation, OrderByClause, Sort
 
@@ -324,10 +325,10 @@ class LambdaParser:
                         kwargs[kw.arg] = kw.value.value
                 
                 # Create the appropriate Function object based on function name
-                if node.func.id in ('sum', 'avg', 'count', 'min', 'max', 'window'):
+                if node.func.id in ('sum', 'avg', 'count', 'min', 'max', 'window', 'rank', 'row_number', 'dense_rank'):
                     from ..type_system.column import (
                         SumFunction, AvgFunction, CountFunction, MinFunction, MaxFunction,
-                        WindowFunction, Window
+                        WindowFunction, Window, RankFunction, RowNumberFunction, DenseRankFunction
                     )
                     
                     # Allow complex expressions as arguments (e.g., sum(x.col1 - x.col2))
@@ -387,6 +388,12 @@ class LambdaParser:
                                 frame_expr = LambdaParser._parse_expression(kw_value, args, table_schema)
                         
                         return window(func=func_expr, partition=partition_expr, order_by=order_by_expr, frame=frame_expr)
+                    elif node.func.id == 'rank':
+                        return RankFunction(function_name="RANK")
+                    elif node.func.id == 'row_number':
+                        return RowNumberFunction(function_name="ROW_NUMBER")
+                    elif node.func.id == 'dense_rank':
+                        return DenseRankFunction(function_name="DENSE_RANK")
                 # Support for scalar functions
                 elif node.func.id in ('date_diff'):
                     from ..type_system.column import DateDiffFunction
