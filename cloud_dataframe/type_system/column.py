@@ -642,7 +642,7 @@ def date_diff(expr1: Union[Callable, Expression], expr2: Union[Callable, Express
     )
 
 
-def window(func: Optional[Union[WindowFunction, FunctionExpression, Expression]] = None,
+def window(func: Optional[FunctionExpression] = None,
            partition: Optional[Union[List[Expression], Expression]] = None,
            order_by: Optional[Union[List[Expression], Expression]] = None,
            frame: Optional[Frame] = None) -> WindowFunction:
@@ -666,13 +666,10 @@ def window(func: Optional[Union[WindowFunction, FunctionExpression, Expression]]
     window_func = None
     
     if func is not None:
-        if isinstance(func, WindowFunction):
-            # Use the provided WindowFunction
-            window_func = func
-        elif isinstance(func, FunctionExpression):
+        if isinstance(func, FunctionExpression):
             window_func = WindowFunction(function_name=func.function_name, parameters=func.parameters)
         else:
-            window_func = WindowFunction(function_name="EXPR", parameters=[func])
+            raise ValueError(f"Not a FunctionExpression{str(func)} {str(type(func))}"
     else:
         window_func = WindowFunction(function_name="WINDOW")
     
