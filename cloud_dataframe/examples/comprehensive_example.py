@@ -106,22 +106,22 @@ def comprehensive_query_example():
     # Create a query that demonstrates window functions
     window_query = employees.select(
         # Basic columns
-        lambda x: (id := col("id", "e")),
-        lambda x: (name := col("name", "e")),
-        lambda x: (department := col("department", "e")),
-        lambda x: (location := col("location", "e")),
-        lambda x: (salary := col("salary", "e")),
+        lambda e: (id := col("id", "e")),
+        lambda e: (name := col("name", "e")),
+        lambda e: (department := col("department", "e")),
+        lambda e: (location := col("location", "e")),
+        lambda e: (salary := col("salary", "e")),
         
         # Window functions with lambda-based partition_by and order_by
-        lambda x: (salary_rank_in_dept := window(func=row_number(), partition=x.e.department, order_by=x.e.salary)),
+        lambda e: (salary_rank_in_dept := window(func=row_number(), partition=e.department, order_by=e.salary)),
         
-        lambda x: (salary_rank_with_ties := window(func=rank(), partition=x.e.department, order_by=x.e.salary)),
+        lambda e: (salary_rank_with_ties := window(func=rank(), partition=e.department, order_by=e.salary)),
         
-        lambda x: (dense_salary_rank := window(func=dense_rank(), partition=x.e.department, order_by=x.e.salary))
+        lambda e: (dense_salary_rank := window(func=dense_rank(), partition=e.department, order_by=e.salary))
     ).filter(
-        lambda x: x.e.salary > 90000
+        lambda e: e.salary > 90000
     ).order_by(
-        lambda x: [x.e.department, x.e.salary],
+        lambda e: [e.department, e.salary],
         desc=True
     ).limit(10)
     
@@ -132,18 +132,18 @@ def comprehensive_query_example():
     
     # Create a query that demonstrates aggregate functions
     agg_query = employees.group_by(
-        lambda x: x.e.department,
-        lambda x: x.e.location
+        lambda e: e.department,
+        lambda e: e.location
     ).select(
-        lambda x: x.e.department,
-        lambda x: x.e.location,
-        lambda x: (employee_count := count(x.e.id)),
-        lambda x: (avg_salary := avg(x.e.salary)),
-        lambda x: (total_salary := sum(x.e.salary)),
-        lambda x: (min_salary := min(x.e.salary)),
-        lambda x: (max_salary := max(x.e.salary))
+        lambda e: e.department,
+        lambda e: e.location,
+        lambda e: (employee_count := count(e.id)),
+        lambda e: (avg_salary := avg(e.salary)),
+        lambda e: (total_salary := sum(e.salary)),
+        lambda e: (min_salary := min(e.salary)),
+        lambda e: (max_salary := max(e.salary))
     ).order_by(
-        lambda x: x.e.department,
+        lambda e: e.department,
         desc=True
     )
     
@@ -186,19 +186,19 @@ def comprehensive_query_with_array_lambdas():
     # Create a query that demonstrates window functions with array lambdas
     window_query = employees.select(
         # Basic columns using array lambda
-        lambda x: [col("id", "e"), col("name", "e"), col("department", "e"), 
+        lambda e: [col("id", "e"), col("name", "e"), col("department", "e"), 
                   col("location", "e"), col("salary", "e")],
         
         # Window functions with array lambda-based partition_by and order_by
-        lambda x: (salary_rank_in_dept := window(func=row_number(), partition=x.e.department, order_by=[(x.e.salary, Sort.DESC)])),
+        lambda e: (salary_rank_in_dept := window(func=row_number(), partition=e.department, order_by=e.salary)),
         
-        lambda x: (salary_rank_with_ties := window(func=rank(), partition=[x.e.department, x.e.location], order_by=[(x.e.salary, Sort.ASC), (x.e.id, Sort.DESC)])),
+        lambda e: (salary_rank_with_ties := window(func=rank(), partition=[e.department, e.location], order_by=e.salary)),
         
-        lambda x: (dense_salary_rank := window(func=dense_rank(), partition=x.e.department, order_by=[(x.e.salary, Sort.DESC), (x.e.id, Sort.ASC)]))
+        lambda e: (dense_salary_rank := window(func=dense_rank(), partition=e.department, order_by=e.salary))
     ).filter(
-        lambda x: x.e.salary > 90000
+        lambda e: e.salary > 90000
     ).order_by(
-        lambda x: [x.e.department, x.e.salary],
+        lambda e: [e.department, e.salary],
         desc=True
     ).limit(10)
     
@@ -209,16 +209,16 @@ def comprehensive_query_with_array_lambdas():
     
     # Create a query that demonstrates aggregate functions with array lambdas
     agg_query = employees.group_by(
-        lambda x: [x.e.department, x.e.location]
+        lambda e: [e.department, e.location]
     ).select(
-        lambda x: [x.e.department, x.e.location],
-        lambda x: (employee_count := count(x.e.id)),
-        lambda x: (avg_salary := avg(x.e.salary)),
-        lambda x: (total_salary := sum(x.e.salary)),
-        lambda x: (min_salary := min(x.e.salary)),
-        lambda x: (max_salary := max(x.e.salary))
+        lambda e: [e.department, e.location],
+        lambda e: (employee_count := count(e.id)),
+        lambda e: (avg_salary := avg(e.salary)),
+        lambda e: (total_salary := sum(e.salary)),
+        lambda e: (min_salary := min(e.salary)),
+        lambda e: (max_salary := max(e.salary))
     ).order_by(
-        lambda x: x.e.department,
+        lambda e: e.department,
         desc=True
     )
     
