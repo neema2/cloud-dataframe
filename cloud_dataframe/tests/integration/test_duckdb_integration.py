@@ -113,7 +113,7 @@ class TestDuckDBIntegration(unittest.TestCase):
             lambda x: (avg_salary := avg(x.salary))
         )
         
-        sql = df.to_sql(dialect="duckdb")
+        sql = grouped_df.to_sql(dialect="duckdb")
         result = self.conn.execute(sql).fetchall()
         
         self.assertEqual(len(result), 3)  # 3 departments
@@ -163,8 +163,9 @@ class TestDuckDBIntegration(unittest.TestCase):
             departments, 
             lambda e, d: e.department_id == d.id
         )
+        from cloud_dataframe.core.dataframe import Sort
         ordered_df = joined_df.order_by(
-            lambda e: e.salary, desc=True
+            lambda e: [(e.salary, Sort.DESC)]
         )
         
         sql = ordered_df.to_sql(dialect="duckdb")
