@@ -159,12 +159,10 @@ class TestDuckDBIntegration(unittest.TestCase):
         employees = DataFrame.from_("employees", alias="e")
         departments = DataFrame.from_("departments", alias="d")
         
-        joined_df = employees.left_join(
-            departments,
-            lambda e, d: e.department_id == d.id
-        ).order_by(lambda e: e.salary, desc=True)
+        joined_df = employees.left_join(departments, lambda e, d: e.department_id == d.id)
+        ordered_df = joined_df.order_by(lambda e: e.salary, desc=True)
         
-        sql = joined_df.to_sql(dialect="duckdb")
+        sql = ordered_df.to_sql(dialect="duckdb")
         result = self.conn.execute(sql).fetchall()
         
         self.assertEqual(len(result), 5)  # All 5 employees
