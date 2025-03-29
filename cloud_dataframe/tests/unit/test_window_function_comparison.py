@@ -52,8 +52,7 @@ class TestWindowFunctionComparison(unittest.TestCase):
         )
         
         lambda_window = LambdaParser.parse_lambda(
-            lambda x: window(func=rank(), partition=x.department, order_by=x.salary),
-            self.table_schema
+            lambda x: window(func=rank(), partition=x.department, order_by=x.salary)
         )
         
         self.assertEqual(direct_window.function_name, lambda_window.function_name)
@@ -78,8 +77,7 @@ class TestWindowFunctionComparison(unittest.TestCase):
         )
         
         lambda_window = LambdaParser.parse_lambda(
-            lambda x: window(func=sum(x.salary), partition=x.department, order_by=x.salary),
-            self.table_schema
+            lambda x: window(func=sum(x.salary), partition=x.department, order_by=x.salary)
         )
         
         self.assertEqual(direct_window.function_name, lambda_window.function_name)
@@ -100,8 +98,7 @@ class TestWindowFunctionComparison(unittest.TestCase):
         direct_window = window(frame=frame_spec)
         
         lambda_window = LambdaParser.parse_lambda(
-            lambda x: window(frame=row(unbounded(), 0)),
-            self.table_schema
+            lambda x: window(frame=row(unbounded(), 0))
         )
         
         self.assertEqual(direct_window.function_name, lambda_window.function_name)
@@ -119,8 +116,7 @@ class TestWindowFunctionComparison(unittest.TestCase):
         direct_window = window(partition=department_ref)
         
         lambda_window = LambdaParser.parse_lambda(
-            lambda x: window(partition=x.department),
-            self.table_schema
+            lambda x: window(partition=x.department)
         )
         
         self.assertEqual(direct_window.function_name, lambda_window.function_name)
@@ -137,8 +133,7 @@ class TestWindowFunctionComparison(unittest.TestCase):
         direct_window = window(order_by=salary_ref)
         
         lambda_window = LambdaParser.parse_lambda(
-            lambda x: window(order_by=x.salary),
-            self.table_schema
+            lambda x: window(order_by=x.salary)
         )
         
         self.assertEqual(direct_window.function_name, lambda_window.function_name)
@@ -184,8 +179,7 @@ class TestWindowFunctionComparison(unittest.TestCase):
         )
         
         lambda_window = LambdaParser.parse_lambda(
-            lambda x: window(sum(x.col1), partition=[x.col2, x.col3], order_by=x.col4, frame=row(2, 0)),
-            self.table_schema
+            lambda x: window(sum(x.col1), partition=[x.col2, x.col3], order_by=x.col4, frame=row(2, 0))
         )
         
         self.assertEqual(direct_window.function_name, lambda_window.function_name)
