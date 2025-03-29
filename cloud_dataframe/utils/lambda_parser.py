@@ -12,7 +12,8 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union, cast
 from ..type_system.column import (
     Expression, LiteralExpression, ColumnReference, 
     SumFunction, AvgFunction, CountFunction, MinFunction, MaxFunction,
-    DateDiffFunction, FunctionExpression, WindowFunction, Window
+    DateDiffFunction, FunctionExpression, WindowFunction, Window,
+    window
 )
 from ..core.dataframe import BinaryOperation, OrderByClause, Sort
 
