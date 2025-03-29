@@ -2,7 +2,7 @@
 Final test script to verify SQL generation with all clauses.
 """
 from cloud_dataframe.core.dataframe import DataFrame, BinaryOperation
-from cloud_dataframe.type_system.column import col, literal, as_column, count, avg
+from cloud_dataframe.type_system.column import col, literal, count, avg
 
 def main():
     """Run a complete test of SQL generation."""

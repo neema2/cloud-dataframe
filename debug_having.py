@@ -10,7 +10,7 @@ from typing import Optional
 
 from cloud_dataframe.core.dataframe import DataFrame
 from cloud_dataframe.type_system.schema import TableSchema
-from cloud_dataframe.type_system.column import as_column, sum, count
+from cloud_dataframe.type_system.column import sum, count
 
 def main():
     """Main function to debug having method."""

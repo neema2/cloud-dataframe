@@ -5,7 +5,7 @@ import inspect
 from cloud_dataframe.utils.lambda_parser import LambdaParser
 from cloud_dataframe.core.dataframe import DataFrame
 from cloud_dataframe.type_system.schema import TableSchema
-from cloud_dataframe.type_system.column import as_column, sum, avg, count, min, max
+from cloud_dataframe.type_system.column import sum, avg, count, min, max
 
 # Create a test schema
 schema = TableSchema(
@@ -43,29 +43,29 @@ print(f"Parsed result: {parsed}")
 
 print("\n=== Aggregate function with simple column ===")
 query = df.select(
-    as_column(sum(lambda x: x.salary), "total_salary")
+    total_salary := lambda x: sum(x.salary)
 )
 sql = query.to_sql(dialect="duckdb")
 print(f"Generated SQL: {sql}")
 
 print("\n=== Aggregate function with binary operation ===")
 query = df.select(
-    as_column(sum(lambda x: x.salary + x.bonus), "total_compensation")
+    total_compensation := lambda x: sum(x.salary + x.bonus)
 )
 sql = query.to_sql(dialect="duckdb")
 print(f"Generated SQL: {sql}")
 
 print("\n=== Multiple aggregate functions with complex expressions ===")
 query = df.select(
-    as_column(sum(lambda x: x.salary + x.bonus), "total_compensation"),
-    as_column(avg(lambda x: x.salary * (1 - x.tax_rate)), "avg_net_salary")
+    total_compensation := lambda x: sum(x.salary + x.bonus),
+    avg_net_salary := lambda x: avg(x.salary * (1 - x.tax_rate))
 )
 sql = query.to_sql(dialect="duckdb")
 print(f"Generated SQL: {sql}")
 
 print("\n=== Count distinct with lambda ===")
 query = df.select(
-    as_column(count(lambda x: x.name, distinct=True), "unique_names")
+    unique_names := lambda x: count(x.name, distinct=True)
 )
 sql = query.to_sql(dialect="duckdb")
 print(f"Generated SQL: {sql}")
@@ -73,8 +73,8 @@ print(f"Generated SQL: {sql}")
 print("\n=== Group by with lambda aggregates ===")
 query = df.group_by(lambda x: x.name).select(
     lambda x: x.name,
-    as_column(sum(lambda x: x.salary), "total_salary"),
-    as_column(avg(lambda x: x.bonus), "avg_bonus")
+    total_salary := lambda x: sum(x.salary),
+    avg_bonus := lambda x: avg(x.bonus)
 )
 sql = query.to_sql(dialect="duckdb")
 print(f"Generated SQL: {sql}")
