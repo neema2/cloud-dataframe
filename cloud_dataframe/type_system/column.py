@@ -16,26 +16,6 @@ R = TypeVar('R')
 class Expression:
     """Base class for all expressions in the DataFrame DSL."""
     
-    def __call__(self, alias: str) -> 'BinaryOperation':
-        """
-        Create a binary operation with the AS operator to alias this expression.
-        
-        This method allows using the syntax: expr("alias_name") to create an alias,
-        which is a replacement for the removed as_column() function.
-        
-        Args:
-            alias: The alias for the expression
-            
-        Returns:
-            A BinaryOperation with the AS operator
-        """
-        from ..core.dataframe import BinaryOperation
-        return BinaryOperation(
-            left=self,
-            operator="AS",
-            right=LiteralExpression(value=alias)
-        )
-    
 
 @dataclass
 class LiteralExpression(Expression):
