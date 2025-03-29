@@ -48,7 +48,9 @@ class TestArrayLambda(unittest.TestCase):
     def test_group_by_with_array_lambda(self):
         """Test grouping with array lambda."""
         # Test group_by with array lambda
-        grouped_df = self.df.group_by(lambda x: [x.department, x.location]).select(
+        grouped_df = self.df.group_by(
+            lambda x: [x.department, x.location]
+        ).select(
             lambda x: x.department,
             lambda x: x.location,
             as_column(avg(lambda x: x.salary), "avg_salary")
