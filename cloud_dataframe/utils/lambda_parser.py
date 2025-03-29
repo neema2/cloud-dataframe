@@ -12,9 +12,9 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union, cast
 from ..type_system.column import (
     Expression, LiteralExpression, ColumnReference, 
     SumFunction, AvgFunction, CountFunction, MinFunction, MaxFunction,
-    DateDiffFunction, FunctionExpression, WindowFunction, Window,
+    DateDiffFunction, FunctionExpression, WindowFunction, Window, Frame,
     RankFunction, RowNumberFunction, DenseRankFunction,
-    window, rank, row_number, dense_rank
+    window, rank, row_number, dense_rank, row, range, unbounded
 )
 from ..core.dataframe import BinaryOperation, OrderByClause, Sort
 
@@ -325,10 +325,11 @@ class LambdaParser:
                         kwargs[kw.arg] = kw.value.value
                 
                 # Create the appropriate Function object based on function name
-                if node.func.id in ('sum', 'avg', 'count', 'min', 'max', 'window', 'rank', 'row_number', 'dense_rank'):
+                if node.func.id in ('sum', 'avg', 'count', 'min', 'max', 'window', 'rank', 'row_number', 'dense_rank', 'row', 'range', 'unbounded'):
                     from ..type_system.column import (
                         SumFunction, AvgFunction, CountFunction, MinFunction, MaxFunction,
-                        WindowFunction, Window, RankFunction, RowNumberFunction, DenseRankFunction
+                        WindowFunction, Window, RankFunction, RowNumberFunction, DenseRankFunction,
+                        Frame
                     )
                     
                     # Allow complex expressions as arguments (e.g., sum(x.col1 - x.col2))
@@ -387,13 +388,52 @@ class LambdaParser:
                             elif kw_name == 'frame':
                                 frame_expr = LambdaParser._parse_expression(kw_value, args, table_schema)
                         
-                        return window(func=func_expr, partition=partition_expr, order_by=order_by_expr, frame=frame_expr)
+                        if len(node.args) > 0 and func_expr is None:
+                            func_expr = LambdaParser._parse_expression(node.args[0], args, table_schema)
+                            
+                        result = window(func=func_expr, partition=partition_expr, order_by=order_by_expr, frame=frame_expr)
+                        
+                        if func_expr is not None and isinstance(func_expr, FunctionExpression):
+                            result.function_name = func_expr.function_name
+                            
+                        return result
                     elif node.func.id == 'rank':
                         return RankFunction(function_name="RANK")
                     elif node.func.id == 'row_number':
                         return RowNumberFunction(function_name="ROW_NUMBER")
                     elif node.func.id == 'dense_rank':
                         return DenseRankFunction(function_name="DENSE_RANK")
+                    elif node.func.id == 'row':
+                        start = 0
+                        end = 0
+                        if len(args_list) >= 1:
+                            if isinstance(args_list[0], LiteralExpression):
+                                start = args_list[0].value
+                            elif isinstance(args_list[0], ColumnReference) and args_list[0].name == "*":
+                                start = "UNBOUNDED"
+                        if len(args_list) >= 2:
+                            if isinstance(args_list[1], LiteralExpression):
+                                end = args_list[1].value
+                            elif isinstance(args_list[1], ColumnReference) and args_list[1].name == "*":
+                                end = "UNBOUNDED"
+                        
+                        return row(start, end)
+                    elif node.func.id == 'range':
+                        start = 0
+                        end = 0
+                        if len(args_list) >= 1:
+                            if isinstance(args_list[0], LiteralExpression):
+                                start = args_list[0].value
+                            elif isinstance(args_list[0], ColumnReference) and args_list[0].name == "*":
+                                start = "UNBOUNDED"
+                        if len(args_list) >= 2:
+                            if isinstance(args_list[1], LiteralExpression):
+                                end = args_list[1].value
+                            elif isinstance(args_list[1], ColumnReference) and args_list[1].name == "*":
+                                end = "UNBOUNDED"
+                        return range(start, end)
+                    elif node.func.id == 'unbounded':
+                        return LiteralExpression(value="UNBOUNDED")
                 # Support for scalar functions
                 elif node.func.id in ('date_diff'):
                     from ..type_system.column import DateDiffFunction

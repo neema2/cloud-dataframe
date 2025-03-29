@@ -669,7 +669,7 @@ def window(func: Optional[FunctionExpression] = None,
         if isinstance(func, FunctionExpression):
             window_func = WindowFunction(function_name=func.function_name, parameters=func.parameters)
         else:
-            raise ValueError(f"Not a FunctionExpression{str(func)} {str(type(func))}"
+            raise ValueError(f"Not a FunctionExpression{str(func)} {str(type(func))}")
     else:
         window_func = WindowFunction(function_name="WINDOW")
     
