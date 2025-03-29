@@ -11,7 +11,7 @@ from typing import Optional
 
 from cloud_dataframe.core.dataframe import DataFrame
 from cloud_dataframe.type_system.schema import TableSchema
-from cloud_dataframe.type_system.column import as_column, sum, avg, count, min, max, date_diff
+from cloud_dataframe.type_system.column import sum, avg, count, min, max, date_diff
 from cloud_dataframe.utils.lambda_parser import LambdaParser
 
 
@@ -98,7 +98,7 @@ def main():
     print("\n--- Example 1: Sum with binary operation ---")
     example1 = df.group_by(lambda x: x.department).select(
         lambda x: x.department,
-        as_column(lambda x: sum(x.salary + x.bonus), "total_compensation")
+        total_compensation := lambda x: sum(x.salary + x.bonus)
     )
     
     sql1 = example1.to_sql(dialect="duckdb")
@@ -115,9 +115,9 @@ def main():
     print("\n--- Example 2: Multiple aggregates with expressions ---")
     example2 = df.group_by(lambda x: x.department).select(
         lambda x: x.department,
-        as_column(lambda x: sum(x.salary), "total_salary"),
-        as_column(lambda x: avg(x.salary / 12), "avg_monthly_salary"),
-        as_column(lambda x: max(x.salary + x.bonus), "max_total_comp")
+        total_salary := lambda x: sum(x.salary),
+        avg_monthly_salary := lambda x: avg(x.salary / 12),
+        max_total_comp := lambda x: max(x.salary + x.bonus)
     )
     
     sql2 = example2.to_sql(dialect="duckdb")
@@ -136,8 +136,8 @@ def main():
         lambda x: sum(x.salary) > 150000
     ).select(
         lambda x: x.department,
-        as_column(lambda x: count(x.id), "employee_count"),
-        as_column(lambda x: sum(x.salary), "total_salary")
+        employee_count := lambda x: count(x.id),
+        total_salary := lambda x: sum(x.salary)
     )
     
     sql3 = example3.to_sql(dialect="duckdb")
@@ -182,7 +182,7 @@ def main():
     example5 = DataFrame.from_table_schema("employees_with_dates", schema).select(
         lambda x: x.name,
         lambda x: x.department,
-        as_column(lambda x: date_diff(x.start_date, x.end_date), "days_employed")
+        days_employed := lambda x: date_diff(x.start_date, x.end_date)
     )
     
     sql5 = example5.to_sql(dialect="duckdb")
@@ -204,11 +204,11 @@ def main():
         lambda x: avg(x.salary) > 70000
     ).select(
         lambda x: x.department,
-        as_column(lambda x: count(x.id), "employee_count"),
-        as_column(lambda x: sum(x.salary + x.bonus), "total_compensation"),
-        as_column(lambda x: avg(x.salary), "avg_salary")
+        employee_count := lambda x: count(x.id),
+        total_compensation := lambda x: sum(x.salary + x.bonus),
+        avg_salary := lambda x: avg(x.salary)
     ).order_by(
-        as_column(lambda x: avg(x.salary), "avg_salary"), desc=True
+        avg_salary := lambda x: avg(x.salary), desc=True
     )
     
     sql6 = example6.to_sql(dialect="duckdb")

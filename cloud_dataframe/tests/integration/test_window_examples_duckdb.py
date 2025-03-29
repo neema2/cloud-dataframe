@@ -12,8 +12,8 @@ from typing import Optional
 from cloud_dataframe.core.dataframe import DataFrame
 from cloud_dataframe.type_system.schema import TableSchema
 from cloud_dataframe.type_system.column import (
-    as_column, over, row_number, rank, dense_rank, sum, avg,
-    row, range, unbounded
+    over, row_number, rank, dense_rank, sum, avg,
+    row, range, unbounded, window
 )
 
 
@@ -64,15 +64,7 @@ class TestWindowExamplesDuckDB(unittest.TestCase):
             lambda x: x.product_id,
             lambda x: x.date,
             lambda x: x.sales,
-            as_column(
-                over(
-                    lambda x: sum(x.sales),  # Lambda expression with sum
-                    partition_by=lambda x: x.product_id,
-                    order_by=lambda x: x.date,
-                    frame=row(unbounded(), 0)  # ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-                ),
-                "running_total"
-            )
+            lambda x: (running_total := window(func=sum(x.sales), partition=x.product_id, order_by=x.date, frame=row(unbounded(), 0)))
         ).order_by(
             lambda x: x.product_id,
             lambda x: x.date
@@ -108,15 +100,7 @@ class TestWindowExamplesDuckDB(unittest.TestCase):
             lambda x: x.product_id,
             lambda x: x.date,
             lambda x: x.sales,
-            as_column(
-                over(
-                    lambda x: avg(x.sales),  # Lambda expression with avg
-                    partition_by=lambda x: x.product_id,
-                    order_by=lambda x: x.date,
-                    frame=row(1, 1)  # ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING
-                ),
-                "moving_avg"
-            )
+            lambda x: (moving_avg := window(func=avg(x.sales), partition=x.product_id, order_by=x.date, frame=row(1, 1)))
         ).order_by(
             lambda x: x.product_id,
             lambda x: x.date
@@ -146,14 +130,7 @@ class TestWindowExamplesDuckDB(unittest.TestCase):
             lambda x: x.product_id,
             lambda x: x.region,
             lambda x: x.sales,
-            as_column(
-                over(
-                    lambda x: sum(x.sales + 10),  # Complex expression: sales + 10
-                    partition_by=lambda x: x.region,
-                    frame=range(unbounded(), 0)  # RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-                ),
-                "adjusted_total"
-            )
+            lambda x: (adjusted_total := window(func=sum(x.sales + 10), partition=x.region, frame=range(unbounded(), 0)))
         ).order_by(
             lambda x: x.region,
             lambda x: x.product_id

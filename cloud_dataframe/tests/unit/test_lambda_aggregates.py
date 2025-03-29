@@ -6,7 +6,7 @@ from typing import Optional
 
 from cloud_dataframe.core.dataframe import DataFrame
 from cloud_dataframe.type_system.schema import TableSchema
-from cloud_dataframe.type_system.column import as_column, sum, avg, count, min, max
+from cloud_dataframe.type_system.column import sum, avg, count, min, max
 
 
 class TestLambdaAggregates(unittest.TestCase):
@@ -33,11 +33,11 @@ class TestLambdaAggregates(unittest.TestCase):
         # Test with simple column references
         query = self.df.select(
             lambda x: x.name,
-            as_column(sum(lambda x: x.salary), "total_salary"),
-            as_column(avg(lambda x: x.salary), "avg_salary"),
-            as_column(count(lambda x: x.id), "employee_count"),
-            as_column(min(lambda x: x.salary), "min_salary"),
-            as_column(max(lambda x: x.salary), "max_salary")
+            lambda x: (total_salary := sum(x.salary)),
+            lambda x: (avg_salary := avg(x.salary)),
+            lambda x: (employee_count := count(x.id)),
+            lambda x: (min_salary := min(x.salary)),
+            lambda x: (max_salary := max(x.salary))
         )
         
         sql = query.to_sql(dialect="duckdb")
@@ -49,8 +49,8 @@ class TestLambdaAggregates(unittest.TestCase):
         # Test with binary operations
         query = self.df.select(
             lambda x: x.name,
-            as_column(sum(lambda x: x.salary + x.bonus), "total_compensation"),
-            as_column(avg(lambda x: x.salary * (1 - x.tax_rate)), "avg_net_salary")
+            lambda x: (total_compensation := sum(x.salary + x.bonus)),
+            lambda x: (avg_net_salary := avg(x.salary * (1 - x.tax_rate)))
         )
         
         sql = query.to_sql(dialect="duckdb")
@@ -60,7 +60,7 @@ class TestLambdaAggregates(unittest.TestCase):
     def test_count_distinct(self):
         """Test count distinct with lambda expressions."""
         query = self.df.select(
-            as_column(count(lambda x: x.name, distinct=True), "unique_names")
+            lambda x: (unique_names := count(x.name, distinct=True))
         )
         
         sql = query.to_sql(dialect="duckdb")
@@ -71,8 +71,8 @@ class TestLambdaAggregates(unittest.TestCase):
         """Test aggregates with group by using lambda expressions."""
         query = self.df.group_by(lambda x: x.name).select(
             lambda x: x.name,
-            as_column(sum(lambda x: x.salary), "total_salary"),
-            as_column(avg(lambda x: x.bonus), "avg_bonus")
+            lambda x: (total_salary := sum(x.salary)),
+            lambda x: (avg_bonus := avg(x.bonus))
         )
         
         sql = query.to_sql(dialect="duckdb")

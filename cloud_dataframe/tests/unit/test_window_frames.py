@@ -9,8 +9,8 @@ from typing import Optional
 from cloud_dataframe.core.dataframe import DataFrame
 from cloud_dataframe.type_system.schema import TableSchema
 from cloud_dataframe.type_system.column import (
-    as_column, col, over, row_number, rank, dense_rank,
-    row, range, unbounded
+    col, over, row_number, rank, dense_rank,
+    row, range, unbounded, window
 )
 
 
@@ -37,15 +37,7 @@ class TestWindowFrames(unittest.TestCase):
         df_with_frame = self.df.select(
             lambda x: x.id,
             lambda x: x.salary,
-            as_column(
-                over(
-                    row_number(),
-                    partition_by=lambda x: x.department,
-                    order_by=lambda x: x.salary,
-                    frame=row(2, 0)  # 2 preceding to current row
-                ),
-                "row_num"
-            )
+            lambda x: (row_num := window(func=row_number(), partition=x.department, order_by=x.salary, frame=row(2, 0)))  # 2 preceding to current row
         )
         
         # Check the SQL generation
@@ -58,15 +50,7 @@ class TestWindowFrames(unittest.TestCase):
         df_with_frame = self.df.select(
             lambda x: x.id,
             lambda x: x.salary,
-            as_column(
-                over(
-                    rank(),
-                    partition_by=lambda x: x.department,
-                    order_by=lambda x: x.salary,
-                    frame=row(2, 2)  # 2 preceding to 2 following
-                ),
-                "rank_val"
-            )
+            lambda x: (rank_val := window(func=rank(), partition=x.department, order_by=x.salary, frame=row(2, 2)))  # 2 preceding to 2 following
         )
         
         # Check the SQL generation
@@ -79,15 +63,7 @@ class TestWindowFrames(unittest.TestCase):
         df_with_frame = self.df.select(
             lambda x: x.id,
             lambda x: x.salary,
-            as_column(
-                over(
-                    dense_rank(),
-                    partition_by=lambda x: x.department,
-                    order_by=lambda x: x.salary,
-                    frame=row(0, 2)  # current row to 2 following
-                ),
-                "dense_rank_val"
-            )
+            lambda x: (dense_rank_val := window(func=dense_rank(), partition=x.department, order_by=x.salary, frame=row(0, 2)))  # current row to 2 following
         )
         
         # Check the SQL generation
@@ -100,15 +76,7 @@ class TestWindowFrames(unittest.TestCase):
         df_with_frame = self.df.select(
             lambda x: x.id,
             lambda x: x.salary,
-            as_column(
-                over(
-                    row_number(),
-                    partition_by=lambda x: x.department,
-                    order_by=lambda x: x.salary,
-                    frame=row(unbounded(), 0)  # unbounded preceding to current row
-                ),
-                "row_num"
-            )
+            lambda x: (row_num := window(func=row_number(), partition=x.department, order_by=x.salary, frame=row(unbounded(), 0)))  # unbounded preceding to current row
         )
         
         # Check the SQL generation
@@ -121,15 +89,7 @@ class TestWindowFrames(unittest.TestCase):
         df_with_frame = self.df.select(
             lambda x: x.id,
             lambda x: x.salary,
-            as_column(
-                over(
-                    rank(),
-                    partition_by=lambda x: x.department,
-                    order_by=lambda x: x.salary,
-                    frame=row(2, unbounded())  # 2 preceding to unbounded following
-                ),
-                "rank_val"
-            )
+            lambda x: (rank_val := window(func=rank(), partition=x.department, order_by=x.salary, frame=row(2, unbounded())))  # 2 preceding to unbounded following
         )
         
         # Check the SQL generation
@@ -142,15 +102,7 @@ class TestWindowFrames(unittest.TestCase):
         df_with_frame = self.df.select(
             lambda x: x.id,
             lambda x: x.salary,
-            as_column(
-                over(
-                    dense_rank(),
-                    partition_by=lambda x: x.department,
-                    order_by=lambda x: x.salary,
-                    frame=range(unbounded(), 0)  # unbounded preceding to current row
-                ),
-                "dense_rank_val"
-            )
+            lambda x: (dense_rank_val := window(func=dense_rank(), partition=x.department, order_by=x.salary, frame=range(unbounded(), 0)))  # unbounded preceding to current row
         )
         
         # Check the SQL generation
@@ -165,14 +117,7 @@ class TestWindowFrames(unittest.TestCase):
         df_with_lambda = self.df.select(
             lambda x: x.id,
             lambda x: x.salary,
-            as_column(
-                over(
-                    lambda x: sum(x.salary),
-                    partition_by=lambda x: x.department,
-                    frame=row(unbounded(), 0)
-                ),
-                "sum_salary"
-            )
+            lambda x: (sum_salary := window(func=sum(x.salary), partition=x.department, frame=row(unbounded(), 0)))
         )
         
         # Check the SQL generation

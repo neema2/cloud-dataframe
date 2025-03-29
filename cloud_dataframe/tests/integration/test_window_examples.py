@@ -9,9 +9,9 @@ import pandas as pd
 import duckdb
 from typing import Optional, Dict
 
-from cloud_dataframe.core.dataframe import DataFrame
+from cloud_dataframe.core.dataframe import DataFrame, Sort
 from cloud_dataframe.type_system.schema import TableSchema
-from cloud_dataframe.type_system.column import as_column, sum, avg, count, rank, dense_rank, row_number, over
+from cloud_dataframe.type_system.column import sum, avg, count, rank, dense_rank, row_number, over, window
 
 
 class TestWindowExamples(unittest.TestCase):
@@ -62,10 +62,7 @@ class TestWindowExamples(unittest.TestCase):
             lambda x: x.name,
             lambda x: x.department,
             lambda x: x.salary,
-            as_column(
-                over(rank(), partition_by=lambda x: x.department, order_by=lambda x: [(x.salary, 'DESC')]),
-                "salary_rank"
-            )
+            lambda x: (salary_rank := window(func=rank(), partition=x.department, order_by=[(x.salary, Sort.DESC)]))
         )
         
         # Generate SQL
@@ -100,10 +97,7 @@ class TestWindowExamples(unittest.TestCase):
             lambda x: x.name,
             lambda x: x.department,
             lambda x: x.salary,
-            as_column(
-                over(row_number(), partition_by=lambda x: x.department, order_by=lambda x: [(x.salary, 'DESC')]),
-                "row_num"
-            )
+            lambda x: (row_num := window(func=row_number(), partition=x.department, order_by=[(x.salary, Sort.DESC)]))
         )
         
         # Generate SQL
@@ -139,10 +133,7 @@ class TestWindowExamples(unittest.TestCase):
             lambda x: x.name,
             lambda x: x.department,
             lambda x: x.salary,
-            as_column(
-                over(rank(), partition_by=lambda x: x.department, order_by=lambda x: [(x.salary, 'DESC')]),
-                "salary_rank"
-            )
+            lambda x: (salary_rank := window(func=rank(), partition=x.department, order_by=[(x.salary, Sort.DESC)]))
         )
         
         # Generate SQL for the window query
@@ -187,18 +178,9 @@ class TestWindowExamples(unittest.TestCase):
             lambda x: x.name,
             lambda x: x.department,
             lambda x: x.salary,
-            as_column(
-                over(rank(), partition_by=lambda x: x.department, order_by=lambda x: [(x.salary, 'DESC')]),
-                "salary_rank"
-            ),
-            as_column(
-                over(dense_rank(), partition_by=lambda x: x.department, order_by=lambda x: [(x.salary, 'DESC')]),
-                "dense_rank"
-            ),
-            as_column(
-                over(row_number(), partition_by=lambda x: x.department, order_by=lambda x: [(x.salary, 'DESC')]),
-                "row_num"
-            )
+            lambda x: (salary_rank := window(func=rank(), partition=x.department, order_by=[(x.salary, Sort.DESC)])),
+            lambda x: (dense_rank_val := window(func=dense_rank(), partition=x.department, order_by=[(x.salary, Sort.ASC)])),
+            lambda x: (row_num := window(func=row_number(), partition=x.department, order_by=[(x.salary, Sort.DESC)]))
         )
         
         # Generate SQL
@@ -213,7 +195,7 @@ class TestWindowExamples(unittest.TestCase):
         # Verify result
         self.assertEqual(len(result), 8)  # All employees
         self.assertIn("salary_rank", result.columns)
-        self.assertIn("dense_rank", result.columns)
+        self.assertIn("dense_rank_val", result.columns)
         self.assertIn("row_num", result.columns)
         
         # Generate SQL
@@ -225,7 +207,7 @@ class TestWindowExamples(unittest.TestCase):
         # Verify result
         self.assertEqual(len(result), 8)  # All employees
         self.assertIn("salary_rank", result.columns)
-        self.assertIn("dense_rank", result.columns)
+        self.assertIn("dense_rank_val", result.columns)
         self.assertIn("row_num", result.columns)
 
 

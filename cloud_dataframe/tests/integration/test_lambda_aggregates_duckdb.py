@@ -6,7 +6,7 @@ import duckdb
 
 from cloud_dataframe.core.dataframe import DataFrame
 from cloud_dataframe.type_system.schema import TableSchema
-from cloud_dataframe.type_system.column import as_column, sum, avg, count, min, max
+from cloud_dataframe.type_system.column import sum, avg, count, min, max
 
 
 class TestLambdaAggregatesDuckDB(unittest.TestCase):
@@ -61,9 +61,9 @@ class TestLambdaAggregatesDuckDB(unittest.TestCase):
     def test_simple_lambda_aggregates(self):
         """Test simple lambda aggregates with DuckDB."""
         query = self.df.select(
-            as_column(sum(lambda x: x.salary), "total_salary"),
-            as_column(avg(lambda x: x.salary), "avg_salary"),
-            as_column(count(lambda x: x.id), "employee_count")
+            lambda x: (total_salary := sum(x.salary)),
+            lambda x: (avg_salary := avg(x.salary)),
+            lambda x: (employee_count := count(x.id))
         )
         
         # Execute the query
@@ -85,8 +85,8 @@ class TestLambdaAggregatesDuckDB(unittest.TestCase):
     def test_complex_lambda_aggregates(self):
         """Test complex lambda aggregates with binary operations in DuckDB."""
         query = self.df.select(
-            as_column(sum(lambda x: x.salary + x.bonus), "total_compensation"),
-            as_column(avg(lambda x: x.salary * (1 - x.tax_rate)), "avg_net_salary")
+            lambda x: (total_compensation := sum(x.salary + x.bonus)),
+            lambda x: (avg_net_salary := avg(x.salary * (1 - x.tax_rate)))
         )
         
         # Execute the query
@@ -137,9 +137,9 @@ class TestLambdaAggregatesDuckDB(unittest.TestCase):
         # Test group by with lambda aggregates
         query = self.df.group_by(lambda x: x.department).select(
             lambda x: x.department,
-            as_column(sum(lambda x: x.salary), "total_salary"),
-            as_column(avg(lambda x: x.salary), "avg_salary"),
-            as_column(count(lambda x: x.id), "employee_count")
+            lambda x: (total_salary := sum(x.salary)),
+            lambda x: (avg_salary := avg(x.salary)),
+            lambda x: (employee_count := count(x.id))
         )
         
         # Execute the query

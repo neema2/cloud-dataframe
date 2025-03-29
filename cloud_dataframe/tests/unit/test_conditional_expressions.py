@@ -9,7 +9,7 @@ from typing import Optional, Dict
 
 from cloud_dataframe.core.dataframe import DataFrame
 from cloud_dataframe.type_system.schema import TableSchema
-from cloud_dataframe.type_system.column import as_column, sum, avg, count
+from cloud_dataframe.type_system.column import sum, avg, count
 from cloud_dataframe.utils.lambda_parser import LambdaParser
 from cloud_dataframe.backends.duckdb.sql_generator import _generate_expression
 

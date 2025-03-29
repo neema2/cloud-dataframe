@@ -9,7 +9,7 @@ from typing import Optional
 
 from cloud_dataframe.core.dataframe import DataFrame
 from cloud_dataframe.type_system.schema import TableSchema
-from cloud_dataframe.type_system.column import as_column, avg
+from cloud_dataframe.type_system.column import avg
 
 
 class TestArrayLambda(unittest.TestCase):
@@ -53,7 +53,7 @@ class TestArrayLambda(unittest.TestCase):
         ).select(
             lambda x: x.department,
             lambda x: x.location,
-            as_column(avg(lambda x: x.salary), "avg_salary")
+            lambda x: (avg_salary := avg(x.salary))
         )
         
         # Check the SQL generation
@@ -93,7 +93,7 @@ class TestArrayLambda(unittest.TestCase):
             lambda x: x.department,
             lambda x: x.location,
             lambda x: x.is_manager,
-            as_column(avg(lambda x: x.salary), "avg_salary")
+            lambda x: (avg_salary := avg(x.salary))
         )
         
         # Check the SQL generation

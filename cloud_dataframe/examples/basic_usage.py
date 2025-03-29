@@ -11,7 +11,7 @@ import duckdb
 
 from cloud_dataframe.core.dataframe import DataFrame, BinaryOperation
 from cloud_dataframe.type_system.column import (
-    col, literal, as_column, count, sum, avg, min, max
+    col, literal, count, sum, avg, min, max
 )
 from cloud_dataframe.type_system.decorators import dataclass_to_schema
 
@@ -42,24 +42,24 @@ def basic_operations():
     
     # Select specific columns
     df_select = df.select(
-        as_column(col("id"), "id"),
-        as_column(col("name"), "name"),
-        as_column(col("salary"), "salary")
+        lambda x: (id := col("id")),
+        lambda x: (name := col("name")),
+        lambda x: (salary := col("salary"))
     )
     
     # Filter rows
     df_filter = df.filter(lambda x: x.salary > 50000)
     
     # Group by and aggregate
-    df_group = df.group_by("department") \
+    df_group = df.group_by(lambda x: x.department) \
         .select(
-            as_column(col("department"), "department"),
-            as_column(count(lambda x: x.id), "employee_count"),
-            as_column(avg(lambda x: x.salary), "avg_salary")
+            lambda x: (department := col("department")),
+            lambda x: (employee_count := count(x.id)),
+            lambda x: (avg_salary := avg(x.salary))
         )
     
     # Order by
-    df_order = df.order_by("salary", desc=True)
+    df_order = df.order_by(lambda x: x.salary, desc=True)
     
     # Limit and offset
     df_limit = df.limit(10).offset(5)
@@ -86,21 +86,13 @@ def join_operations():
     # Inner join
     inner_join = employees.join(
         departments,
-        BinaryOperation(
-            left=col("department_id", "e"),
-            operator="=",
-            right=col("id", "d")
-        )
+        lambda x, y: x.e.department_id == y.d.id
     )
     
     # Left join
     left_join = employees.left_join(
         departments,
-        BinaryOperation(
-            left=col("department_id", "e"),
-            operator="=",
-            right=col("id", "d")
-        )
+        lambda x, y: x.e.department_id == y.d.id
     )
     
     # Print the generated SQL
@@ -164,13 +156,13 @@ def execute_query():
     """)
     
     # Create a DataFrame
-    df = DataFrame.from_("employees") \
-        .group_by("department") \
-        .select(
-            as_column(col("department"), "department"),
-            as_column(count(lambda x: x.id), "employee_count"),
-            as_column(avg(lambda x: x.salary), "avg_salary")
-        )
+    df = DataFrame.from_("employees").group_by(
+        lambda x: x.department
+    ).select(
+        lambda x: x.department,
+        lambda x: (employee_count := count(x.id)),
+        lambda x: (avg_salary := avg(x.salary))
+    )
     
     # Generate SQL
     sql = df.to_sql(dialect="duckdb")

@@ -11,7 +11,7 @@ import inspect
 
 from cloud_dataframe.core.dataframe import DataFrame
 from cloud_dataframe.type_system.schema import TableSchema
-from cloud_dataframe.type_system.column import as_column, sum, avg, count, min, max, date_diff
+from cloud_dataframe.type_system.column import sum, avg, count, min, max, date_diff
 from cloud_dataframe.utils.lambda_parser import LambdaParser
 
 

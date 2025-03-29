@@ -11,7 +11,7 @@ from typing import Optional
 
 from cloud_dataframe.core.dataframe import DataFrame
 from cloud_dataframe.type_system.schema import TableSchema
-from cloud_dataframe.type_system.column import as_column, sum, avg, count, min, max, date_diff
+from cloud_dataframe.type_system.column import sum, avg, count, min, max, date_diff
 
 
 class TestNestedFunctionsDuckDB(unittest.TestCase):
@@ -66,7 +66,7 @@ class TestNestedFunctionsDuckDB(unittest.TestCase):
         # Test sum with binary operation
         df = self.df.group_by(lambda x: x.department).select(
             lambda x: x.department,
-            as_column(lambda x: sum(x.salary + x.bonus), "total_compensation")
+            lambda x: (total_compensation := sum(x.salary + x.bonus))
         )
         
         # Generate SQL and execute it
@@ -96,9 +96,9 @@ class TestNestedFunctionsDuckDB(unittest.TestCase):
         # Test multiple aggregates with expressions
         df = self.df.group_by(lambda x: x.department).select(
             lambda x: x.department,
-            as_column(lambda x: sum(x.salary), "total_salary"),
-            as_column(lambda x: avg(x.salary / 12), "avg_monthly_salary"),
-            as_column(lambda x: max(x.salary + x.bonus), "max_total_comp")
+            lambda x: (total_salary := sum(x.salary)),
+            lambda x: (avg_monthly_salary := avg(x.salary / 12)),
+            lambda x: (max_total_comp := max(x.salary + x.bonus))
         )
         
         # Generate SQL and execute it
@@ -131,7 +131,7 @@ class TestNestedFunctionsDuckDB(unittest.TestCase):
             lambda x: sum(x.salary) > 100000
         ).select(
             lambda x: x.department,
-            lambda x: count().as_column("employee_count")
+            lambda x: (employee_count := count())
         )
         
         # Generate SQL
@@ -169,7 +169,7 @@ class TestNestedFunctionsDuckDB(unittest.TestCase):
         df = self.df.select(
             lambda x: x.name,
             lambda x: x.department,
-            as_column(lambda x: date_diff(x.start_date, x.end_date), "days_employed")
+            lambda x: (days_employed := date_diff(x.start_date, x.end_date))
         )
         
         # Generate SQL and execute it

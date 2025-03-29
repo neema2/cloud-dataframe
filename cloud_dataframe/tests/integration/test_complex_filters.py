@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 from cloud_dataframe.core.dataframe import DataFrame
-from cloud_dataframe.type_system.column import col, literal, as_column
+from cloud_dataframe.type_system.column import col, literal
 from cloud_dataframe.type_system.decorators import dataclass_to_schema
 
 

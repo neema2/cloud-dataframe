@@ -9,7 +9,7 @@ from typing import Optional
 
 from cloud_dataframe.core.dataframe import DataFrame
 from cloud_dataframe.type_system.schema import TableSchema
-from cloud_dataframe.type_system.column import as_column, sum, avg, count, min, max, date_diff, ColumnReference
+from cloud_dataframe.type_system.column import sum, avg, count, min, max, date_diff, ColumnReference
 
 
 class TestNestedFunctions(unittest.TestCase):
@@ -40,7 +40,7 @@ class TestNestedFunctions(unittest.TestCase):
         # Test sum with binary operation
         df = self.df.group_by(lambda x: x.department).select(
             lambda x: x.department,
-            as_column(lambda x: sum(x.salary + x.bonus), "total_compensation")
+            lambda x: (total_compensation := sum(x.salary + x.bonus))
         )
         
         # Check the SQL generation
@@ -53,7 +53,7 @@ class TestNestedFunctions(unittest.TestCase):
         # Test avg with complex expression
         df = self.df.group_by(lambda x: x.department).select(
             lambda x: x.department,
-            as_column(lambda x: avg((x.salary * 0.8) + (x.bonus * 1.2)), "weighted_comp")
+            lambda x: (weighted_comp := avg((x.salary * 0.8) + (x.bonus * 1.2)))
         )
         
         # Check the SQL generation
@@ -66,9 +66,9 @@ class TestNestedFunctions(unittest.TestCase):
         # Test multiple aggregates with expressions
         df = self.df.group_by(lambda x: x.department).select(
             lambda x: x.department,
-            as_column(lambda x: sum(x.salary), "total_salary"),
-            as_column(lambda x: avg(x.salary / 12), "avg_monthly_salary"),
-            as_column(lambda x: max(x.salary + x.bonus), "max_total_comp")
+            lambda x: (total_salary := sum(x.salary)),
+            lambda x: (avg_monthly_salary := avg(x.salary / 12)),
+            lambda x: (max_total_comp := max(x.salary + x.bonus))
         )
         
         # Check the SQL generation
@@ -103,12 +103,12 @@ class TestNestedFunctions(unittest.TestCase):
         df = self.df.select(
             lambda x: x.name,
             lambda x: x.department,
-            as_column(date_diff(start_date_col, end_date_col), "days_employed")
+            lambda x: (days_employed := date_diff(start_date_col, end_date_col))
         )
         
         # Check the SQL generation
         sql = df.to_sql(dialect="duckdb")
-        expected_sql = "SELECT x.name, x.department, DATEDIFF('day', CAST(x.start_date AS DATE), CAST(x.end_date AS DATE)) AS days_employed\nFROM employees x"
+        expected_sql = "SELECT x.name, x.department, DATEDIFF('day', CAST(x.start_date_col AS DATE), CAST(x.end_date_col AS DATE)) AS days_employed\nFROM employees x"
         self.assertEqual(sql.strip(), expected_sql.strip())
     
     def test_scalar_function_in_filter(self):

@@ -10,7 +10,7 @@ import duckdb
 
 from cloud_dataframe.core.dataframe import DataFrame
 from cloud_dataframe.type_system.schema import TableSchema
-from cloud_dataframe.type_system.column import as_column, avg, sum
+from cloud_dataframe.type_system.column import avg, sum
 
 
 class TestArrayLambdaDuckDB(unittest.TestCase):
@@ -94,7 +94,7 @@ class TestArrayLambdaDuckDB(unittest.TestCase):
         ).select(
             lambda x: x.department,
             lambda x: x.location,
-            as_column(avg(lambda x: x.salary), "avg_salary")
+            lambda x: (avg_salary := avg(x.salary))
         )
         
         # Execute the query
@@ -170,8 +170,8 @@ class TestArrayLambdaDuckDB(unittest.TestCase):
             lambda x: x.department,
             lambda x: x.location,
             lambda x: x.is_manager,
-            as_column(sum(lambda x: x.salary), "total_salary"),
-            as_column(avg(lambda x: x.salary), "avg_salary")
+            lambda x: (total_salary := sum(x.salary)),
+            lambda x: (avg_salary := avg(x.salary))
         )
         
         # Execute the query

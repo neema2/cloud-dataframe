@@ -10,7 +10,7 @@ from typing import Optional
 
 from cloud_dataframe.core.dataframe import DataFrame
 from cloud_dataframe.type_system.schema import TableSchema
-from cloud_dataframe.type_system.column import as_column, sum, avg, count, min, max, date_diff, over, row_number, rank, dense_rank
+from cloud_dataframe.type_system.column import sum, avg, count, min, max, date_diff, over, row_number, rank, dense_rank
 
 
 def setup_test_data():
@@ -160,11 +160,11 @@ def example_2_aggregation_with_nested_functions():
     # Build query with nested functions in aggregates
     query = df.group_by(lambda x: x.department).select(
         lambda x: x.department,
-        as_column(lambda x: count(x.id), "employee_count"),
-        as_column(lambda x: sum(x.salary), "total_salary"),
-        as_column(lambda x: avg(x.salary), "avg_salary"),
-        as_column(lambda x: sum(x.salary + x.bonus), "total_compensation"),
-        as_column(lambda x: avg(x.salary / 12), "avg_monthly_salary")
+        employee_count := lambda x: count(x.id),
+        total_salary := lambda x: sum(x.salary),
+        avg_salary := lambda x: avg(x.salary),
+        total_compensation := lambda x: sum(x.salary + x.bonus),
+        avg_monthly_salary := lambda x: avg(x.salary / 12)
     ).having(
         lambda x: sum(x.salary) > 150000
     ).order_by(
@@ -293,9 +293,9 @@ def example_5_complex_multi_table_query():
         lambda x: x.department
     ).select(
         lambda x: x.department,
-        as_column(lambda x: count(x.id), "employee_count"),
-        as_column(lambda x: sum(x.salary), "total_salary"),
-        as_column(lambda x: avg(x.salary), "avg_salary")
+        employee_count := lambda x: count(x.id),
+        total_salary := lambda x: sum(x.salary),
+        avg_salary := lambda x: avg(x.salary)
     ).order_by(
         lambda x: x.department
     )
@@ -382,7 +382,7 @@ def example_6_scalar_functions_with_filters():
         lambda x: x.budget,
         lambda x: x.start_date,
         lambda x: x.end_date,
-        as_column(lambda x: date_diff(x.start_date, x.end_date), "project_duration_days")
+        project_duration_days := lambda x: date_diff(x.start_date, x.end_date)
     ).filter(
         lambda x: date_diff(x.start_date, x.end_date) > 180
     ).order_by(
@@ -413,7 +413,7 @@ def example_6_scalar_functions_with_filters():
             lambda x: x.budget,
             lambda x: x.start_date,
             lambda x: x.end_date,
-            as_column(lambda x: date_diff(x.start_date, x.end_date), "project_duration_days")
+            project_duration_days := lambda x: date_diff(x.start_date, x.end_date)
         ).filter(
             lambda x: date_diff(x.start_date, x.end_date) > 180
         ).order_by(
