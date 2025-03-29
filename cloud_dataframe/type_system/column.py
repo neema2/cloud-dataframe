@@ -15,20 +15,27 @@ R = TypeVar('R')
 @dataclass
 class Expression:
     """Base class for all expressions in the DataFrame DSL."""
-    pass
     
-    def as_column(self, alias: str) -> 'Column':
+    def __call__(self, alias: str) -> 'BinaryOperation':
         """
-        Create a column with this expression and the given alias.
+        Create a binary operation with the AS operator to alias this expression.
+        
+        This method allows using the syntax: expr("alias_name") to create an alias,
+        which is a replacement for the removed as_column() function.
         
         Args:
-            alias: The alias for the column
+            alias: The alias for the expression
             
         Returns:
-            A Column with this expression and the specified alias
+            A BinaryOperation with the AS operator
         """
-        return Column(name=alias, expression=self, alias=alias)
-
+        from ..core.dataframe import BinaryOperation
+        return BinaryOperation(
+            left=self,
+            operator="AS",
+            right=LiteralExpression(value=alias)
+        )
+    
 
 @dataclass
 class LiteralExpression(Expression):
@@ -206,29 +213,6 @@ def literal(value: Any) -> LiteralExpression:
     return LiteralExpression(value=value)
 
 
-def as_column(expr: Union[Expression, Callable], alias: str) -> Column:
-    """
-    Create a column with an alias.
-    
-    Args:
-        expr: The expression for the column. Can be:
-            - An Expression object
-            - A lambda function that returns an expression (e.g., lambda x: x.column_name)
-            - A lambda function with nested function calls (e.g., lambda x: sum(x.salary + x.bonus))
-        alias: The alias for the column
-        
-    Returns:
-        A Column with the specified alias
-    """
-    from ..utils.lambda_parser import parse_lambda
-    
-    if callable(expr) and not isinstance(expr, Expression):
-        # Parse lambda function to get the expression
-        parsed_expr = parse_lambda(expr)
-    else:
-        parsed_expr = expr
-        
-    return Column(name=alias, expression=parsed_expr, alias=alias)
 
 
 # Aggregate functions

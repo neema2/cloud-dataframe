@@ -11,7 +11,7 @@ import duckdb
 from cloud_dataframe.core.dataframe import DataFrame
 from cloud_dataframe.type_system.schema import TableSchema
 from cloud_dataframe.type_system.column import (
-    as_column, sum, rank, window, row, unbounded
+    sum, rank, window, row, unbounded
 )
 
 

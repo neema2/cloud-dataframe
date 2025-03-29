@@ -10,7 +10,7 @@ from typing import Optional, List, Dict, Any, Type, cast
 from cloud_dataframe.type_system.schema import TableSchema, ColSpec
 from cloud_dataframe.type_system.column import (
     Expression, ColumnReference, LiteralExpression, FunctionExpression,
-    col, literal, as_column
+    col, literal
 )
 from cloud_dataframe.type_system.type_checker import (
     TypeChecker, validate_dataclass_schema, create_schema_from_dataclass,

@@ -8,14 +8,14 @@ import duckdb
 from dataclasses import dataclass
 from typing import Optional
 
-from cloud_dataframe.core.dataframe import DataFrame
+from cloud_dataframe.core.dataframe import DataFrame, Sort
 from cloud_dataframe.type_system.schema import TableSchema
 from cloud_dataframe.type_system.column import (
-    as_column, col, literal,
+    col, literal,
     # Aggregate functions
     count, sum, avg, min, max,
     # Window functions
-    row_number, rank, dense_rank, over
+    row_number, rank, dense_rank, over, window
 )
 
 # Define schemas using TableSchema
@@ -106,39 +106,18 @@ def comprehensive_query_example():
     # Create a query that demonstrates window functions
     window_query = employees.select(
         # Basic columns
-        as_column(col("id", "e"), "id"),
-        as_column(col("name", "e"), "name"),
-        as_column(col("department", "e"), "department"),
-        as_column(col("location", "e"), "location"),
-        as_column(col("salary", "e"), "salary"),
+        lambda x: (id := col("id", "e")),
+        lambda x: (name := col("name", "e")),
+        lambda x: (department := col("department", "e")),
+        lambda x: (location := col("location", "e")),
+        lambda x: (salary := col("salary", "e")),
         
         # Window functions with lambda-based partition_by and order_by
-        as_column(
-            over(
-                row_number(),
-                partition_by=lambda x: x.e.department,
-                order_by=lambda x: x.e.salary
-            ),
-            "salary_rank_in_dept"
-        ),
+        lambda x: (salary_rank_in_dept := window(func=row_number(), partition=x.e.department, order_by=x.e.salary)),
         
-        as_column(
-            over(
-                rank(),
-                partition_by=lambda x: x.e.department,
-                order_by=lambda x: x.e.salary
-            ),
-            "salary_rank_with_ties"
-        ),
+        lambda x: (salary_rank_with_ties := window(func=rank(), partition=x.e.department, order_by=x.e.salary)),
         
-        as_column(
-            over(
-                dense_rank(),
-                partition_by=lambda x: x.e.department,
-                order_by=lambda x: x.e.salary
-            ),
-            "dense_salary_rank"
-        )
+        lambda x: (dense_salary_rank := window(func=dense_rank(), partition=x.e.department, order_by=x.e.salary))
     ).filter(
         lambda x: x.e.salary > 90000
     ).order_by(
@@ -153,18 +132,18 @@ def comprehensive_query_example():
     
     # Create a query that demonstrates aggregate functions
     agg_query = employees.group_by(
-        lambda x: x.department,
-        lambda x: x.location
+        lambda x: x.e.department,
+        lambda x: x.e.location
     ).select(
-        lambda x: x.department,
-        lambda x: x.location,
-        as_column(count(lambda x: x.id), "employee_count"),
-        as_column(avg(lambda x: x.salary), "avg_salary"),
-        as_column(sum(lambda x: x.salary), "total_salary"),
-        as_column(min(lambda x: x.salary), "min_salary"),
-        as_column(max(lambda x: x.salary), "max_salary")
+        lambda x: x.e.department,
+        lambda x: x.e.location,
+        lambda x: (employee_count := count(x.e.id)),
+        lambda x: (avg_salary := avg(x.e.salary)),
+        lambda x: (total_salary := sum(x.e.salary)),
+        lambda x: (min_salary := min(x.e.salary)),
+        lambda x: (max_salary := max(x.e.salary))
     ).order_by(
-        lambda x: x.department,
+        lambda x: x.e.department,
         desc=True
     )
     
@@ -211,32 +190,11 @@ def comprehensive_query_with_array_lambdas():
                   col("location", "e"), col("salary", "e")],
         
         # Window functions with array lambda-based partition_by and order_by
-        as_column(
-            over(
-                row_number(),
-                partition_by=lambda x: x.e.department,
-                order_by=lambda x: [(x.e.salary, 'DESC')]  # Salary in descending order
-            ),
-            "salary_rank_in_dept"
-        ),
+        lambda x: (salary_rank_in_dept := window(func=row_number(), partition=x.e.department, order_by=[(x.e.salary, Sort.DESC)])),
         
-        as_column(
-            over(
-                rank(),
-                partition_by=lambda x: [x.e.department, x.e.location],
-                order_by=lambda x: [(x.e.salary, 'ASC'), (x.e.id, 'DESC')]  # Salary ASC, ID DESC
-            ),
-            "salary_rank_with_ties"
-        ),
+        lambda x: (salary_rank_with_ties := window(func=rank(), partition=[x.e.department, x.e.location], order_by=[(x.e.salary, Sort.ASC), (x.e.id, Sort.DESC)])),
         
-        as_column(
-            over(
-                dense_rank(),
-                partition_by=lambda x: x.e.department,
-                order_by=lambda x: [(x.e.salary, 'DESC'), (x.e.id, 'ASC')]  # Salary DESC, ID ASC
-            ),
-            "dense_salary_rank"
-        )
+        lambda x: (dense_salary_rank := window(func=dense_rank(), partition=x.e.department, order_by=[(x.e.salary, Sort.DESC), (x.e.id, Sort.ASC)]))
     ).filter(
         lambda x: x.e.salary > 90000
     ).order_by(
@@ -251,16 +209,16 @@ def comprehensive_query_with_array_lambdas():
     
     # Create a query that demonstrates aggregate functions with array lambdas
     agg_query = employees.group_by(
-        lambda x: [x.department, x.location]
+        lambda x: [x.e.department, x.e.location]
     ).select(
-        lambda x: [x.department, x.location],
-        as_column(count(lambda x: x.id), "employee_count"),
-        as_column(avg(lambda x: x.salary), "avg_salary"),
-        as_column(sum(lambda x: x.salary), "total_salary"),
-        as_column(min(lambda x: x.salary), "min_salary"),
-        as_column(max(lambda x: x.salary), "max_salary")
+        lambda x: [x.e.department, x.e.location],
+        lambda x: (employee_count := count(x.e.id)),
+        lambda x: (avg_salary := avg(x.e.salary)),
+        lambda x: (total_salary := sum(x.e.salary)),
+        lambda x: (min_salary := min(x.e.salary)),
+        lambda x: (max_salary := max(x.e.salary))
     ).order_by(
-        lambda x: x.department,
+        lambda x: x.e.department,
         desc=True
     )
     

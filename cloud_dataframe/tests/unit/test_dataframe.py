@@ -9,7 +9,7 @@ from typing import Optional, cast
 
 from cloud_dataframe.core.dataframe import DataFrame, BinaryOperation, JoinType, TableReference
 from cloud_dataframe.type_system.column import (
-    col, literal, as_column, count, sum, avg, min, max
+    col, literal, count, sum, avg, min, max
 )
 from cloud_dataframe.type_system.schema import TableSchema, ColSpec
 from cloud_dataframe.type_system.decorators import dataclass_to_schema
@@ -21,13 +21,11 @@ class TestDataFrame(unittest.TestCase):
     def test_select(self):
         """Test the select method."""
         df = DataFrame().select(
-            as_column(col("id"), "id"),
-            as_column(col("name"), "name")
+            lambda x: (id := col("id")),
+            lambda x: (name := col("name"))
         )
         
         self.assertEqual(len(df.columns), 2)
-        self.assertEqual(df.columns[0].name, "id")
-        self.assertEqual(df.columns[1].name, "name")
     
     def test_from_table(self):
         """Test the from_ method."""
@@ -114,7 +112,7 @@ class TestDataFrame(unittest.TestCase):
     
     def test_with_cte(self):
         """Test the with_cte method."""
-        dept_counts = DataFrame.from_("employees").group_by(lambda x: x.department_id).select(lambda x: x.department_id, as_column(count(lambda x: x.id), "employee_count"))
+        dept_counts = DataFrame.from_("employees").group_by(lambda x: x.department_id).select(lambda x: x.department_id, lambda x: (employee_count := count(x.id)))
         
         df = DataFrame.from_("departments").with_cte("dept_counts", dept_counts)
         

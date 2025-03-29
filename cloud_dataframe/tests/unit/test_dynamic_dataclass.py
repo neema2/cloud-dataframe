@@ -9,7 +9,7 @@ from typing import Optional
 
 from cloud_dataframe.core.dataframe import DataFrame
 from cloud_dataframe.type_system.schema import TableSchema, create_dynamic_dataclass_from_schema
-from cloud_dataframe.type_system.column import as_column, avg
+from cloud_dataframe.type_system.column import avg
 
 
 class TestDynamicDataclass(unittest.TestCase):
@@ -106,7 +106,7 @@ class TestDataframeWithTypedProperties(unittest.TestCase):
         # Test group_by with lambda using typed properties
         grouped_df = self.df.group_by(lambda x: x.department).select(
             lambda x: x.department,
-            as_column(avg(lambda x: x.salary), "avg_salary")
+            lambda x: (avg_salary := avg(x.salary))
         )
         
         # Check the SQL generation

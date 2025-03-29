@@ -12,8 +12,8 @@ from typing import Optional
 from cloud_dataframe.core.dataframe import DataFrame
 from cloud_dataframe.type_system.schema import TableSchema
 from cloud_dataframe.type_system.column import (
-    as_column, over, row_number, rank, dense_rank, sum,
-    row, range, unbounded
+    over, row_number, rank, dense_rank, sum,
+    row, range, unbounded, window
 )
 
 
@@ -63,14 +63,11 @@ class TestWindowFramesDuckDB(unittest.TestCase):
             lambda x: x.name,
             lambda x: x.department,
             lambda x: x.salary,
-            as_column(
-                over(
-                    lambda x: sum(x.salary),
-                    partition_by=lambda x: x.department,
-                    frame=row(unbounded(), 0)  # unbounded preceding to current row
-                ),
-                "running_total"
-            )
+            lambda x: (running_total := window(
+                func=sum(x.salary),
+                partition=x.department,
+                frame=row(unbounded(), 0)  # unbounded preceding to current row
+            ))
         ).order_by(
             lambda x: x.department,
             lambda x: x.salary
@@ -119,14 +116,11 @@ class TestWindowFramesDuckDB(unittest.TestCase):
         query = ts_df.select(
             lambda x: x.day,
             lambda x: x.value,
-            as_column(
-                over(
-                    lambda x: sum(x.value),  # Lambda with sum function
-                    order_by=lambda x: x.day,
-                    frame=row(1, 1)  # 1 preceding, 1 following (3-day window)
-                ),
-                "moving_avg"
-            )
+            lambda x: (moving_avg := window(
+                func=sum(x.value),  # Sum function
+                order_by=x.day,
+                frame=row(1, 1)  # 1 preceding, 1 following (3-day window)
+            ))
         ).order_by(
             lambda x: x.day
         )
@@ -156,14 +150,11 @@ class TestWindowFramesDuckDB(unittest.TestCase):
             lambda x: x.name,
             lambda x: x.department,
             lambda x: x.salary,
-            as_column(
-                over(
-                    lambda x: sum(x.salary + 1000),  # Complex expression: salary + 1000
-                    partition_by=lambda x: x.department,
-                    frame=row(unbounded(), 0)
-                ),
-                "adjusted_total"
-            )
+            lambda x: (adjusted_total := window(
+                func=sum(x.salary + 1000),  # Complex expression: salary + 1000
+                partition=x.department,
+                frame=row(unbounded(), 0)
+            ))
         ).order_by(
             lambda x: x.department,
             lambda x: x.id

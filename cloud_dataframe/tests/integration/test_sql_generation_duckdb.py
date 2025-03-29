@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 from cloud_dataframe.core.dataframe import DataFrame
-from cloud_dataframe.type_system.column import col, literal, as_column, count, avg, sum
+from cloud_dataframe.type_system.column import col, literal, count, avg, sum
 from cloud_dataframe.type_system.schema import TableSchema
 from cloud_dataframe.type_system.decorators import dataclass_to_schema
 
@@ -190,7 +190,11 @@ class TestSqlGenerationDuckDB(unittest.TestCase):
     def test_select_with_where_and_group_by(self):
         """Test a SELECT with WHERE and GROUP BY."""
         # Create a DataFrame with filter and group by
-        df = DataFrame.from_("employees", alias="x").filter(lambda x: x.salary > 0).group_by(lambda x: x.department).select(lambda x: x.department, as_column(count(lambda x: x.id), "employee_count"), as_column(avg(lambda x: x.salary), "avg_salary"))
+        df = DataFrame.from_("employees", alias="x").filter(lambda x: x.salary > 0).group_by(lambda x: x.department).select(
+            lambda x: x.department,
+            lambda x: (employee_count := count(x.id)),
+            lambda x: (avg_salary := avg(x.salary))
+        )
         
         # Generate SQL
         sql = df.to_sql(dialect="duckdb")
@@ -226,8 +230,8 @@ class TestSqlGenerationDuckDB(unittest.TestCase):
             lambda x: avg(x.salary) > 75000
         ).select(
             lambda x: x.department,
-            as_column(lambda x: count(x.id), "employee_count"),
-            as_column(lambda x: avg(x.salary), "avg_salary")
+            lambda x: (employee_count := count(x.id)),
+            lambda x: (avg_salary := avg(x.salary))
         )
         
         # Generate SQL
@@ -383,8 +387,8 @@ WHERE x.salary > 0"""
             lambda x: x.d.location
         ).select(
             lambda x: x.d.location,
-            as_column(lambda x: count(literal(1)), "employee_count"),
-            as_column(lambda x: avg(x.e.salary), "avg_salary")
+            lambda x: (employee_count := count(literal(1))),
+            lambda x: (avg_salary := avg(x.e.salary))
         )
         
         # Generate SQL

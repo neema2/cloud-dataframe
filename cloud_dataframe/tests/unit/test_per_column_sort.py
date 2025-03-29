@@ -10,7 +10,7 @@ from typing import Optional
 from cloud_dataframe.core.dataframe import DataFrame, Sort, OrderByClause
 from cloud_dataframe.type_system.schema import TableSchema
 from cloud_dataframe.type_system.column import (
-    as_column, col, over, row_number, rank, dense_rank
+    col, over, row_number, rank, dense_rank, window
 )
 
 
@@ -89,17 +89,7 @@ class TestPerColumnSort(unittest.TestCase):
             lambda x: x.name,
             lambda x: x.department,
             lambda x: x.salary,
-            as_column(
-                over(
-                    dense_rank(),
-                    partition_by=lambda x: x.department,
-                    order_by=lambda x: [
-                        (x.salary, Sort.DESC),  # Salary in descending order
-                        (x.id, Sort.ASC)        # ID in ascending order
-                    ]
-                ),
-                "salary_rank"
-            )
+            lambda x: (salary_rank := window(func=dense_rank(), partition=x.department, order_by=[(x.salary, Sort.DESC), (x.id, Sort.ASC)]))
         )
         
         # Check the SQL generation
@@ -115,22 +105,8 @@ class TestPerColumnSort(unittest.TestCase):
             lambda x: x.name,
             lambda x: x.department,
             lambda x: x.salary,
-            as_column(
-                over(
-                    row_number(),
-                    partition_by=lambda x: x.department,
-                    order_by=lambda x: [(x.salary, Sort.DESC)]
-                ),
-                "row_num"
-            ),
-            as_column(
-                over(
-                    rank(),
-                    partition_by=lambda x: [x.department, x.location],
-                    order_by=lambda x: [(x.salary, Sort.ASC), (x.id, Sort.DESC)]
-                ),
-                "rank"
-            )
+            lambda x: (row_num := window(func=row_number(), partition=x.department, order_by=[(x.salary, Sort.DESC)])),
+            lambda x: (rank := window(func=rank(), partition=[x.department, x.location], order_by=[(x.salary, Sort.ASC), (x.id, Sort.DESC)]))
         )
         
         # Check the SQL generation
