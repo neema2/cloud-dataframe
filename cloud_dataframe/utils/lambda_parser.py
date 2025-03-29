@@ -64,142 +64,21 @@ class LambdaParser:
         """
         # Get the source code of the lambda function
         try:
-            try:
-                source = inspect.getsource(lambda_func)
+            source_lines, _ = inspect.getsourcelines(lambda_func)
+            source_text = ''.join(source_lines).strip()
+
+            # Parse the source code using ast
+            source_ast = ast.parse(source_text)
+            lambda_node = next((node for node in ast.walk(source_ast) if isinstance(node, ast.Lambda)), None)
+
+            if not lambda_node:
+                raise ValueError("Could not find lambda expression in source code")
                 
-                # Handle multiline lambda expressions
-                if "\\" in source:
-                    # Remove line continuations and normalize whitespace
-                    source = source.replace("\\", "").strip()
-                
-                lambda_start = source.find("lambda")
-                if lambda_start >= 0:
-                    source = source[lambda_start:]
-                    
-                    assign_pos = source.find("=")
-                    if assign_pos > 0 and assign_pos < source.find(":"):
-                        source = source[assign_pos+1:].strip()
-                        lambda_start = source.find("lambda")
-                        if lambda_start >= 0:
-                            source = source[lambda_start:]
-                
-                if source.startswith("lambda"):
-                    colon_pos = source.find(":")
-                    if colon_pos > 0:
-                        args_str = source[6:colon_pos].strip()
-                        
-                        body_start = colon_pos + 1
-                        body = source[body_start:].strip()
-                        
-                        comma_pos = body.find(",")
-                        if comma_pos > 0 and "=" in body[comma_pos:]:
-                            body = body[:comma_pos].strip()
-                        
-                        paren_depth = 0
-                        bracket_depth = 0
-                        in_string = False
-                        string_char = None
-                        body_end = len(body)
-                        
-                        for i, char in enumerate(body):
-                            if char in ('"', "'") and (i == 0 or body[i-1] != '\\'):
-                                if not in_string:
-                                    in_string = True
-                                    string_char = char
-                                elif char == string_char:
-                                    in_string = False
-                            
-                            if not in_string:
-                                if char == '[':
-                                    bracket_depth += 1
-                                elif char == ']':
-                                    bracket_depth -= 1
-                                elif char == '(':
-                                    paren_depth += 1
-                                elif char == ')':
-                                    paren_depth -= 1
-                                    if paren_depth < 0:
-                                        body_end = i
-                                        break
-                        
-                        if bracket_depth > 0:
-                            body = body + ']' * bracket_depth
-                            
-                        body = body[:body_end].strip()
-                        source = f"lambda {args_str}: {body}"
-            except (OSError, TypeError):
-                code = lambda_func.__code__
-                source = f"lambda {', '.join(code.co_varnames[:code.co_argcount])}: <body>"
-            
-            # Parse the source code into an AST
-            try:
-                tree = ast.parse(source.strip())
-                
-                # Find the lambda expression in the AST
-                lambda_node = None
-                for node in ast.walk(tree):
-                    if isinstance(node, ast.Lambda):
-                        lambda_node = node
-                        break
-                
-                if not lambda_node:
-                    raise ValueError("Could not find lambda expression in source code")
-                
-                # We can't add parent references directly due to type checking issues
-                # Instead, we'll use a simpler approach for handling complex boolean operations
-                
-                # Parse the lambda body
-                result = LambdaParser._parse_expression(lambda_node.body, lambda_node.args.args, table_schema)
-                return result
-            except SyntaxError as syntax_err:
-                if "unmatched ')'" in str(syntax_err):
-                    if source.endswith(')'):
-                        source = source[:-1]
-                        tree = ast.parse(source.strip())
-                        
-                        # Find the lambda expression in the AST
-                        lambda_node = None
-                        for node in ast.walk(tree):
-                            if isinstance(node, ast.Lambda):
-                                lambda_node = node
-                                break
-                        
-                        if not lambda_node:
-                            raise ValueError("Could not find lambda expression in source code")
-                        
-                        # Parse the lambda body
-                        result = LambdaParser._parse_expression(lambda_node.body, lambda_node.args.args, table_schema)
-                        return result
-                    else:
-                        raise ValueError(f"Parse Error: {str(syntax_err)}")
-                elif "'[' was never closed" in str(syntax_err):
-                    bracket_count = source.count('[') - source.count(']')
-                    if bracket_count > 0:
-                        fixed_source = source + ']' * bracket_count
-                        try:
-                            tree = ast.parse(fixed_source.strip())
-                            
-                            # Find the lambda expression in the AST
-                            lambda_node = None
-                            for node in ast.walk(tree):
-                                if isinstance(node, ast.Lambda):
-                                    lambda_node = node
-                                    break
-                            
-                            if not lambda_node:
-                                raise ValueError("Could not find lambda expression in source code")
-                            
-                            # Parse the lambda body
-                            result = LambdaParser._parse_expression(lambda_node.body, lambda_node.args.args, table_schema)
-                            return result
-                        except SyntaxError as nested_err:
-                            raise ValueError(f"Parse Error: {str(nested_err)}")
-                    else:
-                        raise ValueError(f"Parse Error: {str(syntax_err)}")
-                else:
-                    raise ValueError(f"Parse Error: {str(syntax_err)}")
-        except Exception as e:
-            raise ValueError(f"Parse Error: {str(e)}")
+            # Parse the lambda body
+            result = LambdaParser._parse_expression(lambda_node.body, lambda_node.args.args, table_schema)
+            return result
+        except Exception:
+            raise ValueError("Error getting Lambda")
         
     @staticmethod
     def _parse_expression(node: ast.AST, args: List[ast.arg], table_schema=None) -> Union[Expression, List[Union[Expression, Tuple[Expression, Any]]]]:
