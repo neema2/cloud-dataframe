@@ -106,10 +106,8 @@ class TestDuckDBIntegration(unittest.TestCase):
     
     def test_group_by_with_aggregation(self):
         """Test a group by with aggregation."""
-        df = DataFrame.from_("employees").
-        group_by(
-            lambda x: x.department_id).
-        select(
+        df = DataFrame.from_("employees")
+        grouped_df = df.group_by(lambda x: x.department_id).select(
             lambda x: x.department_id,
             lambda x: (employee_count := count(x.id)),
             lambda x: (avg_salary := avg(x.salary))
@@ -163,9 +161,11 @@ class TestDuckDBIntegration(unittest.TestCase):
         
         joined_df = employees.left_join(
             departments, 
-            lambda e, d: e.department_id == d.id).
-        order_by(
-            lambda e: e.salary, desc=True)
+            lambda e, d: e.department_id == d.id
+        )
+        ordered_df = joined_df.order_by(
+            lambda e: e.salary, desc=True
+        )
         
         sql = ordered_df.to_sql(dialect="duckdb")
         result = self.conn.execute(sql).fetchall()
