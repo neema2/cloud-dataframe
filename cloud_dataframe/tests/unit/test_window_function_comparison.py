@@ -52,7 +52,7 @@ class TestWindowFunctionComparison(unittest.TestCase):
         )
         
         lambda_window = LambdaParser.parse_lambda(
-            lambda x: window(rank(), partition=x.department, order_by=x.salary),
+            lambda x: window(func=rank(), partition=x.department, order_by=x.salary),
             self.table_schema
         )
         
@@ -78,7 +78,7 @@ class TestWindowFunctionComparison(unittest.TestCase):
         )
         
         lambda_window = LambdaParser.parse_lambda(
-            lambda x: window(sum(x.salary), partition=x.department, order_by=x.salary),
+            lambda x: window(func=sum(x.salary), partition=x.department, order_by=x.salary),
             self.table_schema
         )
         
