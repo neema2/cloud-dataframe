@@ -55,7 +55,7 @@ class TestWindowFunctionParsing(unittest.TestCase):
             lambda x: x.name,
             lambda x: x.department,
             lambda x: x.salary,
-            as_column(lambda x: window(func=rank(), partition=x.department, order_by=x.salary), "salary_rank")
+            lambda x: (salary_rank := window(func=rank(), partition=x.department, order_by=x.salary))
         )
         
         sql = query.to_sql()
@@ -87,15 +87,7 @@ class TestWindowFunctionParsing(unittest.TestCase):
             lambda x: x.name,
             lambda x: x.department,
             lambda x: x.salary,
-            as_column(
-                lambda x: window(
-                    func=sum(x.salary),
-                    partition=x.department,
-                    order_by=x.salary,
-                    frame=row(unbounded(), 0)
-                ),
-                "running_sum"
-            )
+            lambda x: (running_sum := window(func=sum(x.salary), partition=x.department, order_by=x.salary, frame=row(unbounded(), 0) ))
         )
         
         expected_sql = """
@@ -131,27 +123,9 @@ class TestWindowFunctionParsing(unittest.TestCase):
     def test_window_with_multiple_functions(self):
         """Test multiple window functions in a single query."""
         query = self.df.select(
-            lambda x: x.id,
-            lambda x: x.name,
-            lambda x: x.department,
-            lambda x: x.salary,
-            as_column(
-                lambda x: window(
-                    func=rank(),
-                    partition=x.department,
-                    order_by=x.salary
-                ),
-                "salary_rank"
-            ),
-            as_column(
-                lambda x: window(
-                    func=sum(x.salary),
-                    partition=x.department,
-                    order_by=x.salary,
-                    frame=row(unbounded(), 0)
-                ),
-                "running_sum"
-            )
+            lambda x: [ x.id, x.name, x.department, x.salary ],
+            lambda x: (salary_rank := window(func=rank(), partition=x.department, order_by=x.salary)),
+            lambda x: (running_sum := window(func=sum(x.salary), partition=x.department, order_by=x.salary, frame=row(unbounded(), 0)))
         )
         
         expected_sql = """
