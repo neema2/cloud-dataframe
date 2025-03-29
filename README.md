@@ -174,10 +174,7 @@ result_df = df.select(
     name := df.name,
     department := df.department,
     salary := df.salary,
-    dept_rank := lambda x: rank().over(
-        partition_by=[x.department],
-        order_by=[(x.salary, "DESC")]
-    )
+    dept_rank := lambda x: (dept_rank := window(func=rank(), partition=x.department, order_by=[(x.salary, Sort.DESC)]))
 )
 
 # Group by with multiple aggregations

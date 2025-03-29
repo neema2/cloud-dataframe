@@ -11,7 +11,7 @@ from typing import Optional, Dict
 
 from cloud_dataframe.core.dataframe import DataFrame, Sort
 from cloud_dataframe.type_system.schema import TableSchema
-from cloud_dataframe.type_system.column import sum, avg, count, rank, dense_rank, row_number, over, window
+from cloud_dataframe.type_system.column import sum, avg, count, rank, dense_rank, row_number, window
 
 
 class TestWindowExamples(unittest.TestCase):
@@ -62,7 +62,7 @@ class TestWindowExamples(unittest.TestCase):
             lambda x: x.name,
             lambda x: x.department,
             lambda x: x.salary,
-            lambda x: (salary_rank := window(func=rank(), partition=x.department, order_by=[(x.salary, Sort.DESC)]))
+            lambda x: (salary_rank := window(func=rank(), partition=x.department, order_by=x.salary))
         )
         
         # Generate SQL
@@ -97,7 +97,7 @@ class TestWindowExamples(unittest.TestCase):
             lambda x: x.name,
             lambda x: x.department,
             lambda x: x.salary,
-            lambda x: (row_num := window(func=row_number(), partition=x.department, order_by=[(x.salary, Sort.DESC)]))
+            lambda x: (row_num := window(func=row_number(), partition=x.department, order_by=x.salary))
         )
         
         # Generate SQL
@@ -133,7 +133,7 @@ class TestWindowExamples(unittest.TestCase):
             lambda x: x.name,
             lambda x: x.department,
             lambda x: x.salary,
-            lambda x: (salary_rank := window(func=rank(), partition=x.department, order_by=[(x.salary, Sort.DESC)]))
+            lambda x: (salary_rank := window(func=rank(), partition=x.department, order_by=x.salary))
         )
         
         # Generate SQL for the window query
@@ -178,9 +178,9 @@ class TestWindowExamples(unittest.TestCase):
             lambda x: x.name,
             lambda x: x.department,
             lambda x: x.salary,
-            lambda x: (salary_rank := window(func=rank(), partition=x.department, order_by=[(x.salary, Sort.DESC)])),
-            lambda x: (dense_rank_val := window(func=dense_rank(), partition=x.department, order_by=[(x.salary, Sort.ASC)])),
-            lambda x: (row_num := window(func=row_number(), partition=x.department, order_by=[(x.salary, Sort.DESC)]))
+            lambda x: (salary_rank := window(func=rank(), partition=x.department, order_by=x.salary)),
+            lambda x: (dense_rank_val := window(func=dense_rank(), partition=x.department, order_by=x.salary)),
+            lambda x: (row_num := window(func=row_number(), partition=x.department, order_by=x.salary))
         )
         
         # Generate SQL

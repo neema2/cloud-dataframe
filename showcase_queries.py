@@ -10,7 +10,7 @@ from typing import Optional
 
 from cloud_dataframe.core.dataframe import DataFrame
 from cloud_dataframe.type_system.schema import TableSchema
-from cloud_dataframe.type_system.column import sum, avg, count, min, max, date_diff, over, row_number, rank, dense_rank
+from cloud_dataframe.type_system.column import sum, avg, count, min, max, date_diff, row_number, rank, dense_rank, window
 
 
 def setup_test_data():
@@ -166,7 +166,7 @@ def example_2_aggregation_with_nested_functions():
         total_compensation := lambda x: sum(x.salary + x.bonus),
         avg_monthly_salary := lambda x: avg(x.salary / 12)
     ).having(
-        lambda x: sum(x.salary) > 150000
+        lambda x: (total_salary := sum(x.salary)) > 150000
     ).order_by(
         lambda x: x.department
     )
@@ -318,9 +318,9 @@ def example_5_complex_multi_table_query():
             lambda x: x.department
         ).select(
             lambda x: x.department,
-            as_column(lambda x: count(x.id), "employee_count"),
-            as_column(lambda x: sum(x.salary), "total_salary"),
-            as_column(lambda x: avg(x.salary), "avg_salary")
+            lambda x: (employee_count := count(x.id)),
+            lambda x: (total_salary := sum(x.salary)),
+            lambda x: (avg_salary := avg(x.salary))
         ).order_by(
             lambda x: x.department
         )
