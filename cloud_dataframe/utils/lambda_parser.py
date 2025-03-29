@@ -74,12 +74,14 @@ class LambdaParser:
             if not lambda_node:
                 raise ValueError("Could not find lambda expression in source code")
                 
-            # Parse the lambda body
-            result = LambdaParser._parse_expression(lambda_node.body, lambda_node.args.args, table_schema)
-            return result
         except Exception:
             raise ValueError("Error getting Lambda")
-        
+
+        # Parse the lambda body
+        result = LambdaParser._parse_expression(lambda_node.body, lambda_node.args.args, table_schema)
+        return result
+
+    
     @staticmethod
     def _parse_expression(node: ast.AST, args: List[ast.arg], table_schema=None) -> Union[Expression, List[Union[Expression, Tuple[Expression, Any]]]]:
         """
