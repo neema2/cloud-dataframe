@@ -114,15 +114,9 @@ class TestDataFrame(unittest.TestCase):
     
     def test_with_cte(self):
         """Test the with_cte method."""
-        dept_counts = DataFrame.from_("employees") \
-            .group_by(lambda x: x.department_id) \
-            .select(
-                lambda x: x.department_id,
-                as_column(count(lambda x: x.id), "employee_count")
-            )
+        dept_counts = DataFrame.from_("employees").group_by(lambda x: x.department_id).select(lambda x: x.department_id, as_column(count(lambda x: x.id), "employee_count"))
         
-        df = DataFrame.from_("departments") \
-            .with_cte("dept_counts", dept_counts)
+        df = DataFrame.from_("departments").with_cte("dept_counts", dept_counts)
         
         self.assertEqual(len(df.ctes), 1)
         self.assertEqual(df.ctes[0].name, "dept_counts")

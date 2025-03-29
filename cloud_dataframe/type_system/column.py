@@ -640,3 +640,68 @@ def date_diff(expr1: Union[Callable, Expression], expr2: Union[Callable, Express
         function_name="DATE_DIFF",
         parameters=[parsed_expr1, parsed_expr2]
     )
+
+
+def window(func: Optional[FunctionExpression] = None,
+           partition: Optional[Union[List[Expression], Expression]] = None,
+           order_by: Optional[Union[List[Expression], Expression]] = None,
+           frame: Optional[Frame] = None) -> WindowFunction:
+    """
+    Create a window function specification.
+    
+    Args:
+        func: Optional window function to apply (must be an Expression, not a lambda)
+        partition: Optional list of expressions to partition by (must be Expression objects, not lambdas)
+        order_by: Optional list of expressions to order by (must be Expression objects, not lambdas)
+        frame: Optional frame specification created with row() or range() functions
+        
+    Returns:
+        A WindowFunction with the window specification applied
+    """
+    from ..core.dataframe import OrderByClause, Sort
+    
+    window_obj = Window()
+    partition_by_list = []
+    order_by_list = []
+    window_func = None
+    
+    if func is not None:
+        if isinstance(func, FunctionExpression):
+            window_func = WindowFunction(function_name=func.function_name, parameters=func.parameters)
+        else:
+            raise ValueError(f"Not a FunctionExpression{str(func)} {str(type(func))}")
+    else:
+        window_func = WindowFunction(function_name="WINDOW")
+    
+    if partition is not None:
+        if isinstance(partition, list):
+            # Handle list of expressions (already Expression objects)
+            partition_by_list = partition
+        else:
+            partition_by_list = [partition]
+    
+    if order_by is not None:
+        if isinstance(order_by, list):
+            for item in order_by:
+                if isinstance(item, OrderByClause):
+                    order_by_list.append(item)
+                elif isinstance(item, tuple) and len(item) == 2:
+                    col_expr, sort_dir = item
+                    # Convert string sort direction to OrderByClause equivalent
+                    dir_enum = Sort.DESC if isinstance(sort_dir, str) and sort_dir.upper() == 'DESC' else Sort.ASC
+                    order_by_list.append(OrderByClause(expression=col_expr, direction=dir_enum))
+                else:
+                    # Use default ASC ordering
+                    order_by_list.append(OrderByClause(expression=item, direction=Sort.ASC))
+        else:
+            order_by_list.append(OrderByClause(expression=order_by, direction=Sort.ASC))
+    
+    window_obj.set_partition_by(partition_by_list)
+    window_obj.set_order_by(order_by_list)
+    
+    # Add frame handling
+    if frame:
+        window_obj.set_frame(frame)
+    
+    window_func.window = window_obj
+    return window_func

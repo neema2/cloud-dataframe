@@ -18,3 +18,11 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+
+# Python bytecode
+__pycache__/
+*.py[cod]
+*.class
+
+# Debug files
+debug_window_test.py
