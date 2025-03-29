@@ -85,6 +85,7 @@ class LambdaParser:
     
     @staticmethod
     def _parse_expression(node: ast.AST, args: List[ast.arg], table_schema=None) -> Union[Expression, List[Union[Expression, Tuple[Expression, Any]]]]:
+        from ..core.dataframe import BinaryOperation, Sort
         """
         Parse an AST node and convert it to an Expression or list of Expressions.
         
@@ -122,6 +123,7 @@ class LambdaParser:
                 if expr and len(expr) > 0:
                     first_expr = expr[0]
                     if isinstance(first_expr, Expression):
+                        from typing import cast
                         return BinaryOperation(
                             left=cast(Expression, first_expr),
                             operator="AS",
@@ -162,18 +164,24 @@ class LambdaParser:
             right = LambdaParser._parse_expression(node.right, args, table_schema)
             
             # Map Python operators to SQL operators
-            op_map = {
-                ast.Add: "+",
-                ast.Sub: "-",
-                ast.Mult: "*",
-                ast.Div: "/",
-                ast.Mod: "%",
-                ast.Pow: "^",
-                ast.BitOr: "|",
-                ast.BitAnd: "&",
-            }
-            
-            operator = op_map.get(type(node.op), "+")  # Default to + if unknown
+            if isinstance(node.op, ast.Add):
+                operator = "+"
+            elif isinstance(node.op, ast.Sub):
+                operator = "-"
+            elif isinstance(node.op, ast.Mult):
+                operator = "*"
+            elif isinstance(node.op, ast.Div):
+                operator = "/"
+            elif isinstance(node.op, ast.Mod):
+                operator = "%"
+            elif isinstance(node.op, ast.Pow):
+                operator = "^"
+            elif isinstance(node.op, ast.BitOr):
+                operator = "|"
+            elif isinstance(node.op, ast.BitAnd):
+                operator = "&"
+            else:
+                operator = "+"  # Default to + if unknown
             
             # Ensure left and right are Expression objects, not lists or tuples
             if isinstance(left, list) or isinstance(left, tuple):
@@ -230,7 +238,7 @@ class LambdaParser:
                 
                 return ColumnReference(name=node.attr, table_alias=table_alias)
             elif isinstance(node.value, ast.Attribute) and node.attr == "alias":
-                return node
+                return ColumnReference(name="*")
             elif isinstance(node.value, ast.Attribute) and isinstance(node.value.value, ast.Name):
                 table_name = node.value.attr
                 column_name = node.attr
@@ -355,7 +363,8 @@ class LambdaParser:
                             args_list = [LiteralExpression(value=1)]
                         
                         # Create a CountFunction with the parsed arguments
-                        func = CountFunction(function_name="COUNT", parameters=args_list, distinct=distinct)
+                        from typing import cast, List
+                        func = CountFunction(function_name="COUNT", parameters=cast(List[Expression], args_list), distinct=distinct)
                         
                         return func
                     elif node.func.id == 'min':
@@ -369,7 +378,9 @@ class LambdaParser:
                         
                         return func
                     elif node.func.id == 'window':
-
+                        from ..type_system.column import FunctionExpression, Frame
+                        from ..core.dataframe import Sort
+                        
                         func_expr = None
                         partition_expr = None
                         order_by_expr = None
@@ -381,17 +392,38 @@ class LambdaParser:
                             
                             if kw_name == 'func':
                                 func_expr = LambdaParser._parse_expression(kw_value, args, table_schema)
+                                if not isinstance(func_expr, FunctionExpression):
+                                    raise ValueError(f"window() func parameter must be a FunctionExpression, got {type(func_expr)}")
                             elif kw_name == 'partition':
                                 partition_expr = LambdaParser._parse_expression(kw_value, args, table_schema)
                             elif kw_name == 'order_by':
                                 order_by_expr = LambdaParser._parse_expression(kw_value, args, table_schema)
                             elif kw_name == 'frame':
                                 frame_expr = LambdaParser._parse_expression(kw_value, args, table_schema)
+                                if frame_expr is not None and not isinstance(frame_expr, Frame):
+                                    raise ValueError(f"window() frame parameter must be a Frame, got {type(frame_expr)}")
                         
                         if len(node.args) > 0 and func_expr is None:
                             func_expr = LambdaParser._parse_expression(node.args[0], args, table_schema)
+                            if not isinstance(func_expr, FunctionExpression):
+                                raise ValueError(f"window() func parameter must be a FunctionExpression, got {type(func_expr)}")
+                        
+                        from typing import cast, List, Union, Tuple, Any
+                        
+                        if partition_expr is not None:
+                            if isinstance(partition_expr, list):
+                                partition_param = cast(Union[List[Expression], Expression], partition_expr)
+                            else:
+                                partition_param = cast(Expression, partition_expr)
+                        else:
+                            partition_param = None
                             
-                        result = window(func=func_expr, partition=partition_expr, order_by=order_by_expr, frame=frame_expr)
+                        result = window(
+                            func=func_expr if isinstance(func_expr, FunctionExpression) else None,
+                            partition=partition_param,
+                            order_by=order_by_expr,
+                            frame=frame_expr if isinstance(frame_expr, Frame) else None
+                        )
                         
                         if func_expr is not None and isinstance(func_expr, FunctionExpression):
                             result.function_name = func_expr.function_name
@@ -417,7 +449,9 @@ class LambdaParser:
                             elif isinstance(args_list[1], ColumnReference) and args_list[1].name == "*":
                                 end = "UNBOUNDED"
                         
-                        return row(start, end)
+                        from typing import cast
+                        frame_result = row(start, end)
+                        return cast(Expression, frame_result)
                     elif node.func.id == 'range':
                         start = 0
                         end = 0
@@ -431,7 +465,9 @@ class LambdaParser:
                                 end = args_list[1].value
                             elif isinstance(args_list[1], ColumnReference) and args_list[1].name == "*":
                                 end = "UNBOUNDED"
-                        return range(start, end)
+                        from typing import cast
+                        frame_result = range(start, end)
+                        return cast(Expression, frame_result)
                     elif node.func.id == 'unbounded':
                         return LiteralExpression(value="UNBOUNDED")
                 # Support for scalar functions
@@ -447,7 +483,11 @@ class LambdaParser:
                     alias_name = node.args[0].value
                     col_ref = LambdaParser._parse_expression(node.func.value, args, table_schema)
                     if isinstance(col_ref, ColumnReference):
-                        return col_ref.alias(alias_name)
+                        return BinaryOperation(
+                            left=col_ref,
+                            operator="AS",
+                            right=LiteralExpression(value=alias_name)
+                        )
                     else:
                         raise ValueError(f"Cannot apply alias to non-column reference: {col_ref}")
                 else:
@@ -461,11 +501,16 @@ class LambdaParser:
                         table_name = node.func.value.value.attr
                         column_name = node.func.value.attr
                         
-                        return ColumnReference(
+                        col_ref = ColumnReference(
                             name=column_name, 
                             table_alias=table_name, 
-                            table_name=table_name,
-                            column_alias=alias_name
+                            table_name=table_name
+                        )
+                        
+                        return BinaryOperation(
+                            left=col_ref,
+                            operator="AS",
+                            right=LiteralExpression(value=alias_name)
                         )
                 
                 # This handles cases like lambda x: x.func(arg1, arg2)

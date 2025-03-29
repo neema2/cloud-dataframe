@@ -47,7 +47,7 @@ class ScalarFunction(FunctionExpression):
 @dataclass
 class DateDiffFunction(ScalarFunction):
     """DATE_DIFF scalar function."""
-    pass
+    column_names: List[str] = field(default_factory=list)
 
 
 @dataclass
@@ -224,9 +224,10 @@ def count(expr: Union[Callable, Expression, None] = None, distinct: bool = False
     # For backward compatibility, handle lambda functions
     if callable(expr) and not isinstance(expr, Expression):
         parsed_expr = parse_lambda(expr)
+        from typing import cast, List
         return CountFunction(
             function_name="COUNT",
-            parameters=[parsed_expr],
+            parameters=cast(List[Expression], [parsed_expr]),
             distinct=distinct
         )
     
@@ -255,9 +256,10 @@ def sum(expr: Union[Callable, Expression]) -> SumFunction:
     # For backward compatibility, handle lambda functions
     if callable(expr) and not isinstance(expr, Expression):
         parsed_expr = parse_lambda(expr)
+        from typing import cast, List
         return SumFunction(
             function_name="SUM",
-            parameters=[parsed_expr]
+            parameters=cast(List[Expression], [parsed_expr])
         )
     
     # Handle direct expression
@@ -284,9 +286,10 @@ def avg(expr: Union[Callable, Expression]) -> AvgFunction:
     # For backward compatibility, handle lambda functions
     if callable(expr) and not isinstance(expr, Expression):
         parsed_expr = parse_lambda(expr)
+        from typing import cast, List
         return AvgFunction(
             function_name="AVG",
-            parameters=[parsed_expr]
+            parameters=cast(List[Expression], [parsed_expr])
         )
     
     # Handle direct expression
@@ -313,9 +316,10 @@ def min(expr: Union[Callable, Expression]) -> MinFunction:
     # For backward compatibility, handle lambda functions
     if callable(expr) and not isinstance(expr, Expression):
         parsed_expr = parse_lambda(expr)
+        from typing import cast, List
         return MinFunction(
             function_name="MIN",
-            parameters=[parsed_expr]
+            parameters=cast(List[Expression], [parsed_expr])
         )
     
     # Handle direct expression
@@ -342,9 +346,10 @@ def max(expr: Union[Callable, Expression]) -> MaxFunction:
     # For backward compatibility, handle lambda functions
     if callable(expr) and not isinstance(expr, Expression):
         parsed_expr = parse_lambda(expr)
+        from typing import cast, List
         return MaxFunction(
             function_name="MAX",
-            parameters=[parsed_expr]
+            parameters=cast(List[Expression], [parsed_expr])
         )
     
     # Handle direct expression
@@ -470,9 +475,11 @@ def date_diff(expr1: Union[Callable, Expression], expr2: Union[Callable, Express
     if isinstance(parsed_expr2, ColumnReference):
         col_names.append(parsed_expr2.name)
     
+    from typing import cast, List
     func = DateDiffFunction(
         function_name="DATE_DIFF",
-        parameters=[parsed_expr1, parsed_expr2]
+        parameters=cast(List[Expression], [parsed_expr1, parsed_expr2]),
+        column_names=col_names
     )
     
     # Store column names as an attribute for SQL generation
@@ -481,52 +488,24 @@ def date_diff(expr1: Union[Callable, Expression], expr2: Union[Callable, Express
     
     return func
 
-@dataclass
-class DateDiffFunction(ScalarFunction):
-    """DATE_DIFF scalar function."""
-    pass
 
 
-def date_diff(expr1: Union[Callable, Expression], expr2: Union[Callable, Expression]) -> DateDiffFunction:
-    """
-    Create a DATE_DIFF scalar function.
-    
-    Args:
-        expr1: First date expression
-        expr2: Second date expression
-        
-    Returns:
-        A DateDiffFunction expression
-    """
-    from ..utils.lambda_parser import parse_lambda
-    
-    if callable(expr1):
-        parsed_expr1 = parse_lambda(expr1)
-    else:
-        parsed_expr1 = expr1
-    
-    if callable(expr2):
-        parsed_expr2 = parse_lambda(expr2)
-    else:
-        parsed_expr2 = expr2
-    
-    return DateDiffFunction(
-        function_name="DATE_DIFF",
-        parameters=[parsed_expr1, parsed_expr2]
-    )
 
 
 def window(func: Optional[FunctionExpression] = None,
            partition: Optional[Union[List[Expression], Expression]] = None,
-           order_by: Optional[Union[List[Expression], Expression]] = None,
+           order_by: Optional[Union[List[Union[Expression, Tuple[Expression, Any]]], Expression, Tuple[Expression, Any]]] = None,
            frame: Optional[Frame] = None) -> WindowFunction:
     """
     Create a window function specification.
     
     Args:
         func: Optional window function to apply (must be an Expression, not a lambda)
-        partition: Optional list of expressions to partition by (must be Expression objects, not lambdas)
-        order_by: Optional list of expressions to order by (must be Expression objects, not lambdas)
+        partition: Optional expression or list of expressions to partition by
+        order_by: Optional order by specification, which can be:
+            - A single expression (e.g., x.col1)
+            - A tuple with expression and sort order (e.g., (x.col1, Sort.DESC))
+            - A list of expressions or tuples (e.g., [x.col1, (x.col2, Sort.DESC)])
         frame: Optional frame specification created with row() or range() functions
         
     Returns:
@@ -537,19 +516,17 @@ def window(func: Optional[FunctionExpression] = None,
     window_obj = Window()
     partition_by_list = []
     order_by_list = []
-    window_func = None
     
     if func is not None:
         if isinstance(func, FunctionExpression):
             window_func = WindowFunction(function_name=func.function_name, parameters=func.parameters)
         else:
-            raise ValueError(f"Not a FunctionExpression{str(func)} {str(type(func))}")
+            raise ValueError(f"Not a FunctionExpression: {str(func)} {str(type(func))}")
     else:
         window_func = WindowFunction(function_name="WINDOW")
     
     if partition is not None:
         if isinstance(partition, list):
-            # Handle list of expressions (already Expression objects)
             partition_by_list = partition
         else:
             partition_by_list = [partition]
@@ -561,19 +538,24 @@ def window(func: Optional[FunctionExpression] = None,
                     order_by_list.append(item)
                 elif isinstance(item, tuple) and len(item) == 2:
                     col_expr, sort_dir = item
-                    # Convert string sort direction to OrderByClause equivalent
-                    dir_enum = Sort.DESC if isinstance(sort_dir, str) and sort_dir.upper() == 'DESC' else Sort.ASC
-                    order_by_list.append(OrderByClause(expression=col_expr, direction=dir_enum))
+                    if sort_dir == Sort.DESC:
+                        order_by_list.append(OrderByClause(expression=col_expr, direction=Sort.DESC))
+                    else:
+                        order_by_list.append(OrderByClause(expression=col_expr, direction=Sort.ASC))
                 else:
-                    # Use default ASC ordering
                     order_by_list.append(OrderByClause(expression=item, direction=Sort.ASC))
+        elif isinstance(order_by, tuple) and len(order_by) == 2:
+            col_expr, sort_dir = order_by
+            if sort_dir == Sort.DESC:
+                order_by_list.append(OrderByClause(expression=col_expr, direction=Sort.DESC))
+            else:
+                order_by_list.append(OrderByClause(expression=col_expr, direction=Sort.ASC))
         else:
             order_by_list.append(OrderByClause(expression=order_by, direction=Sort.ASC))
     
     window_obj.set_partition_by(partition_by_list)
     window_obj.set_order_by(order_by_list)
     
-    # Add frame handling
     if frame:
         window_obj.set_frame(frame)
     

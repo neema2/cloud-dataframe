@@ -365,26 +365,19 @@ class DataFrame:
         
         return df_copy
     
-    def order_by(self, *clauses: Union[OrderByClause, Expression, Callable[[Any], Any]], 
-                 desc: bool = False) -> 'DataFrame':
+    def order_by(self, *clauses: Union[OrderByClause, Expression, Callable[[Any], Any]]) -> 'DataFrame':
         """
         Order the DataFrame by the specified columns.
         
         Args:
-            *clauses: The columns or OrderByClauses to order by. Can be:
-                - Expression objects
-                - OrderByClause objects
-                - Lambda functions that access dataclass properties (e.g., lambda x: x.column_name)
-                - Lambda functions that return arrays (e.g., lambda x: [x.department, x.salary])
-                - Lambda functions that return tuples with sort direction (e.g., lambda x: 
-                  [(x.department, 'DESC'), (x.salary, 'ASC'), x.name])
-            desc: Whether to sort in descending order (if not using OrderByClause or tuple specification)
+            *clauses: The columns or OrderByClauses to order by. Must be lambda functions that return:
+                - A single expression (e.g., lambda x: x.column_name)
+                - A tuple with expression and sort order (e.g., lambda x: (x.column_name, Sort.DESC))
+                - A list of expressions or tuples (e.g., lambda x: [x.department, (x.salary, Sort.DESC)])
             
         Returns:
             The DataFrame with the ordering applied
         """
-        direction = Sort.DESC if desc else Sort.ASC
-        
         for clause in clauses:
             if isinstance(clause, OrderByClause):
                 self.order_by_clauses.append(clause)
@@ -396,6 +389,7 @@ class DataFrame:
                 if isinstance(self.source, TableReference):
                     table_schema = self.source.table_schema
                 expr = LambdaParser.parse_lambda(clause, table_schema)
+                
                 if isinstance(expr, list):
                     # Handle array returns from lambda functions
                     # Track columns we've already added to avoid duplicates
@@ -404,9 +398,10 @@ class DataFrame:
                         # Check if the expression is a tuple with a sort direction
                         if isinstance(single_expr, tuple) and len(single_expr) == 2:
                             col_expr, sort_dir = single_expr
-                            # Convert string sort direction to Sort enum
-                            if isinstance(sort_dir, str):
-                                sort_dir = Sort.DESC if sort_dir.upper() == 'DESC' else Sort.ASC
+                            if sort_dir == Sort.DESC:
+                                dir_enum = Sort.DESC
+                            else:
+                                dir_enum = Sort.ASC
                             
                             # Skip if we've already added this column
                             if isinstance(col_expr, ColumnReference) and col_expr.name in added_columns:
@@ -419,7 +414,7 @@ class DataFrame:
                             # Use provided sort direction
                             self.order_by_clauses.append(OrderByClause(
                                 expression=col_expr,
-                                direction=sort_dir
+                                direction=dir_enum
                             ))
                         else:
                             # Skip if we've already added this column
@@ -430,20 +425,30 @@ class DataFrame:
                             if isinstance(single_expr, ColumnReference):
                                 added_columns.add(single_expr.name)
                                 
-                            # Use global sort direction
                             self.order_by_clauses.append(OrderByClause(
                                 expression=single_expr,
-                                direction=direction
+                                direction=Sort.ASC
                             ))
+                elif isinstance(expr, tuple) and len(expr) == 2:
+                    col_expr, sort_dir = expr
+                    if sort_dir == Sort.DESC:
+                        dir_enum = Sort.DESC
+                    else:
+                        dir_enum = Sort.ASC
+                    
+                    self.order_by_clauses.append(OrderByClause(
+                        expression=col_expr,
+                        direction=dir_enum
+                    ))
                 else:
                     self.order_by_clauses.append(OrderByClause(
                         expression=expr,
-                        direction=direction
+                        direction=Sort.ASC
                     ))
             else:
                 self.order_by_clauses.append(OrderByClause(
                     expression=clause,
-                    direction=direction
+                    direction=Sort.ASC
                 ))
         
         return self
