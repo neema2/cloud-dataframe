@@ -70,7 +70,7 @@ def test_string_functions():
         }
     )
     
-    df = DataFrame(source="customers", schema=schema)
+    df = DataFrame.from_table_schema(schema, "customers")
     
     df_concat = df.select(
         lambda x: x.customer_id,
@@ -108,7 +108,7 @@ def test_math_functions():
         }
     )
     
-    df = DataFrame(source="products", schema=schema)
+    df = DataFrame.from_table_schema(schema, "products")
     
     df_round = df.select(
         lambda x: x.product_id,
