@@ -87,22 +87,24 @@ class TestExtendFunctionDuckDB(unittest.TestCase):
     
     def test_extend_with_computed_column(self):
         """Test extend() with a computed column."""
-        df = self.df_employees.select(lambda e: e.id, lambda e: e.name, lambda e: e.salary)
+        df = self.df_employees.select(lambda e: [e.id, e.name, e.salary])
         
         extended_df = df.extend(lambda e: (bonus := e.salary * 0.1))
         
         sql = extended_df.to_sql(dialect="duckdb")
         
-        expected_sql = "SELECT e.id, (e.salary * 0.1) AS bonus\nFROM employees e"
+        expected_sql = "SELECT e.id, e.name, e.salary, (e.salary * 0.1) AS bonus\nFROM employees e"
         self.assertEqual(sql.strip(), expected_sql.strip())
         
         result = self.conn.execute(sql).fetchall()
         
         self.assertEqual(len(result), 5)  # Should have 5 rows
         for row in result:
-            self.assertEqual(len(row), 2)  # id, bonus
+            self.assertEqual(len(row), 4)  # id, name, salary, bonus
             id_val = row[0]
-            bonus = row[1]
+            name = row[1]
+            salary = row[2]
+            bonus = row[3]
             self.assertTrue(bonus > 0)  # Just verify it's a positive number
     
     def test_extend_with_join(self):
@@ -162,7 +164,10 @@ class TestExtendFunctionDuckDB(unittest.TestCase):
             
     def test_extend_multiple_times(self):
         """Test extending a DataFrame multiple times."""
-        df = self.df_employees.select(lambda e: e.id, lambda e: e.name)
+        df = self.df_employees.select(
+            lambda e: e.id,
+            lambda e: e.name
+        )
         
         df = df.extend(lambda e: (department := e.department))
         
