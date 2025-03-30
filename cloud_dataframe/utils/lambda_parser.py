@@ -334,9 +334,7 @@ class LambdaParser:
                 args_list = []
                 for arg in node.args:
                     if isinstance(arg, ast.Lambda):
-                        lambda_source = ast.unparse(arg)
-                        lambda_func = eval(lambda_source)
-                        parsed_arg = LambdaParser.parse_lambda(lambda_func, table_schema)
+                        parsed_arg = LambdaParser._parse_expression(arg.body, arg.args.args, table_schema)
                     else:
                         parsed_arg = LambdaParser._parse_expression(arg, args, table_schema)
                     args_list.append(parsed_arg)
@@ -505,9 +503,7 @@ class LambdaParser:
                 args_list = []
                 for arg in node.args:
                     if isinstance(arg, ast.Lambda):
-                        lambda_source = ast.unparse(arg)
-                        lambda_func = eval(lambda_source)
-                        parsed_arg = LambdaParser.parse_lambda(lambda_func, table_schema)
+                        parsed_arg = LambdaParser._parse_expression(arg.body, arg.args.args, table_schema)
                     else:
                         parsed_arg = LambdaParser._parse_expression(arg, args, table_schema)
                     args_list.append(parsed_arg)
