@@ -640,6 +640,9 @@ def _generate_having(df: DataFrame) -> str:
         condition_sql = _generate_expression(df.having_condition.condition)
     else:
         condition_sql = _generate_expression(df.having_condition)
+    
+    condition_sql = condition_sql.replace("df.", "")
+    
     return f"HAVING {condition_sql}"
 
 
