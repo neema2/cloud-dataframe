@@ -236,24 +236,9 @@ class DataFrame:
                 lambda a, b: (new_col2 := a.col3 - a.col4)
             )
         """
-        result = DataFrame()
-        result.source = self.source  # DataSource objects are immutable
-        result.filter_condition = self.filter_condition  # FilterCondition objects are immutable
-        result.group_by_clauses = self.group_by_clauses.copy() if hasattr(self, 'group_by_clauses') else []
-        result.having_condition = self.having_condition  # FilterCondition objects are immutable
-        result.qualify_condition = self.qualify_condition  # FilterCondition objects are immutable
-        result.order_by_clauses = self.order_by_clauses.copy() if hasattr(self, 'order_by_clauses') else []
-        result.limit_value = self.limit_value if hasattr(self, 'limit_value') else None
-        result.offset_value = self.offset_value if hasattr(self, 'offset_value') else None
-        result.distinct = self.distinct if hasattr(self, 'distinct') else False
-        result.ctes = self.ctes.copy() if hasattr(self, 'ctes') and self.ctes else []
-        result._table_class = self._table_class if hasattr(self, '_table_class') else None
-        
-        result.columns = self.columns.copy()
-        
         for col in columns:
             if isinstance(col, Column):
-                result.columns.append(col)
+                self.columns.append(col)
             elif callable(col) and not isinstance(col, Column):
                 # Handle lambda functions that access dataclass properties
                 from ..utils.lambda_parser import LambdaParser
@@ -263,22 +248,33 @@ class DataFrame:
                     table_schema = self.source.table_schema
                 
                 # Parse the lambda function
-                expr = LambdaParser.parse_lambda(col, table_schema)
-                
-                if isinstance(expr, list):
-                    # Handle array returns from lambda functions
-                    result.columns.extend(expr)
-                else:
-                    # Check if this is already a Column object
-                    if isinstance(expr, Column):
-                        result.columns.append(expr)
+                try:
+                    expr = LambdaParser.parse_lambda(col, table_schema)
+                    
+                    if isinstance(expr, list):
+                        # Handle array returns from lambda functions
+                        self.columns.extend(expr)
                     else:
-                        # Convert to a Column if it's not already
-                        result.columns.append(expr)
+                        # Check if this is already a Column object
+                        if isinstance(expr, Column):
+                            self.columns.append(expr)
+                        else:
+                            # Convert to a Column if it's not already
+                            self.columns.append(expr)
+                except ValueError as e:
+                    expr = LambdaParser.parse_lambda(col, None)
+                    
+                    if isinstance(expr, list):
+                        self.columns.extend(expr)
+                    else:
+                        if isinstance(expr, Column):
+                            self.columns.append(expr)
+                        else:
+                            self.columns.append(expr)
             else:
                 raise TypeError(f"Unsupported column type: {type(col)}")
         
-        return result
+        return self
     
     @classmethod
     def from_(cls, table_name: str, schema: Optional[str] = None, alias: Optional[str] = None) -> 'DataFrame':
