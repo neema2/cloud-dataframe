@@ -46,7 +46,7 @@ def test_date_functions():
         }
     )
     
-    df = DataFrame.from_table_schema(schema, "orders")
+    df = DataFrame.from_table_schema("orders", schema)
     
     df_date_diff = df.select(
         lambda x: x.order_id,
@@ -70,7 +70,7 @@ def test_string_functions():
         }
     )
     
-    df = DataFrame.from_table_schema(schema, "customers")
+    df = DataFrame.from_table_schema("customers", schema)
     
     df_concat = df.select(
         lambda x: x.customer_id,
@@ -108,7 +108,7 @@ def test_math_functions():
         }
     )
     
-    df = DataFrame.from_table_schema(schema, "products")
+    df = DataFrame.from_table_schema("products", schema)
     
     df_round = df.select(
         lambda x: x.product_id,
@@ -145,7 +145,7 @@ def test_time_functions():
         }
     )
     
-    df = DataFrame.from_table_schema(schema, "orders")
+    df = DataFrame.from_table_schema("orders", schema)
     
     df_date_part = df.select(
         lambda x: x.order_id,
@@ -177,7 +177,7 @@ def test_function_composition():
         }
     )
     
-    df = DataFrame.from_table_schema(schema, "orders")
+    df = DataFrame.from_table_schema("orders", schema)
     
     df_composition = df.select(
         lambda x: x.order_id,
