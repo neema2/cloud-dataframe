@@ -55,14 +55,15 @@ class TestPerColumnSort(unittest.TestCase):
         """Test mix of tuple and non-tuple specifications."""
         # Test mix of tuple and non-tuple specifications
         ordered_df = self.df.order_by(
-            lambda x: [(x.department, Sort.DESC)],  # Department in descending order
-            lambda x: x.salary,                  # Salary in default order
-            desc=True                            # Default direction is DESC for non-tuple columns
+            lambda x: [
+                (x.department, Sort.DESC),  # Department in descending order
+                x.salary                    # Salary in default ascending order
+            ]
         )
         
         # Check the SQL generation
         sql = ordered_df.to_sql(dialect="duckdb")
-        expected_sql = "SELECT *\nFROM employees x\nORDER BY x.department DESC, x.salary DESC"
+        expected_sql = "SELECT *\nFROM employees x\nORDER BY x.department DESC, x.salary ASC"
         self.assertEqual(sql.strip(), expected_sql.strip())
     
     def test_enum_sort_direction(self):

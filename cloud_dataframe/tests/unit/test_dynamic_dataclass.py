@@ -117,7 +117,8 @@ class TestDataframeWithTypedProperties(unittest.TestCase):
     def test_order_by_with_typed_properties(self):
         """Test ordering with typed properties."""
         # Test order_by with lambda using typed properties
-        ordered_df = self.df.order_by(lambda x: x.salary, desc=True)
+        from cloud_dataframe.core.dataframe import Sort
+        ordered_df = self.df.order_by(lambda x: (x.salary, Sort.DESC))
         
         # Check the SQL generation
         sql = ordered_df.to_sql(dialect="duckdb")
@@ -126,14 +127,15 @@ class TestDataframeWithTypedProperties(unittest.TestCase):
         
         # Test order_by with multiple columns
         ordered_df = self.df.order_by(
-            lambda x: x.department,
-            lambda x: x.salary, 
-            desc=True
+            lambda x: [
+                x.department,
+                (x.salary, Sort.DESC)
+            ]
         )
         
         # Check the SQL generation
         sql = ordered_df.to_sql(dialect="duckdb")
-        expected_sql = "SELECT *\nFROM employees x\nORDER BY x.salary DESC, x.department DESC, x.salary DESC"
+        expected_sql = "SELECT *\nFROM employees x\nORDER BY x.salary DESC, x.department ASC, x.salary DESC"
         self.assertEqual(sql.strip(), expected_sql.strip())
     
     def test_get_table_class(self):

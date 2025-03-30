@@ -220,8 +220,24 @@ class LambdaParser:
             
             return result
         
+        elif isinstance(node, ast.Tuple) and len(node.elts) == 2:
+            col_expr = LambdaParser._parse_expression(node.elts[0], args, table_schema)
+            
+            if isinstance(node.elts[1], ast.Attribute) and isinstance(node.elts[1].value, ast.Name) and node.elts[1].value.id == "Sort":
+                from ..core.dataframe import Sort
+                sort_direction = Sort.DESC if node.elts[1].attr == "DESC" else Sort.ASC
+                return (col_expr, sort_direction)
+            else:
+                sort_expr = LambdaParser._parse_expression(node.elts[1], args, table_schema)
+                return (col_expr, sort_expr)
+                
         elif isinstance(node, ast.Attribute):
-            if isinstance(node.value, ast.Name):
+            if isinstance(node.value, ast.Name) and node.value.id == "Sort" and node.attr in ("DESC", "ASC"):
+                from ..core.dataframe import Sort
+                from ..type_system.column import LiteralExpression
+                sort_value = Sort.DESC if node.attr == "DESC" else Sort.ASC
+                return LiteralExpression(value=sort_value)
+            elif isinstance(node.value, ast.Name):
                 table_alias = node.value.id
                 
                 # If table_schema is provided, validate the column name

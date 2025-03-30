@@ -66,8 +66,7 @@ class TestWindowExamplesDuckDB(unittest.TestCase):
             lambda x: x.sales,
             lambda x: (running_total := window(func=sum(x.sales), partition=x.product_id, order_by=x.date, frame=row(unbounded(), 0)))
         ).order_by(
-            lambda x: x.product_id,
-            lambda x: x.date
+            lambda x: [x.product_id, x.date]
         )
         
         # Generate SQL
@@ -102,8 +101,7 @@ class TestWindowExamplesDuckDB(unittest.TestCase):
             lambda x: x.sales,
             lambda x: (moving_avg := window(func=avg(x.sales), partition=x.product_id, order_by=x.date, frame=row(1, 1)))
         ).order_by(
-            lambda x: x.product_id,
-            lambda x: x.date
+            lambda x: [x.product_id, x.date]
         )
         
         # Generate SQL
@@ -132,8 +130,7 @@ class TestWindowExamplesDuckDB(unittest.TestCase):
             lambda x: x.sales,
             lambda x: (adjusted_total := window(func=sum(x.sales + 10), partition=x.region, frame=range(unbounded(), 0)))
         ).order_by(
-            lambda x: x.region,
-            lambda x: x.product_id
+            lambda x: [x.region, x.product_id]
         )
         
         # Generate SQL

@@ -85,7 +85,8 @@ class TestDuckDBSQLGeneration(unittest.TestCase):
     
     def test_order_by(self):
         """Test generating SQL for an ORDER BY query."""
-        df = DataFrame.from_("employees", alias="x").order_by(lambda x: x.salary, desc=True)
+        from cloud_dataframe.core.dataframe import Sort
+        df = DataFrame.from_("employees", alias="x").order_by(lambda x: (x.salary, Sort.DESC))
         
         sql = df.to_sql(dialect="duckdb")
         expected_sql = "SELECT *\nFROM employees x\nORDER BY x.salary DESC"
