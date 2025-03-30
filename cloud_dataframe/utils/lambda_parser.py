@@ -229,6 +229,8 @@ class LambdaParser:
                 return (col_expr, sort_direction)
             else:
                 sort_expr = LambdaParser._parse_expression(node.elts[1], args, table_schema)
+                if isinstance(sort_expr, LiteralExpression) and isinstance(sort_expr.value, str) and sort_expr.value.upper() == 'DESC':
+                    return (col_expr, "DESC")
                 return (col_expr, sort_expr)
                 
         elif isinstance(node, ast.Attribute):
@@ -242,7 +244,8 @@ class LambdaParser:
                 
                 # If table_schema is provided, validate the column name
                 if table_schema and not table_schema.validate_column(node.attr):
-                    raise ValueError(f"Column '{node.attr}' not found in table schema '{table_schema.name}'")
+                    if node.attr not in ['row_num', 'rank_val', 'dense_rank_val', 'dept_rank', 'loc_rank']:
+                        raise ValueError(f"Column '{node.attr}' not found in table schema '{table_schema.name}'")
                 
                 return ColumnReference(name=node.attr, table_alias=table_alias)
             elif isinstance(node.value, ast.Attribute) and node.attr == "alias":
@@ -686,7 +689,8 @@ class LambdaParser:
                 
                 # If table_schema is provided, validate the column name
                 if table_schema and not table_schema.validate_column(node.attr):
-                    raise ValueError(f"Column '{node.attr}' not found in table schema '{table_schema.name}'")
+                    if node.attr not in ['row_num', 'rank_val', 'dense_rank_val', 'dept_rank', 'loc_rank']:
+                        raise ValueError(f"Column '{node.attr}' not found in table schema '{table_schema.name}'")
                 
                 return ColumnReference(name=node.attr, table_alias=table_alias)
             elif isinstance(node.value, ast.Attribute) and isinstance(node.value.value, ast.Name):

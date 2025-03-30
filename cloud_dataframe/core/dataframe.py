@@ -123,6 +123,7 @@ class DataFrame:
         self.filter_condition: Optional[FilterCondition] = None
         self.group_by_clauses: List[Expression] = []
         self.having_condition: Optional[FilterCondition] = None
+        self.qualify_condition: Optional[FilterCondition] = None
         self.order_by_clauses: List[OrderByClause] = []
         self.limit_value: Optional[int] = None
         self.offset_value: Optional[int] = None
@@ -143,6 +144,7 @@ class DataFrame:
         result.filter_condition = self.filter_condition  # FilterCondition objects are immutable
         result.group_by_clauses = self.group_by_clauses.copy() if hasattr(self, 'group_by_clauses') else []
         result.having_condition = self.having_condition  # FilterCondition objects are immutable
+        result.qualify_condition = self.qualify_condition  # FilterCondition objects are immutable
         result.order_by_clauses = self.order_by_clauses.copy()
         result.limit_value = self.limit_value
         result.offset_value = self.offset_value
@@ -518,6 +520,45 @@ class DataFrame:
                 df_copy.having_condition = FilterCondition(condition)
             else:
                 df_copy.having_condition = condition
+            
+        return df_copy
+        
+    def qualify(self, condition: Union[Callable[[Any], bool], FilterCondition, Expression]) -> 'DataFrame':
+        """
+        Add a QUALIFY clause to filter results of window functions.
+        
+        Args:
+            condition: A lambda function, FilterCondition, or Expression
+                      that defines the QUALIFY condition
+                      
+        Returns:
+            A new DataFrame with the QUALIFY condition applied
+            
+        Example:
+            df.select(
+                lambda x: x.id,
+                lambda x: x.department,
+                lambda x: (rank_val := window(func=rank(), partition=x.department, order_by=x.salary))
+            ).qualify(lambda x: x.rank_val <= 3)
+        """
+        df_copy = self.copy()
+        
+        if callable(condition) and not isinstance(condition, Expression):
+            from ..utils.lambda_parser import LambdaParser
+            
+            try:
+                parsed_condition = LambdaParser.parse_lambda(condition, None)
+                
+                # Create a FilterCondition with the parsed expression
+                df_copy.qualify_condition = FilterCondition(parsed_condition)
+            except Exception as e:
+                raise ValueError(f"Error parsing qualify lambda: {e}")
+        else:
+            # If it's already an Expression, wrap it in a FilterCondition
+            if not isinstance(condition, FilterCondition) and isinstance(condition, Expression):
+                df_copy.qualify_condition = FilterCondition(condition)
+            else:
+                df_copy.qualify_condition = condition
             
         return df_copy
     
