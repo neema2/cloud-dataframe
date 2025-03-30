@@ -453,13 +453,15 @@ class LambdaParser:
                     elif node.func.id == 'unbounded':
                         return LiteralExpression(value="UNBOUNDED")
                 # Support for scalar functions
-                elif node.func.id in ('date_diff'):
-                    from ..type_system.column import DateDiffFunction
+                else:
+                    from ..functions import get_function_class
                     
-                    if len(args_list) != 2:
-                        raise ValueError(f"Function {node.func.id}() expects exactly two arguments")
-                        
-                    return DateDiffFunction(function_name="DATE_DIFF", parameters=args_list)
+                    function_class = get_function_class(node.func.id)
+                    if function_class:
+                        return function_class(parameters=args_list)
+                    
+                    from ..type_system.column import FunctionExpression
+                    return FunctionExpression(function_name=node.func.id.upper(), parameters=args_list)
             elif isinstance(node.func, ast.Attribute) and node.func.attr == "alias" and len(node.args) == 1:
                 if isinstance(node.args[0], ast.Constant):
                     alias_name = node.args[0].value

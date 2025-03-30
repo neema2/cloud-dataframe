@@ -490,6 +490,10 @@ def _generate_function(func: FunctionExpression) -> str:
     Returns:
         The generated SQL string for the function
     """
+    if hasattr(func, 'generate_sql'):
+        return func.generate_sql("duckdb", _generate_expression)
+    
+    
     # Map function names to their SQL equivalents if needed
     func_name_mapping = {
         "DATE_DIFF": "DATEDIFF"
