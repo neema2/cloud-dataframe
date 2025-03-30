@@ -177,6 +177,9 @@ class TestExtendFunctionDuckDB(unittest.TestCase):
         
         sql = df.to_sql(dialect="duckdb")
         
+        expected_sql = "SELECT e.id, e.name, e.department AS department, e.salary AS salary, e.salary > 100000 AS high_salary\nFROM employees e"
+        self.assertEqual(sql.strip(), expected_sql.strip())
+        
         sql_lower = sql.lower()
         self.assertIn("e.department as department", sql_lower)
         self.assertIn("e.salary as salary", sql_lower)
