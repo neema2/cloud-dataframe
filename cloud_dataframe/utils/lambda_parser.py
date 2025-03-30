@@ -333,7 +333,12 @@ class LambdaParser:
                 # Parse the arguments to the function
                 args_list = []
                 for arg in node.args:
-                    parsed_arg = LambdaParser._parse_expression(arg, args, table_schema)
+                    if isinstance(arg, ast.Lambda):
+                        lambda_source = ast.unparse(arg)
+                        lambda_func = eval(lambda_source)
+                        parsed_arg = LambdaParser.parse_lambda(lambda_func, table_schema)
+                    else:
+                        parsed_arg = LambdaParser._parse_expression(arg, args, table_schema)
                     args_list.append(parsed_arg)
                 
                 # Handle keyword arguments
@@ -499,7 +504,12 @@ class LambdaParser:
                 # Parse the arguments to the function
                 args_list = []
                 for arg in node.args:
-                    parsed_arg = LambdaParser._parse_expression(arg, args, table_schema)
+                    if isinstance(arg, ast.Lambda):
+                        lambda_source = ast.unparse(arg)
+                        lambda_func = eval(lambda_source)
+                        parsed_arg = LambdaParser.parse_lambda(lambda_func, table_schema)
+                    else:
+                        parsed_arg = LambdaParser._parse_expression(arg, args, table_schema)
                     args_list.append(parsed_arg)
                 
                 # Create a function expression with the attribute name as the function name
