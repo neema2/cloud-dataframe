@@ -244,7 +244,9 @@ class LambdaParser:
                 
                 # If table_schema is provided, validate the column name
                 if table_schema and not table_schema.validate_column(node.attr):
-                    if node.attr not in ['row_num', 'rank_val', 'dense_rank_val', 'dept_rank', 'loc_rank']:
+                    if table_alias == "df":
+                        pass
+                    else:
                         raise ValueError(f"Column '{node.attr}' not found in table schema '{table_schema.name}'")
                 
                 return ColumnReference(name=node.attr, table_alias=table_alias)
@@ -689,7 +691,9 @@ class LambdaParser:
                 
                 # If table_schema is provided, validate the column name
                 if table_schema and not table_schema.validate_column(node.attr):
-                    if node.attr not in ['row_num', 'rank_val', 'dense_rank_val', 'dept_rank', 'loc_rank']:
+                    if table_alias == "df":
+                        pass
+                    else:
                         raise ValueError(f"Column '{node.attr}' not found in table schema '{table_schema.name}'")
                 
                 return ColumnReference(name=node.attr, table_alias=table_alias)

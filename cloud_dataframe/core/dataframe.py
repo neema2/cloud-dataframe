@@ -523,13 +523,15 @@ class DataFrame:
             
         return df_copy
         
-    def qualify(self, condition: Union[Callable[[Any], bool], FilterCondition, Expression]) -> 'DataFrame':
+    def qualify(self, condition: Union[Callable[[Any], bool], Callable[[Any, Any], bool], FilterCondition, Expression]) -> 'DataFrame':
         """
         Add a QUALIFY clause to filter results of window functions.
         
         Args:
             condition: A lambda function, FilterCondition, or Expression
-                      that defines the QUALIFY condition
+                      that defines the QUALIFY condition. The lambda function can have
+                      one parameter (df) for new columns or two parameters (df, x) for
+                      both new and existing columns.
                       
         Returns:
             A new DataFrame with the QUALIFY condition applied
@@ -540,6 +542,13 @@ class DataFrame:
                 lambda x: x.department,
                 lambda x: (rank_val := window(func=rank(), partition=x.department, order_by=x.salary))
             ).qualify(lambda df: df.rank_val <= 3)
+            
+            df.select(
+                lambda x: x.id,
+                lambda x: x.department,
+                lambda x: x.salary,
+                lambda x: (row_num := window(func=row_number(), partition=x.department, order_by=x.salary))
+            ).qualify(lambda df, x: (df.row_num <= 2) and (x.salary > 50000))
         """
         df_copy = self.copy()
         

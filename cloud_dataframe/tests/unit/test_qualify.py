@@ -94,9 +94,29 @@ class TestQualify(unittest.TestCase):
         
         try:
             with self.assertRaises(Exception):
-                self.df.qualify(lambda df: df.non_existent_column > 10)
+                self.df.qualify(lambda y: y.non_existent_column > 10)
         finally:
             LambdaParser.parse_lambda = original_parse_lambda
+
+
+    def test_qualify_with_mixed_column_references(self):
+        """Test qualify with both existing columns and new columns."""
+        df_with_qualify = self.df.select(
+            lambda x: x.id,
+            lambda x: x.name,
+            lambda x: x.department,
+            lambda x: x.salary,
+            lambda x: (row_num := window(func=row_number(), partition=x.department, order_by=x.salary))
+        ).qualify(
+            lambda df, x: (df.row_num <= 2) and (x.salary > 50000)
+        )
+        
+        self.assertIsNotNone(df_with_qualify.qualify_condition)
+        
+        sql = df_with_qualify.to_sql(dialect="duckdb")
+        self.assertIn("QUALIFY", sql)
+        self.assertIn("row_num <= 2", sql)
+        self.assertIn("x.salary > 50000", sql)
 
 
 if __name__ == "__main__":
