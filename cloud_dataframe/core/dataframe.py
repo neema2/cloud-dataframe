@@ -212,6 +212,73 @@ class DataFrame:
         
         self.columns = column_list
         return self
+        
+    def extend(self, *columns: Union[Column, Callable[[Any], Any]]) -> 'DataFrame':
+        """
+        Extend the DataFrame with additional columns while preserving existing ones.
+        
+        Args:
+            *columns: The columns to add. Can be:
+                - Column objects
+                - Lambda functions that access dataclass properties (e.g., lambda x: x.column_name)
+                - Lambda functions that return arrays (e.g., lambda x: [x.name, x.age])
+                - Lambda functions with aggregate functions (e.g., lambda x: count(x.id).as_column('count'))
+            
+        Returns:
+            The DataFrame with the new columns added
+            
+        Example:
+            df.extend(
+                lambda x: (new_col := x.col1 + x.col2)
+            )
+            
+            df.extend(
+                lambda a, b: (new_col2 := a.col3 - a.col4)
+            )
+        """
+        result = DataFrame()
+        result.source = self.source  # DataSource objects are immutable
+        result.filter_condition = self.filter_condition  # FilterCondition objects are immutable
+        result.group_by_clauses = self.group_by_clauses.copy() if hasattr(self, 'group_by_clauses') else []
+        result.having_condition = self.having_condition  # FilterCondition objects are immutable
+        result.qualify_condition = self.qualify_condition  # FilterCondition objects are immutable
+        result.order_by_clauses = self.order_by_clauses.copy() if hasattr(self, 'order_by_clauses') else []
+        result.limit_value = self.limit_value if hasattr(self, 'limit_value') else None
+        result.offset_value = self.offset_value if hasattr(self, 'offset_value') else None
+        result.distinct = self.distinct if hasattr(self, 'distinct') else False
+        result.ctes = self.ctes.copy() if hasattr(self, 'ctes') and self.ctes else []
+        result._table_class = self._table_class if hasattr(self, '_table_class') else None
+        
+        result.columns = self.columns.copy()
+        
+        for col in columns:
+            if isinstance(col, Column):
+                result.columns.append(col)
+            elif callable(col) and not isinstance(col, Column):
+                # Handle lambda functions that access dataclass properties
+                from ..utils.lambda_parser import LambdaParser
+                # Get the table schema if available
+                table_schema = None
+                if isinstance(self.source, TableReference):
+                    table_schema = self.source.table_schema
+                
+                # Parse the lambda function
+                expr = LambdaParser.parse_lambda(col, table_schema)
+                
+                if isinstance(expr, list):
+                    # Handle array returns from lambda functions
+                    result.columns.extend(expr)
+                else:
+                    # Check if this is already a Column object
+                    if isinstance(expr, Column):
+                        result.columns.append(expr)
+                    else:
+                        # Convert to a Column if it's not already
+                        result.columns.append(expr)
+            else:
+                raise TypeError(f"Unsupported column type: {type(col)}")
+        
+        return result
     
     @classmethod
     def from_(cls, table_name: str, schema: Optional[str] = None, alias: Optional[str] = None) -> 'DataFrame':
