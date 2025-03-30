@@ -234,15 +234,17 @@ class LambdaParser:
         elif isinstance(node, ast.Attribute):
             if isinstance(node.value, ast.Name) and node.value.id == "Sort" and node.attr in ("DESC", "ASC"):
                 from ..core.dataframe import Sort
-                from ..type_system.column import LiteralExpression
                 sort_value = Sort.DESC if node.attr == "DESC" else Sort.ASC
-                return LiteralExpression(value=sort_value)
+                return sort_value
             elif isinstance(node.value, ast.Name):
                 table_alias = node.value.id
                 
                 # If table_schema is provided, validate the column name
                 if table_schema and not table_schema.validate_column(node.attr):
-                    raise ValueError(f"Column '{node.attr}' not found in table schema '{table_schema.name}'")
+                    if table_alias == "df":
+                        pass
+                    else:
+                        raise ValueError(f"Column '{node.attr}' not found in table schema '{table_schema.name}'")
                 
                 return ColumnReference(name=node.attr, table_alias=table_alias)
             elif isinstance(node.value, ast.Attribute) and node.attr == "alias":
@@ -686,7 +688,10 @@ class LambdaParser:
                 
                 # If table_schema is provided, validate the column name
                 if table_schema and not table_schema.validate_column(node.attr):
-                    raise ValueError(f"Column '{node.attr}' not found in table schema '{table_schema.name}'")
+                    if table_alias == "df":
+                        pass
+                    else:
+                        raise ValueError(f"Column '{node.attr}' not found in table schema '{table_schema.name}'")
                 
                 return ColumnReference(name=node.attr, table_alias=table_alias)
             elif isinstance(node.value, ast.Attribute) and isinstance(node.value.value, ast.Name):

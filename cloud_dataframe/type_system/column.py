@@ -563,11 +563,16 @@ def window(func: Optional[FunctionExpression] = None,
                 elif isinstance(item, tuple) and len(item) == 2:
                     col_expr, sort_dir = item
                     # Convert string sort direction to OrderByClause equivalent
-                    dir_enum = Sort.DESC if isinstance(sort_dir, str) and sort_dir.upper() == 'DESC' else Sort.ASC
+                    dir_enum = Sort.DESC if sort_dir == Sort.DESC or (isinstance(sort_dir, str) and sort_dir.upper() == 'DESC') else Sort.ASC
                     order_by_list.append(OrderByClause(expression=col_expr, direction=dir_enum))
                 else:
                     # Use default ASC ordering
                     order_by_list.append(OrderByClause(expression=item, direction=Sort.ASC))
+
+        elif isinstance(order_by, tuple) and len(order_by) == 2:
+            col_expr, sort_dir = order_by
+            dir_enum = Sort.DESC if sort_dir == Sort.DESC or (isinstance(sort_dir, str) and sort_dir.upper() == 'DESC') else Sort.ASC
+            order_by_list.append(OrderByClause(expression=col_expr, direction=dir_enum))
         else:
             order_by_list.append(OrderByClause(expression=order_by, direction=Sort.ASC))
     

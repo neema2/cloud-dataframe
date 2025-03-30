@@ -119,6 +119,8 @@ def _generate_query(df: DataFrame) -> str:
     # Generate HAVING clause
     having_sql = _generate_having(df)
     
+    qualify_sql = _generate_qualify(df)
+    
     # Generate ORDER BY clause
     order_by_sql = _generate_order_by(df)
     
@@ -136,6 +138,9 @@ def _generate_query(df: DataFrame) -> str:
     
     if having_sql:
         query_parts.append(having_sql)
+    
+    if qualify_sql:
+        query_parts.append(qualify_sql)
     
     if order_by_sql:
         query_parts.append(order_by_sql)
@@ -414,6 +419,12 @@ def _generate_window_function(func: WindowFunction, df: Optional[DataFrame] = No
                 expr_sql = _generate_expression(clause.expression)
                 direction_sql = clause.direction.value
                 order_by_parts.append(f"{expr_sql} {direction_sql}")
+
+            elif isinstance(clause, tuple) and len(clause) == 2:
+                col_expr, sort_dir = clause
+                col_sql = _generate_expression(col_expr)
+                dir_sql = "DESC" if sort_dir == "DESC" or (hasattr(sort_dir, "value") and sort_dir.value == "DESC") else "ASC"
+                order_by_parts.append(f"{col_sql} {dir_sql}")
             else:
                 # For backward compatibility with non-OrderByClause objects
                 order_by_parts.append(_generate_expression(clause))
@@ -630,6 +641,29 @@ def _generate_having(df: DataFrame) -> str:
     else:
         condition_sql = _generate_expression(df.having_condition)
     return f"HAVING {condition_sql}"
+
+
+def _generate_qualify(df: DataFrame) -> str:
+    """
+    Generate SQL for the QUALIFY clause.
+    
+    Args:
+        df: The DataFrame to generate SQL for
+        
+    Returns:
+        The generated SQL string for the QUALIFY clause
+    """
+    if not hasattr(df, 'qualify_condition') or not df.qualify_condition:
+        return ""
+        
+    if hasattr(df.qualify_condition, 'condition'):
+        condition_sql = _generate_expression(df.qualify_condition.condition)
+    else:
+        condition_sql = _generate_expression(df.qualify_condition)
+    
+    condition_sql = condition_sql.replace("df.", "")
+    
+    return f"QUALIFY {condition_sql}"
 
 
 def _generate_order_by(df: DataFrame) -> str:
