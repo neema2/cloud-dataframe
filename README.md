@@ -174,8 +174,9 @@ result_df = df.select(
     name := df.name,
     department := df.department,
     salary := df.salary,
-    dept_rank := lambda x: rank().over(
-        partition_by=[x.department],
+    dept_rank := lambda x: window(
+        func=rank(),
+        partition=x.department,
         order_by=[(x.salary, "DESC")]
     )
 )

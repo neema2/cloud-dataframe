@@ -9,7 +9,7 @@ from typing import Optional
 from cloud_dataframe.core.dataframe import DataFrame
 from cloud_dataframe.type_system.schema import TableSchema
 from cloud_dataframe.type_system.column import (
-    col, over, row_number, rank, dense_rank,
+    col, row_number, rank, dense_rank,
     row, range, unbounded, window
 )
 
@@ -110,8 +110,8 @@ class TestWindowFrames(unittest.TestCase):
         expected_sql = "SELECT x.id, x.salary, DENSE_RANK() OVER (PARTITION BY x.department ORDER BY x.salary ASC RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS dense_rank_val\nFROM employees x"
         self.assertEqual(sql.strip(), expected_sql.strip())
 
-    def test_lambda_function_over(self):
-        """Test lambda function expression in over()."""
+    def test_lambda_function_window(self):
+        """Test lambda function expression in window()."""
         from cloud_dataframe.type_system.column import sum
         
         df_with_lambda = self.df.select(
