@@ -236,7 +236,17 @@ def _generate_select(df: DataFrame) -> str:
     
     column_parts = []
     
+    processed_columns = set()
+    
     for col in df.columns:
+        if isinstance(col, ColumnReference) and col.name != "*":
+            key = f"{col.table_alias}.{col.name}" if col.table_alias else col.name
+            
+            if key in processed_columns:
+                continue
+                
+            processed_columns.add(key)
+        
         column_sql = _generate_column(col, df)
         column_parts.append(column_sql)
     
