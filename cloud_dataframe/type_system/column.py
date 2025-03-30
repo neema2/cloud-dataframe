@@ -36,6 +36,12 @@ class FunctionExpression(Expression):
     """Function call expression."""
     function_name: str
     parameters: List[Expression] = field(default_factory=list)
+    alias_name: Optional[str] = None
+    
+    def alias(self, name: str) -> 'FunctionExpression':
+        """Set an alias for this function expression."""
+        self.alias_name = name
+        return self
 
 
 @dataclass

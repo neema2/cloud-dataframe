@@ -468,8 +468,15 @@ class LambdaParser:
                     col_ref = LambdaParser._parse_expression(node.func.value, args, table_schema)
                     if isinstance(col_ref, ColumnReference):
                         return col_ref.alias(alias_name)
+                    elif hasattr(col_ref, 'alias'):
+                        return col_ref.alias(alias_name)
                     else:
-                        raise ValueError(f"Cannot apply alias to non-column reference: {col_ref}")
+                        from ..type_system.column import ScalarFunction, FunctionExpression
+                        if isinstance(col_ref, (ScalarFunction, FunctionExpression)):
+                            col_ref.alias_name = alias_name
+                            return col_ref
+                        else:
+                            raise ValueError(f"Cannot apply alias to expression: {col_ref}")
                 else:
                     raise ValueError("Alias name must be a string literal")
             # Handle nested function calls inside lambda expressions

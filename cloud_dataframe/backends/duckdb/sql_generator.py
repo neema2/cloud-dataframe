@@ -526,7 +526,12 @@ def _generate_function(func: FunctionExpression) -> str:
         params_sql = ", ".join(_generate_expression(param) for param in func.parameters)
     
     sql_func_name = func_name_mapping.get(func.function_name, func.function_name)
-    return f"{sql_func_name}({params_sql})"
+    sql = f"{sql_func_name}({params_sql})"
+    
+    if hasattr(func, 'alias_name') and func.alias_name:
+        return f"{sql} AS {func.alias_name}"
+    
+    return sql
 
 
 def _generate_from(df: DataFrame) -> str:
