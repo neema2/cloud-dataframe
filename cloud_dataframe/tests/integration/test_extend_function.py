@@ -92,7 +92,7 @@ class TestExtendFunctionDuckDB(unittest.TestCase):
         extended_df = df.extend(lambda e: (bonus := e.salary * 0.1))
         
         sql = extended_df.to_sql(dialect="duckdb")
-        print(f"Generated SQL for test_extend_with_computed_column: {sql}")
+        
         expected_sql = "SELECT e.id, e.id, e.id, (e.salary * 0.1) AS bonus\nFROM employees e"
         self.assertEqual(sql.strip(), expected_sql.strip())
         
@@ -169,9 +169,18 @@ class TestExtendFunctionDuckDB(unittest.TestCase):
         df = df.extend(lambda e: (high_salary := e.salary > 100000))
         
         sql = df.to_sql(dialect="duckdb")
-        print(f"Generated SQL for test_extend_multiple_times: {sql}")
+        
         expected_sql = "SELECT e.id, e.id, e.department AS department, e.salary AS salary, e.salary > 100000 AS high_salary\nFROM employees e"
         self.assertEqual(sql.strip(), expected_sql.strip())
+        
+        result = self.conn.execute(sql).fetchall()
+        
+        self.assertEqual(len(result), 5)  # Should have 5 rows
+        for row in result:
+            self.assertEqual(len(row), 5)  # id, name, department, salary, high_salary
+            salary = row[3]
+            high_salary = row[4]
+            self.assertEqual(high_salary, salary > 100000)  # Verify boolean column works correctly
         
         result = self.conn.execute(sql).fetchall()
         
