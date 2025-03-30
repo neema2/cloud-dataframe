@@ -192,74 +192,52 @@ class Floor(ScalarFunction):
         return f"FLOOR({param})"
 
 
-def round(expr: Union[Callable, Expression], decimal_places: Union[Callable, Expression, int] = 0) -> Round:
+def round(expr: Union[Expression, Any], decimal_places: Union[Expression, int] = 0) -> Round:
     """
     Create a ROUND scalar function.
     
     Args:
-        expr: Numeric expression to round (lambda function or Expression)
-              Example: lambda x: x.price
+        expr: Numeric expression to round
+              Example: x.price
         decimal_places: Number of decimal places to round to (default: 0)
-              Example: 2, lambda x: x.precision
+              Example: 2, x.precision
         
     Returns:
         A Round expression
     """
-    from ..utils.lambda_parser import parse_lambda
     from ..type_system.column import LiteralExpression
     
-    if callable(expr) and not isinstance(expr, Expression):
-        parsed_expr = parse_lambda(expr)
-    else:
-        parsed_expr = expr
-    
-    params = [parsed_expr]
+    params = [expr]
     
     if isinstance(decimal_places, int):
         params.append(LiteralExpression(value=decimal_places))
-    elif callable(decimal_places) and not isinstance(decimal_places, Expression):
-        params.append(parse_lambda(decimal_places))
-    elif isinstance(decimal_places, Expression):
+    else:
         params.append(decimal_places)
     
     return Round(parameters=params)
 
-def ceil(expr: Union[Callable, Expression]) -> Ceil:
+def ceil(expr: Union[Expression, Any]) -> Ceil:
     """
     Create a CEIL scalar function.
     
     Args:
-        expr: Numeric expression to ceil (lambda function or Expression)
-              Example: lambda x: x.price
+        expr: Numeric expression to ceil
+              Example: x.price
         
     Returns:
         A Ceil expression
     """
-    from ..utils.lambda_parser import parse_lambda
-    
-    if callable(expr) and not isinstance(expr, Expression):
-        parsed_expr = parse_lambda(expr)
-    else:
-        parsed_expr = expr
-    
-    return Ceil(parameters=[parsed_expr])
+    return Ceil(parameters=[expr])
 
-def floor(expr: Union[Callable, Expression]) -> Floor:
+def floor(expr: Union[Expression, Any]) -> Floor:
     """
     Create a FLOOR scalar function.
     
     Args:
-        expr: Numeric expression to floor (lambda function or Expression)
-              Example: lambda x: x.price
+        expr: Numeric expression to floor
+              Example: x.price
         
     Returns:
         A Floor expression
     """
-    from ..utils.lambda_parser import parse_lambda
-    
-    if callable(expr) and not isinstance(expr, Expression):
-        parsed_expr = parse_lambda(expr)
-    else:
-        parsed_expr = expr
-    
-    return Floor(parameters=[parsed_expr])
+    return Floor(parameters=[expr])

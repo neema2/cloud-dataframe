@@ -69,31 +69,19 @@ class DateDiff(ScalarFunction):
         """MySQL-specific SQL generation for date_diff."""
         return f"DATEDIFF({params[1]}, {params[0]})"
 
-def date_diff(expr1: Union[Callable, Expression], expr2: Union[Callable, Expression]) -> DateDiff:
+def date_diff(expr1: Union[Expression, Any], expr2: Union[Expression, Any]) -> DateDiff:
     """
     Create a date_diff scalar function.
     
     Calculates the difference between two dates in days.
     
     Args:
-        expr1: First date expression (lambda function or Expression)
-              Example: lambda x: x.start_date
-        expr2: Second date expression (lambda function or Expression)
-              Example: lambda x: x.end_date
+        expr1: First date expression
+              Example: x.start_date
+        expr2: Second date expression
+              Example: x.end_date
         
     Returns:
         A DateDiff expression that evaluates to an integer
     """
-    from ..utils.lambda_parser import parse_lambda
-    
-    if callable(expr1) and not isinstance(expr1, Expression):
-        parsed_expr1 = parse_lambda(expr1)
-    else:
-        parsed_expr1 = expr1
-    
-    if callable(expr2) and not isinstance(expr2, Expression):
-        parsed_expr2 = parse_lambda(expr2)
-    else:
-        parsed_expr2 = expr2
-    
-    return DateDiff(parameters=[parsed_expr1, parsed_expr2])
+    return DateDiff(parameters=[expr1, expr2])

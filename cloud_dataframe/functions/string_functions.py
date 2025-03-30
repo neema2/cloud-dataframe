@@ -187,64 +187,50 @@ class Lower(ScalarFunction):
         return f"LOWER({param})"
 
 
-def concat(*exprs: Union[Callable, Expression]) -> Concat:
+def concat(*exprs: Union[Expression, Any]) -> Concat:
     """
     Create a CONCAT scalar function.
     
     Args:
-        *exprs: String expressions to concatenate (lambda functions or Expressions)
-              Example: lambda x: x.first_name, lambda x: x.last_name
+        *exprs: String expressions to concatenate (column references, expressions, or literals)
+              Example: x.first_name, " ", x.last_name
         
     Returns:
         A Concat expression
     """
-    from ..utils.lambda_parser import parse_lambda
+    from ..type_system.column import LiteralExpression
     
-    parsed_exprs = []
+    params = []
     for expr in exprs:
-        if callable(expr) and not isinstance(expr, Expression):
-            parsed_exprs.append(parse_lambda(expr))
+        if isinstance(expr, str):
+            params.append(LiteralExpression(value=expr))
         else:
-            parsed_exprs.append(expr)
+            params.append(expr)
     
-    return Concat(parameters=parsed_exprs)
+    return Concat(parameters=params)
 
-def upper(expr: Union[Callable, Expression]) -> Upper:
+def upper(expr: Union[Expression, Any]) -> Upper:
     """
     Create an UPPER scalar function.
     
     Args:
-        expr: String expression to convert to uppercase (lambda function or Expression)
-              Example: lambda x: x.name
+        expr: String expression to convert to uppercase
+              Example: x.name
         
     Returns:
         An Upper expression
     """
-    from ..utils.lambda_parser import parse_lambda
-    
-    if callable(expr) and not isinstance(expr, Expression):
-        parsed_expr = parse_lambda(expr)
-    else:
-        parsed_expr = expr
-    
-    return Upper(parameters=[parsed_expr])
+    return Upper(parameters=[expr])
 
-def lower(expr: Union[Callable, Expression]) -> Lower:
+def lower(expr: Union[Expression, Any]) -> Lower:
     """
     Create a LOWER scalar function.
     
     Args:
-        expr: String expression to convert to lowercase (lambda function or Expression)
-              Example: lambda x: x.name
+        expr: String expression to convert to lowercase
+              Example: x.name
         
     Returns:
         A Lower expression
     """
-    from ..utils.lambda_parser import parse_lambda
-    
-    if callable(expr) and not isinstance(expr, Expression):
-        parsed_expr = parse_lambda(expr)
-    else:
-        parsed_expr = expr
-    
-    return Lower(parameters=[parsed_expr])
+    return Lower(parameters=[expr])

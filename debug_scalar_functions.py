@@ -50,7 +50,7 @@ def test_date_functions():
     
     df_date_diff = df.select(
         lambda x: x.order_id,
-        lambda x: date_diff(lambda y: y.order_date, lambda y: y.ship_date).alias("days_to_ship")
+        lambda x: (days_to_ship := date_diff(x.order_date, x.ship_date))
     )
     
     print_sql(df_date_diff, "DATE_DIFF Function")
@@ -74,21 +74,21 @@ def test_string_functions():
     
     df_concat = df.select(
         lambda x: x.customer_id,
-        lambda x: concat(lambda y: y.first_name, lambda y: " ", lambda y: y.last_name).alias("full_name")
+        lambda x: (full_name := concat(x.first_name, " ", x.last_name))
     )
     
     print_sql(df_concat, "CONCAT Function")
     
     df_upper = df.select(
         lambda x: x.customer_id,
-        lambda x: upper(lambda y: y.first_name).alias("first_name_upper")
+        lambda x: (first_name_upper := upper(x.first_name))
     )
     
     print_sql(df_upper, "UPPER Function")
     
     df_lower = df.select(
         lambda x: x.customer_id,
-        lambda x: lower(lambda y: y.email).alias("email_lower")
+        lambda x: (email_lower := lower(x.email))
     )
     
     print_sql(df_lower, "LOWER Function")
@@ -112,21 +112,21 @@ def test_math_functions():
     
     df_round = df.select(
         lambda x: x.product_id,
-        lambda x: round(lambda y: y.price, 2).alias("price_rounded")
+        lambda x: (price_rounded := round(x.price, 2))
     )
     
     print_sql(df_round, "ROUND Function")
     
     df_ceil = df.select(
         lambda x: x.product_id,
-        lambda x: ceil(lambda y: y.price).alias("price_ceiling")
+        lambda x: (price_ceiling := ceil(x.price))
     )
     
     print_sql(df_ceil, "CEIL Function")
     
     df_floor = df.select(
         lambda x: x.product_id,
-        lambda x: floor(lambda y: y.price).alias("price_floor")
+        lambda x: (price_floor := floor(x.price))
     )
     
     print_sql(df_floor, "FLOOR Function")
@@ -149,15 +149,15 @@ def test_time_functions():
     
     df_date_part = df.select(
         lambda x: x.order_id,
-        lambda x: date_part("year", lambda y: y.order_date).alias("order_year"),
-        lambda x: date_part("month", lambda y: y.order_date).alias("order_month")
+        lambda x: (order_year := date_part("year", x.order_date)),
+        lambda x: (order_month := date_part("month", x.order_date))
     )
     
     print_sql(df_date_part, "DATE_PART Function")
     
     df_date_trunc = df.select(
         lambda x: x.order_id,
-        lambda x: date_trunc("month", lambda y: y.order_date).alias("order_month_start")
+        lambda x: (order_month_start := date_trunc("month", x.order_date))
     )
     
     print_sql(df_date_trunc, "DATE_TRUNC Function")
@@ -181,13 +181,13 @@ def test_function_composition():
     
     df_composition = df.select(
         lambda x: x.order_id,
-        lambda x: round(
+        lambda x: (days_from_month_start := round(
             date_diff(
-                lambda y: date_trunc("month", lambda z: z.order_date),
-                lambda y: y.order_date
+                date_trunc("month", x.order_date),
+                x.order_date
             ),
             0
-        ).alias("days_from_month_start")
+        ))
     )
     
     print_sql(df_composition, "Function Composition")

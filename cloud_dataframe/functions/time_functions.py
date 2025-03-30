@@ -148,60 +148,42 @@ class DateTrunc(ScalarFunction):
             return f"DATE_TRUNC('{precision}', {date_expr})"
 
 
-def date_part(part: Union[str, Callable, Expression], expr: Union[Callable, Expression]) -> DatePart:
+def date_part(part: Union[str, Expression, Any], expr: Union[Expression, Any]) -> DatePart:
     """
     Create a DATE_PART scalar function.
     
     Args:
         part: The part to extract (year, month, day, etc.)
-              Example: 'year', lambda x: x.part_name
-        expr: Date/time expression to extract from (lambda function or Expression)
-              Example: lambda x: x.date_column
+              Example: 'year', x.part_name
+        expr: Date/time expression to extract from
+              Example: x.date_column
         
     Returns:
         A DatePart expression
     """
-    from ..utils.lambda_parser import parse_lambda
-    
     if isinstance(part, str):
         part_expr = LiteralExpression(value=part)
-    elif callable(part) and not isinstance(part, Expression):
-        part_expr = parse_lambda(part)
     else:
         part_expr = part
     
-    if callable(expr) and not isinstance(expr, Expression):
-        parsed_expr = parse_lambda(expr)
-    else:
-        parsed_expr = expr
-    
-    return DatePart(parameters=[part_expr, parsed_expr])
+    return DatePart(parameters=[part_expr, expr])
 
-def date_trunc(precision: Union[str, Callable, Expression], expr: Union[Callable, Expression]) -> DateTrunc:
+def date_trunc(precision: Union[str, Expression, Any], expr: Union[Expression, Any]) -> DateTrunc:
     """
     Create a DATE_TRUNC scalar function.
     
     Args:
         precision: The precision to truncate to (year, month, day, etc.)
-                  Example: 'month', lambda x: x.precision
-        expr: Date/time expression to truncate (lambda function or Expression)
-              Example: lambda x: x.date_column
+                  Example: 'month', x.precision
+        expr: Date/time expression to truncate
+              Example: x.date_column
         
     Returns:
         A DateTrunc expression
     """
-    from ..utils.lambda_parser import parse_lambda
-    
     if isinstance(precision, str):
         precision_expr = LiteralExpression(value=precision)
-    elif callable(precision) and not isinstance(precision, Expression):
-        precision_expr = parse_lambda(precision)
     else:
         precision_expr = precision
     
-    if callable(expr) and not isinstance(expr, Expression):
-        parsed_expr = parse_lambda(expr)
-    else:
-        parsed_expr = expr
-    
-    return DateTrunc(parameters=[precision_expr, parsed_expr])
+    return DateTrunc(parameters=[precision_expr, expr])
