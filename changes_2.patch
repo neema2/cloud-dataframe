@@ -1,0 +1,23 @@
+From 4a786baee1198732cbf7ed97802fb9dac681b16d Mon Sep 17 00:00:00 2001
+From: Devin AI <158243242+devin-ai-integration[bot]@users.noreply.github.com>
+Date: Sun, 30 Mar 2025 00:10:15 +0000
+Subject: [PATCH] Add __pycache__ to .gitignore
+
+Co-Authored-By: neema.raphael@gs.com <neema.raphael@gs.com>
+---
+ .gitignore | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/.gitignore b/.gitignore
+index a89e7ea..b3556f8 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -26,3 +26,5 @@ __pycache__/
+ 
+ # Debug files
+ debug_window_test.py
++__pycache__/
++*.pyc
+-- 
+2.34.1
+

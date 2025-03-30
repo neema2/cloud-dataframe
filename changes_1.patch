@@ -1,0 +1,642 @@
+From 197963a0eca2f629aaf86bcd41ba86c8a40af2c5 Mon Sep 17 00:00:00 2001
+From: Devin AI <158243242+devin-ai-integration[bot]@users.noreply.github.com>
+Date: Sun, 30 Mar 2025 00:10:02 +0000
+Subject: [PATCH] Modify order_by() function to support structured lambda
+ syntax
+
+Co-Authored-By: neema.raphael@gs.com <neema.raphael@gs.com>
+---
+ cloud_dataframe/core/dataframe.py             | 133 ++++++++-------
+ .../tests/integration/test_order_by_duckdb.py | 152 ++++++++++++++++++
+ .../test_per_column_sort_duckdb.py            |   7 +-
+ .../tests/integration/test_sql_generation.py  |   3 +-
+ .../integration/test_typed_properties.py      |   3 +-
+ .../test_window_examples_duckdb.py            |   9 +-
+ .../integration/test_window_frames_duckdb.py  |   6 +-
+ .../tests/unit/test_array_lambda.py           |  12 +-
+ cloud_dataframe/tests/unit/test_dataframe.py  |   3 +-
+ .../tests/unit/test_dynamic_dataclass.py      |  12 +-
+ .../tests/unit/test_order_by_restrictions.py  |  60 +++++++
+ .../tests/unit/test_per_column_sort.py        |   9 +-
+ cloud_dataframe/utils/lambda_parser.py        |  18 ++-
+ 13 files changed, 324 insertions(+), 103 deletions(-)
+ create mode 100644 cloud_dataframe/tests/integration/test_order_by_duckdb.py
+ create mode 100644 cloud_dataframe/tests/unit/test_order_by_restrictions.py
+
+diff --git a/cloud_dataframe/core/dataframe.py b/cloud_dataframe/core/dataframe.py
+index bcb7c22..fc7b994 100644
+--- a/cloud_dataframe/core/dataframe.py
++++ b/cloud_dataframe/core/dataframe.py
+@@ -365,86 +365,81 @@ class DataFrame:
+         
+         return df_copy
+     
+-    def order_by(self, *clauses: Union[OrderByClause, Expression, Callable[[Any], Any]], 
+-                 desc: bool = False) -> 'DataFrame':
++    def order_by(self, lambda_func: Callable[[Any], Any]) -> 'DataFrame':
+         """
+         Order the DataFrame by the specified columns.
+         
+         Args:
+-            *clauses: The columns or OrderByClauses to order by. Can be:
+-                - Expression objects
+-                - OrderByClause objects
+-                - Lambda functions that access dataclass properties (e.g., lambda x: x.column_name)
+-                - Lambda functions that return arrays (e.g., lambda x: [x.department, x.salary])
+-                - Lambda functions that return tuples with sort direction (e.g., lambda x: 
+-                  [(x.department, 'DESC'), (x.salary, 'ASC'), x.name])
+-            desc: Whether to sort in descending order (if not using OrderByClause or tuple specification)
+-            
++            lambda_func: The lambda function to specify order by columns. Can be:
++                - A lambda that returns a column reference (e.g., lambda x: x.column_name)
++                - A lambda that returns a tuple with Sort enum (e.g., lambda x: (x.column_name, Sort.DESC))
++                - A lambda that returns an array of column references and tuples (e.g., lambda x: 
++                  [x.department, (x.salary, Sort.DESC), x.name])
++                
+         Returns:
+             The DataFrame with the ordering applied
++        
++        Raises:
++            ValueError: If an unsupported lambda format is provided
+         """
+-        direction = Sort.DESC if desc else Sort.ASC
++        default_direction = Sort.ASC
+         
+-        for clause in clauses:
+-            if isinstance(clause, OrderByClause):
+-                self.order_by_clauses.append(clause)
+-            elif callable(clause) and not isinstance(clause, Expression):
+-                # Handle lambda functions that access dataclass properties
+-                from ..utils.lambda_parser import LambdaParser
+-                # Get the table schema if available
+-                table_schema = None
+-                if isinstance(self.source, TableReference):
+-                    table_schema = self.source.table_schema
+-                expr = LambdaParser.parse_lambda(clause, table_schema)
+-                if isinstance(expr, list):
+-                    # Handle array returns from lambda functions
+-                    # Track columns we've already added to avoid duplicates
+-                    added_columns = set()
+-                    for single_expr in expr:
+-                        # Check if the expression is a tuple with a sort direction
+-                        if isinstance(single_expr, tuple) and len(single_expr) == 2:
+-                            col_expr, sort_dir = single_expr
+-                            # Convert string sort direction to Sort enum
+-                            if isinstance(sort_dir, str):
+-                                sort_dir = Sort.DESC if sort_dir.upper() == 'DESC' else Sort.ASC
+-                            
+-                            # Skip if we've already added this column
+-                            if isinstance(col_expr, ColumnReference) and col_expr.name in added_columns:
+-                                continue
+-                                
+-                            # Track this column
+-                            if isinstance(col_expr, ColumnReference):
+-                                added_columns.add(col_expr.name)
+-                                
+-                            # Use provided sort direction
+-                            self.order_by_clauses.append(OrderByClause(
+-                                expression=col_expr,
+-                                direction=sort_dir
+-                            ))
+-                        else:
+-                            # Skip if we've already added this column
+-                            if isinstance(single_expr, ColumnReference) and single_expr.name in added_columns:
+-                                continue
+-                                
+-                            # Track this column
+-                            if isinstance(single_expr, ColumnReference):
+-                                added_columns.add(single_expr.name)
+-                                
+-                            # Use global sort direction
+-                            self.order_by_clauses.append(OrderByClause(
+-                                expression=single_expr,
+-                                direction=direction
+-                            ))
++        # Parse the lambda function
++        from ..utils.lambda_parser import LambdaParser
++        
++        # Get the table schema if available
++        table_schema = None
++        if isinstance(self.source, TableReference):
++            table_schema = self.source.table_schema
++            
++        expr = LambdaParser.parse_lambda(lambda_func, table_schema)
++        
++        if isinstance(expr, list):
++            # Track columns we've already added to avoid duplicates
++            added_columns = set()
++            
++            for single_expr in expr:
++                # Check if the expression is a tuple with a sort direction
++                if isinstance(single_expr, tuple) and len(single_expr) == 2:
++                    col_expr, sort_dir = single_expr
++                    
++                    # Skip if we've already added this column
++                    if isinstance(col_expr, ColumnReference) and col_expr.name in added_columns:
++                        continue
++                        
++                    # Track this column
++                    if isinstance(col_expr, ColumnReference):
++                        added_columns.add(col_expr.name)
++                        
++                    # Use provided sort direction
++                    self.order_by_clauses.append(OrderByClause(
++                        expression=col_expr,
++                        direction=sort_dir
++                    ))
+                 else:
++                    # Skip if we've already added this column
++                    if isinstance(single_expr, ColumnReference) and single_expr.name in added_columns:
++                        continue
++                        
++                    # Track this column
++                    if isinstance(single_expr, ColumnReference):
++                        added_columns.add(single_expr.name)
++                        
+                     self.order_by_clauses.append(OrderByClause(
+-                        expression=expr,
+-                        direction=direction
++                        expression=single_expr,
++                        direction=default_direction
+                     ))
+-            else:
+-                self.order_by_clauses.append(OrderByClause(
+-                    expression=clause,
+-                    direction=direction
+-                ))
++        elif isinstance(expr, tuple) and len(expr) == 2:
++            col_expr, sort_dir = expr
++            self.order_by_clauses.append(OrderByClause(
++                expression=col_expr,
++                direction=sort_dir
++            ))
++        else:
++            self.order_by_clauses.append(OrderByClause(
++                expression=expr,
++                direction=default_direction
++            ))
+         
+         return self
+     
+diff --git a/cloud_dataframe/tests/integration/test_order_by_duckdb.py b/cloud_dataframe/tests/integration/test_order_by_duckdb.py
+new file mode 100644
+index 0000000..64e4820
+--- /dev/null
++++ b/cloud_dataframe/tests/integration/test_order_by_duckdb.py
+@@ -0,0 +1,152 @@
++"""
++Integration tests for order_by() function with DuckDB.
++
++This module contains comprehensive tests for the order_by() function
++with all supported lambda formats, verifying execution with DuckDB.
++"""
++import unittest
++import duckdb
++from typing import Optional
++
++from cloud_dataframe.core.dataframe import DataFrame, Sort
++from cloud_dataframe.type_system.schema import TableSchema
++
++
++class TestOrderByDuckDB(unittest.TestCase):
++    """Integration tests for order_by() function with DuckDB."""
++    
++    def setUp(self):
++        """Set up test fixtures."""
++        self.schema = TableSchema(
++            name="Employee",
++            columns={
++                "id": int,
++                "name": str,
++                "department": str,
++                "location": str,
++                "salary": float,
++                "hire_date": str
++            }
++        )
++        
++        self.df = DataFrame.from_table_schema("employees", self.schema)
++        
++        self.conn = duckdb.connect(":memory:")
++        
++        self.conn.execute("""
++            CREATE TABLE employees (
++                id INTEGER,
++                name VARCHAR,
++                department VARCHAR,
++                location VARCHAR,
++                salary FLOAT,
++                hire_date VARCHAR
++            )
++        """)
++        
++        self.conn.execute("""
++            INSERT INTO employees VALUES
++            (1, 'Alice', 'Engineering', 'New York', 120000, '2020-01-15'),
++            (2, 'Bob', 'Engineering', 'San Francisco', 110000, '2020-03-20'),
++            (3, 'Charlie', 'Sales', 'Chicago', 95000, '2021-02-10'),
++            (4, 'David', 'Sales', 'Chicago', 85000, '2020-05-15'),
++            (5, 'Eve', 'Marketing', 'New York', 90000, '2021-06-01'),
++            (6, 'Frank', 'Marketing', 'San Francisco', 105000, '2020-01-10')
++        """)
++    
++    def tearDown(self):
++        """Clean up test fixtures."""
++        self.conn.close()
++    
++    def test_single_expression_format(self):
++        """Test single expression format (lambda x: x.col1)."""
++        ordered_df = self.df.order_by(lambda x: x.salary)
++        
++        result = self.conn.execute(ordered_df.to_sql()).fetchall()
++        
++        self.assertEqual(len(result), 6)
++        
++        for i in range(1, len(result)):
++            self.assertLessEqual(result[i-1][4], result[i][4])
++    
++    def test_single_tuple_format(self):
++        """Test single tuple format (lambda x: (x.col1, Sort.DESC))."""
++        ordered_df = self.df.order_by(lambda x: (x.salary, Sort.DESC))
++        
++        result = self.conn.execute(ordered_df.to_sql()).fetchall()
++        
++        self.assertEqual(len(result), 6)
++        
++        for i in range(1, len(result)):
++            self.assertGreaterEqual(result[i-1][4], result[i][4])
++    
++    def test_array_format_with_mix(self):
++        """Test array format with mix of expressions and tuples."""
++        ordered_df = self.df.order_by(lambda x: [
++            x.department,  # Department ascending (default)
++            (x.salary, Sort.DESC)  # Salary descending
++        ])
++        
++        result = self.conn.execute(ordered_df.to_sql()).fetchall()
++        
++        self.assertEqual(len(result), 6)
++        
++        dept_groups = {}
++        for row in result:
++            dept = row[2]
++            if dept not in dept_groups:
++                dept_groups[dept] = []
++            dept_groups[dept].append(row)
++        
++        depts = list(dept_groups.keys())
++        self.assertEqual(depts, sorted(depts))
++        
++        for dept, rows in dept_groups.items():
++            for i in range(1, len(rows)):
++                self.assertGreaterEqual(rows[i-1][4], rows[i][4])
++    
++    def test_array_format_with_all_tuples(self):
++        """Test array format with all tuples."""
++        ordered_df = self.df.order_by(lambda x: [
++            (x.department, Sort.DESC),
++            (x.location, Sort.ASC),
++            (x.salary, Sort.DESC)
++        ])
++        
++        result = self.conn.execute(ordered_df.to_sql()).fetchall()
++        
++        self.assertEqual(len(result), 6)
++        
++        depts = [row[2] for row in result]
++        sorted_depts = sorted(set(depts), reverse=True)
++        
++        dept_change_indices = [i for i in range(1, len(result)) if result[i][2] != result[i-1][2]]
++        dept_change_indices = [0] + dept_change_indices
++        
++        observed_depts = [result[i][2] for i in dept_change_indices]
++        self.assertEqual(observed_depts, sorted_depts)
++        
++        for i in range(len(dept_change_indices)):
++            start = dept_change_indices[i]
++            end = dept_change_indices[i+1] if i+1 < len(dept_change_indices) else len(result)
++            
++            dept_rows = result[start:end]
++            locations = [row[3] for row in dept_rows]
++            
++            loc_groups = {}
++            for row in dept_rows:
++                loc = row[3]
++                if loc not in loc_groups:
++                    loc_groups[loc] = []
++                loc_groups[loc].append(row)
++            
++            loc_keys = list(loc_groups.keys())
++            self.assertEqual(loc_keys, sorted(loc_keys))
++            
++            for loc, loc_rows in loc_groups.items():
++                for j in range(1, len(loc_rows)):
++                    self.assertGreaterEqual(loc_rows[j-1][4], loc_rows[j][4])
++
++
++if __name__ == "__main__":
++    unittest.main()
+diff --git a/cloud_dataframe/tests/integration/test_per_column_sort_duckdb.py b/cloud_dataframe/tests/integration/test_per_column_sort_duckdb.py
+index 0f0f864..7e90268 100644
+--- a/cloud_dataframe/tests/integration/test_per_column_sort_duckdb.py
++++ b/cloud_dataframe/tests/integration/test_per_column_sort_duckdb.py
+@@ -107,9 +107,10 @@ class TestPerColumnSortDuckDB(unittest.TestCase):
+         """Test mix of tuple and non-tuple specifications with DuckDB."""
+         # Test mix of tuple and non-tuple specifications
+         ordered_df = self.df.order_by(
+-            lambda x: [(x.location, Sort.ASC)],  # Location in ascending order
+-            lambda x: x.salary,               # Salary in default order (ASC)
+-            desc=False                        # Default direction is ASC for non-tuple columns
++            lambda x: [
++                (x.location, Sort.ASC),  # Location in ascending order
++                x.salary                 # Salary in default order (ASC)
++            ]
+         )
+         
+         # Execute the query
+diff --git a/cloud_dataframe/tests/integration/test_sql_generation.py b/cloud_dataframe/tests/integration/test_sql_generation.py
+index d4f84f8..9257cdf 100644
+--- a/cloud_dataframe/tests/integration/test_sql_generation.py
++++ b/cloud_dataframe/tests/integration/test_sql_generation.py
+@@ -85,7 +85,8 @@ class TestDuckDBSQLGeneration(unittest.TestCase):
+     
+     def test_order_by(self):
+         """Test generating SQL for an ORDER BY query."""
+-        df = DataFrame.from_("employees", alias="x").order_by(lambda x: x.salary, desc=True)
++        from cloud_dataframe.core.dataframe import Sort
++        df = DataFrame.from_("employees", alias="x").order_by(lambda x: (x.salary, Sort.DESC))
+         
+         sql = df.to_sql(dialect="duckdb")
+         expected_sql = "SELECT *\nFROM employees x\nORDER BY x.salary DESC"
+diff --git a/cloud_dataframe/tests/integration/test_typed_properties.py b/cloud_dataframe/tests/integration/test_typed_properties.py
+index b4cacdd..1ed798f 100644
+--- a/cloud_dataframe/tests/integration/test_typed_properties.py
++++ b/cloud_dataframe/tests/integration/test_typed_properties.py
+@@ -125,7 +125,8 @@ class TestTypedProperties(unittest.TestCase):
+         df = DataFrame.from_table_schema("employees", schema)
+         
+         # Order by using typed properties
+-        ordered_df = df.order_by(lambda x: x.salary, desc=True)
++        from cloud_dataframe.core.dataframe import Sort
++        ordered_df = df.order_by(lambda x: (x.salary, Sort.DESC))
+         
+         sql = ordered_df.to_sql(dialect="duckdb")
+         expected_sql = "SELECT *\nFROM employees x\nORDER BY x.salary DESC"
+diff --git a/cloud_dataframe/tests/integration/test_window_examples_duckdb.py b/cloud_dataframe/tests/integration/test_window_examples_duckdb.py
+index f94cf28..cdac760 100644
+--- a/cloud_dataframe/tests/integration/test_window_examples_duckdb.py
++++ b/cloud_dataframe/tests/integration/test_window_examples_duckdb.py
+@@ -66,8 +66,7 @@ class TestWindowExamplesDuckDB(unittest.TestCase):
+             lambda x: x.sales,
+             lambda x: (running_total := window(func=sum(x.sales), partition=x.product_id, order_by=x.date, frame=row(unbounded(), 0)))
+         ).order_by(
+-            lambda x: x.product_id,
+-            lambda x: x.date
++            lambda x: [x.product_id, x.date]
+         )
+         
+         # Generate SQL
+@@ -102,8 +101,7 @@ class TestWindowExamplesDuckDB(unittest.TestCase):
+             lambda x: x.sales,
+             lambda x: (moving_avg := window(func=avg(x.sales), partition=x.product_id, order_by=x.date, frame=row(1, 1)))
+         ).order_by(
+-            lambda x: x.product_id,
+-            lambda x: x.date
++            lambda x: [x.product_id, x.date]
+         )
+         
+         # Generate SQL
+@@ -132,8 +130,7 @@ class TestWindowExamplesDuckDB(unittest.TestCase):
+             lambda x: x.sales,
+             lambda x: (adjusted_total := window(func=sum(x.sales + 10), partition=x.region, frame=range(unbounded(), 0)))
+         ).order_by(
+-            lambda x: x.region,
+-            lambda x: x.product_id
++            lambda x: [x.region, x.product_id]
+         )
+         
+         # Generate SQL
+diff --git a/cloud_dataframe/tests/integration/test_window_frames_duckdb.py b/cloud_dataframe/tests/integration/test_window_frames_duckdb.py
+index b8fbadd..42c3462 100644
+--- a/cloud_dataframe/tests/integration/test_window_frames_duckdb.py
++++ b/cloud_dataframe/tests/integration/test_window_frames_duckdb.py
+@@ -69,8 +69,7 @@ class TestWindowFramesDuckDB(unittest.TestCase):
+                 frame=row(unbounded(), 0)  # unbounded preceding to current row
+             ))
+         ).order_by(
+-            lambda x: x.department,
+-            lambda x: x.salary
++            lambda x: [x.department, x.salary]
+         )
+         
+         # Generate SQL
+@@ -156,8 +155,7 @@ class TestWindowFramesDuckDB(unittest.TestCase):
+                 frame=row(unbounded(), 0)
+             ))
+         ).order_by(
+-            lambda x: x.department,
+-            lambda x: x.id
++            lambda x: [x.department, x.id]
+         )
+         
+         # Generate SQL
+diff --git a/cloud_dataframe/tests/unit/test_array_lambda.py b/cloud_dataframe/tests/unit/test_array_lambda.py
+index 728c43d..a1abf11 100644
+--- a/cloud_dataframe/tests/unit/test_array_lambda.py
++++ b/cloud_dataframe/tests/unit/test_array_lambda.py
+@@ -101,19 +101,15 @@ class TestArrayLambda(unittest.TestCase):
+         expected_sql = "SELECT x.department, x.location, x.is_manager, AVG(x.salary) AS avg_salary\nFROM employees x\nGROUP BY x.department, x.location, x.is_manager"
+         self.assertEqual(sql.strip(), expected_sql.strip())
+         
+-        # Test mixing array and single lambdas in order_by
++        from cloud_dataframe.core.dataframe import Sort
+         ordered_df = self.df.order_by(
+-            lambda x: [x.department, x.location],
+-            lambda x: x.salary,
+-            desc=True
++            lambda x: [x.department, x.location, (x.salary, Sort.DESC)]
+         )
+         
+         # Check the SQL generation
+         sql = ordered_df.to_sql(dialect="duckdb")
+-        # Get the actual SQL to see what's being generated
+-        print(f"Generated SQL: {sql}")
+-        # The test will pass with the actual SQL output
+-        self.assertTrue("ORDER BY" in sql)
++        expected_sql = "SELECT x.name, x.department, x.salary\nFROM employees x\nORDER BY x.department ASC, x.location ASC, x.salary DESC"
++        self.assertEqual(sql.strip(), expected_sql.strip())
+ 
+ 
+ if __name__ == "__main__":
+diff --git a/cloud_dataframe/tests/unit/test_dataframe.py b/cloud_dataframe/tests/unit/test_dataframe.py
+index e67eed3..97bb66b 100644
+--- a/cloud_dataframe/tests/unit/test_dataframe.py
++++ b/cloud_dataframe/tests/unit/test_dataframe.py
+@@ -60,8 +60,9 @@ class TestDataFrame(unittest.TestCase):
+     
+     def test_order_by(self):
+         """Test the order_by method."""
++        from cloud_dataframe.core.dataframe import Sort
+         df = DataFrame.from_("employees")
+-        ordered_df = df.order_by(lambda x: x.salary, desc=True)
++        ordered_df = df.order_by(lambda x: (x.salary, Sort.DESC))
+         
+         self.assertEqual(len(ordered_df.order_by_clauses), 1)
+     
+diff --git a/cloud_dataframe/tests/unit/test_dynamic_dataclass.py b/cloud_dataframe/tests/unit/test_dynamic_dataclass.py
+index a5e59ff..5011fdf 100644
+--- a/cloud_dataframe/tests/unit/test_dynamic_dataclass.py
++++ b/cloud_dataframe/tests/unit/test_dynamic_dataclass.py
+@@ -117,7 +117,8 @@ class TestDataframeWithTypedProperties(unittest.TestCase):
+     def test_order_by_with_typed_properties(self):
+         """Test ordering with typed properties."""
+         # Test order_by with lambda using typed properties
+-        ordered_df = self.df.order_by(lambda x: x.salary, desc=True)
++        from cloud_dataframe.core.dataframe import Sort
++        ordered_df = self.df.order_by(lambda x: (x.salary, Sort.DESC))
+         
+         # Check the SQL generation
+         sql = ordered_df.to_sql(dialect="duckdb")
+@@ -126,14 +127,15 @@ class TestDataframeWithTypedProperties(unittest.TestCase):
+         
+         # Test order_by with multiple columns
+         ordered_df = self.df.order_by(
+-            lambda x: x.department,
+-            lambda x: x.salary, 
+-            desc=True
++            lambda x: [
++                x.department,
++                (x.salary, Sort.DESC)
++            ]
+         )
+         
+         # Check the SQL generation
+         sql = ordered_df.to_sql(dialect="duckdb")
+-        expected_sql = "SELECT *\nFROM employees x\nORDER BY x.salary DESC, x.department DESC, x.salary DESC"
++        expected_sql = "SELECT *\nFROM employees x\nORDER BY x.salary DESC, x.department ASC, x.salary DESC"
+         self.assertEqual(sql.strip(), expected_sql.strip())
+     
+     def test_get_table_class(self):
+diff --git a/cloud_dataframe/tests/unit/test_order_by_restrictions.py b/cloud_dataframe/tests/unit/test_order_by_restrictions.py
+new file mode 100644
+index 0000000..324aae2
+--- /dev/null
++++ b/cloud_dataframe/tests/unit/test_order_by_restrictions.py
+@@ -0,0 +1,60 @@
++"""
++Unit tests for order_by() function restrictions.
++
++This module contains tests to verify that unsupported formats
++for the order_by() function raise appropriate errors.
++"""
++import unittest
++from typing import Optional
++
++from cloud_dataframe.core.dataframe import DataFrame, Sort, OrderByClause
++from cloud_dataframe.type_system.schema import TableSchema
++from cloud_dataframe.type_system.column import col
++
++
++class TestOrderByRestrictions(unittest.TestCase):
++    """Test cases for order_by() function restrictions."""
++    
++    def setUp(self):
++        """Set up test fixtures."""
++        self.schema = TableSchema(
++            name="Employee",
++            columns={
++                "id": int,
++                "name": str,
++                "department": str,
++                "salary": float
++            }
++        )
++        
++        self.df = DataFrame.from_table_schema("employees", self.schema)
++    
++    def test_multiple_lambda_functions_not_supported(self):
++        """Test that multiple lambda functions are not supported."""
++        with self.assertRaises(TypeError):
++            self.df.order_by(
++                lambda x: x.department,
++                lambda x: x.salary
++            )
++    
++    def test_orderby_clause_not_supported(self):
++        """Test that OrderByClause objects are not supported."""
++        with self.assertRaises(ValueError):
++            self.df.order_by(OrderByClause(
++                expression=col("department"),
++                direction=Sort.ASC
++            ))
++    
++    def test_expression_objects_not_supported(self):
++        """Test that Expression objects are not supported."""
++        with self.assertRaises(ValueError):
++            self.df.order_by(col("department"))
++    
++    def test_desc_parameter_not_supported(self):
++        """Test that the desc parameter is not supported."""
++        with self.assertRaises(TypeError):
++            self.df.order_by(lambda x: x.department, desc=True)
++
++
++if __name__ == "__main__":
++    unittest.main()
+diff --git a/cloud_dataframe/tests/unit/test_per_column_sort.py b/cloud_dataframe/tests/unit/test_per_column_sort.py
+index 6373d56..221da9a 100644
+--- a/cloud_dataframe/tests/unit/test_per_column_sort.py
++++ b/cloud_dataframe/tests/unit/test_per_column_sort.py
+@@ -55,14 +55,15 @@ class TestPerColumnSort(unittest.TestCase):
+         """Test mix of tuple and non-tuple specifications."""
+         # Test mix of tuple and non-tuple specifications
+         ordered_df = self.df.order_by(
+-            lambda x: [(x.department, Sort.DESC)],  # Department in descending order
+-            lambda x: x.salary,                  # Salary in default order
+-            desc=True                            # Default direction is DESC for non-tuple columns
++            lambda x: [
++                (x.department, Sort.DESC),  # Department in descending order
++                x.salary                    # Salary in default ascending order
++            ]
+         )
+         
+         # Check the SQL generation
+         sql = ordered_df.to_sql(dialect="duckdb")
+-        expected_sql = "SELECT *\nFROM employees x\nORDER BY x.department DESC, x.salary DESC"
++        expected_sql = "SELECT *\nFROM employees x\nORDER BY x.department DESC, x.salary ASC"
+         self.assertEqual(sql.strip(), expected_sql.strip())
+     
+     def test_enum_sort_direction(self):
+diff --git a/cloud_dataframe/utils/lambda_parser.py b/cloud_dataframe/utils/lambda_parser.py
+index 2c0afcd..8e86e0d 100644
+--- a/cloud_dataframe/utils/lambda_parser.py
++++ b/cloud_dataframe/utils/lambda_parser.py
+@@ -220,8 +220,24 @@ class LambdaParser:
+             
+             return result
+         
++        elif isinstance(node, ast.Tuple) and len(node.elts) == 2:
++            col_expr = LambdaParser._parse_expression(node.elts[0], args, table_schema)
++            
++            if isinstance(node.elts[1], ast.Attribute) and isinstance(node.elts[1].value, ast.Name) and node.elts[1].value.id == "Sort":
++                from ..core.dataframe import Sort
++                sort_direction = Sort.DESC if node.elts[1].attr == "DESC" else Sort.ASC
++                return (col_expr, sort_direction)
++            else:
++                sort_expr = LambdaParser._parse_expression(node.elts[1], args, table_schema)
++                return (col_expr, sort_expr)
++                
+         elif isinstance(node, ast.Attribute):
+-            if isinstance(node.value, ast.Name):
++            if isinstance(node.value, ast.Name) and node.value.id == "Sort" and node.attr in ("DESC", "ASC"):
++                from ..core.dataframe import Sort
++                from ..type_system.column import LiteralExpression
++                sort_value = Sort.DESC if node.attr == "DESC" else Sort.ASC
++                return LiteralExpression(value=sort_value)
++            elif isinstance(node.value, ast.Name):
+                 table_alias = node.value.id
+                 
+                 # If table_schema is provided, validate the column name
+-- 
+2.34.1
+
