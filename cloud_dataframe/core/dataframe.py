@@ -212,6 +212,69 @@ class DataFrame:
         
         self.columns = column_list
         return self
+        
+    def extend(self, *columns: Union[Column, Callable[[Any], Any]]) -> 'DataFrame':
+        """
+        Extend the DataFrame with additional columns while preserving existing ones.
+        
+        Args:
+            *columns: The columns to add. Can be:
+                - Column objects
+                - Lambda functions that access dataclass properties (e.g., lambda x: x.column_name)
+                - Lambda functions that return arrays (e.g., lambda x: [x.name, x.age])
+                - Lambda functions with aggregate functions (e.g., lambda x: count(x.id).as_column('count'))
+            
+        Returns:
+            The DataFrame with the new columns added
+            
+        Example:
+            df.extend(
+                lambda x: (new_col := x.col1 + x.col2)
+            )
+            
+            df.extend(
+                lambda a, b: (new_col2 := a.col3 - a.col4)
+            )
+        """
+        for col in columns:
+            if isinstance(col, Column):
+                self.columns.append(col)
+            elif callable(col) and not isinstance(col, Column):
+                # Handle lambda functions that access dataclass properties
+                from ..utils.lambda_parser import LambdaParser
+                # Get the table schema if available
+                table_schema = None
+                if isinstance(self.source, TableReference):
+                    table_schema = self.source.table_schema
+                
+                # Parse the lambda function
+                try:
+                    expr = LambdaParser.parse_lambda(col, table_schema)
+                    
+                    if isinstance(expr, list):
+                        # Handle array returns from lambda functions
+                        self.columns.extend(expr)
+                    else:
+                        # Check if this is already a Column object
+                        if isinstance(expr, Column):
+                            self.columns.append(expr)
+                        else:
+                            # Convert to a Column if it's not already
+                            self.columns.append(expr)
+                except ValueError as e:
+                    expr = LambdaParser.parse_lambda(col, None)
+                    
+                    if isinstance(expr, list):
+                        self.columns.extend(expr)
+                    else:
+                        if isinstance(expr, Column):
+                            self.columns.append(expr)
+                        else:
+                            self.columns.append(expr)
+            else:
+                raise TypeError(f"Unsupported column type: {type(col)}")
+        
+        return self
     
     @classmethod
     def from_(cls, table_name: str, schema: Optional[str] = None, alias: Optional[str] = None) -> 'DataFrame':

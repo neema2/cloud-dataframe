@@ -26,7 +26,13 @@ __pycache__/
 
 # Debug files
 debug_window_test.py
-__pycache__/
-*.pyc
+debug_extend.py
+debug_select.py
+debug_boolean.py
+debug_extend_test.py
+debug_test_data.py
+verify_select_fix.py
+
+# Python cache files
 __pycache__/
 *.pyc
