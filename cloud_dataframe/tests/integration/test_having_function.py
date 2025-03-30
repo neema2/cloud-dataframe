@@ -205,6 +205,27 @@ class TestHavingFunctionDuckDB(unittest.TestCase):
             
             self.assertTrue(min_sal > 80000)
             self.assertTrue(sal_range < 30000)
+    
+    def test_having_with_mixed_aggregate_functions(self):
+        """Test having() with mixed df and x parameters where both use aggregate functions."""
+        df_with_having = self.df.select(
+            lambda x: x.department,
+            lambda x: (avg_salary := avg(x.salary)),
+            lambda x: (emp_count := count(x.id))
+        ).group_by(
+            lambda x: x.department
+        ).having(
+            lambda df, x: (df.avg_salary > 90000) and (avg(x.salary) > 100000)
+        )
+        
+        sql = df_with_having.to_sql(dialect="duckdb")
+        expected_sql = "SELECT x.department, AVG(x.salary) AS avg_salary, COUNT(x.id) AS emp_count\nFROM employees x\nGROUP BY x.department\nHAVING avg_salary > 90000 AND AVG(x.salary) > 100000"
+        self.assertEqual(sql.strip(), expected_sql.strip())
+        
+        result = self.conn.execute(sql).fetchall()
+        self.assertEqual(len(result), 1)  # Should have 1 department (Engineering)
+        
+        self.assertEqual(result[0][0], 'Engineering')
 
 
 if __name__ == "__main__":
