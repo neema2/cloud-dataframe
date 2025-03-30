@@ -146,7 +146,7 @@ class TestWindowOrderByLambdaFormatsDuckDB(unittest.TestCase):
         )
         
         sql = df_with_rank.to_sql(dialect="duckdb")
-        expected_sql = "SELECT x.id, x.name, x.department, x.location, x.salary, DENSE_RANK() OVER (PARTITION BY x.department ORDER BY x.location ASC, x.salary ASC, x.id ASC) AS rank_val\nFROM employees x"
+        expected_sql = "SELECT x.id, x.name, x.department, x.location, x.salary, DENSE_RANK() OVER (PARTITION BY x.department ORDER BY x.location ASC, x.salary DESC, x.id ASC) AS rank_val\nFROM employees x"
         self.assertEqual(sql.strip(), expected_sql.strip())
         
         result = self.conn.execute(sql).fetchall()
@@ -197,7 +197,7 @@ class TestWindowOrderByLambdaFormatsDuckDB(unittest.TestCase):
             "SELECT x.id, x.name, x.department, x.salary,",
             "ROW_NUMBER() OVER (PARTITION BY x.department ORDER BY x.salary ASC) AS row_num,",
             "RANK() OVER (PARTITION BY x.department ORDER BY x.salary DESC) AS rank_desc,",
-            "DENSE_RANK() OVER (PARTITION BY x.department ORDER BY x.location ASC, x.salary ASC) AS dense_rank_mixed",
+            "DENSE_RANK() OVER (PARTITION BY x.department ORDER BY x.location ASC, x.salary DESC) AS dense_rank_mixed",
             "FROM employees x"
         ]
         
