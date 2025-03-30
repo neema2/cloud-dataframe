@@ -436,10 +436,18 @@ class LambdaParser:
                     elif node.func.id == 'unbounded':
                         return LiteralExpression(value="UNBOUNDED")
                 elif FunctionRegistry.get_function_class(node.func.id):
+                    parsed_args_list = []
+                    for arg in args_list:
+                        if isinstance(arg, Expression):
+                            parsed_args_list.append(arg)
+                        else:
+                            from ..type_system.column import LiteralExpression
+                            parsed_args_list.append(LiteralExpression(value=arg))
+                    
                     try:
-                        return FunctionRegistry.create_function(node.func.id, args_list)
+                        return FunctionRegistry.create_function(node.func.id, parsed_args_list)
                     except ValueError as e:
-                        return FunctionExpression(function_name=node.func.id, parameters=args_list)
+                        return FunctionExpression(function_name=node.func.id, parameters=parsed_args_list)
                 elif node.func.id in ('date_diff'):
                     from ..type_system.column import DateDiffFunction
                     
