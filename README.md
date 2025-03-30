@@ -33,69 +33,78 @@ pip install cloud-dataframe
 
 ```python
 from cloud_dataframe.core.dataframe import DataFrame
+from cloud_dataframe.type_system.schema import TableSchema
 from cloud_dataframe.type_system.column import sum, avg, count
 
-# Create a DataFrame from a table
-df = DataFrame.from_table("employees")
+# Create a schema for the employees table
+schema = TableSchema(
+    name="Employee",
+    columns={
+        "id": int,
+        "name": str,
+        "department": str,
+        "location": str,
+        "salary": float,
+        "is_manager": bool
+    }
+)
+
+# Create a DataFrame with typed properties
+df = DataFrame.from_table_schema("employees", schema)
 
 # Filter rows
 filtered_df = df.filter(lambda x: x.salary > 50000)
 
-# Select specific columns with walrus operator
-selected_df = DataFrame.select(
-    id := df.id,
-    name := df.name,
-    salary := df.salary
+# Select specific columns with lambda expressions
+selected_df = df.select(
+    lambda x: x.id,
+    lambda x: x.name,
+    lambda x: (annual_salary := x.salary * 12)
 )
 
-# Group by and aggregate with walrus operator
-summary_df = df.group_by_columns("department") \
-    .select(
-        department := df.department,
-        avg_salary := lambda x: avg(x.salary),
-        employee_count := lambda x: count(x.id)
-    )
-
 # Generate SQL for DuckDB
-sql = summary_df.to_sql()
+sql = selected_df.to_sql(dialect="duckdb")
 print(sql)
 ```
 
-### Type-Safe Operations with Dataclasses
+### Sorting with Structured Lambda Syntax
 
 ```python
-from dataclasses import dataclass
-from typing import Optional, int, str, float
-from cloud_dataframe.type_system.decorators import dataclass_to_schema
-from cloud_dataframe.type_system.schema import TableSchema
 from cloud_dataframe.core.dataframe import DataFrame, Sort
+from cloud_dataframe.type_system.schema import TableSchema
 
-@dataclass_to_schema()
-class Employee:
-    id: int
-    name: str
-    department: str
-    salary: float
-    manager_id: Optional[int] = None
-
-# Create a DataFrame with type information
-df = DataFrame.from_table_schema("employees", Employee.__table_schema__)
-
-# Type-safe operations with walrus operator
-filtered_df = df.filter(lambda x: x.salary > 50000 and x.department == "Engineering")
-
-# Select with column aliases using walrus operator
-result_df = filtered_df.select(
-    employee_id := df.id,
-    employee_name := df.name,
-    dept := df.department,
-    annual_salary := lambda x: x.salary * 12
+# Create a schema for the employees table
+schema = TableSchema(
+    name="Employee",
+    columns={
+        "id": int,
+        "name": str,
+        "department": str,
+        "location": str,
+        "salary": float
+    }
 )
 
-# Order by with multiple columns and sort directions
-ordered_df = result_df.order_by(lambda x: [
-    (x.dept, Sort.ASC),
-    (x.annual_salary, Sort.DESC)
+# Create a DataFrame with typed properties
+df = DataFrame.from_table_schema("employees", schema)
+
+# Single expression format
+ordered_df = df.order_by(lambda x: x.salary)
+
+# Single tuple format with Sort enum
+ordered_df = df.order_by(lambda x: (x.salary, Sort.DESC))
+
+# Array format with mix of expressions and tuples
+ordered_df = df.order_by(lambda x: [
+    x.department,  # Department ascending (default)
+    (x.salary, Sort.DESC)  # Salary descending
+])
+
+# Array format with all tuples
+ordered_df = df.order_by(lambda x: [
+    (x.department, Sort.DESC),
+    (x.location, Sort.ASC),
+    (x.salary, Sort.DESC)
 ])
 ```
 
@@ -103,60 +112,116 @@ ordered_df = result_df.order_by(lambda x: [
 
 ```python
 from cloud_dataframe.core.dataframe import DataFrame
+from cloud_dataframe.type_system.schema import TableSchema
+from cloud_dataframe.type_system.column import count, sum, avg
 
-# Create DataFrames for employees and departments
-employees = DataFrame.from_table("employees", alias="e")
-departments = DataFrame.from_table("departments", alias="d")
+# Create schemas for employees and departments
+employee_schema = TableSchema(
+    name="Employee",
+    columns={
+        "id": int,
+        "name": str,
+        "department_id": int,
+        "salary": float
+    }
+)
 
-# Simple join with single condition
-joined_df = employees.join(
-    departments,
+department_schema = TableSchema(
+    name="Department",
+    columns={
+        "id": int,
+        "name": str,
+        "location": str,
+        "budget": float
+    }
+)
+
+# Create DataFrames with typed properties
+employees_df = DataFrame.from_table_schema("employees", employee_schema, alias="e")
+departments_df = DataFrame.from_table_schema("departments", department_schema, alias="d")
+
+# Inner join with lambda expression
+joined_df = employees_df.join(
+    departments_df,
     lambda e, d: e.department_id == d.id
+).select(
+    lambda e: (employee_id := e.id),
+    lambda e: (employee_name := e.name),
+    lambda d: (department_name := d.name),
+    lambda d: (department_location := d.location),
+    lambda e: (employee_salary := e.salary)
 )
 
-# Join with multiple conditions
-complex_join_df = employees.join(
-    departments,
-    lambda e, d: (e.department_id == d.id) and 
-                 (e.salary > 50000) and 
-                 (d.location == "New York")
-)
-
-# Left join with condition
-left_joined_df = employees.left_join(
-    departments,
+# Left join with lambda expression
+left_joined_df = employees_df.left_join(
+    departments_df,
     lambda e, d: e.department_id == d.id
+).select(
+    lambda e: e.id,
+    lambda e: e.name,
+    lambda d: (department_name := d.name),
+    lambda d: d.location,
+    lambda e: e.salary
 )
 
-# Select columns from joined tables with walrus operator
-result_df = joined_df.select(
-    employee_id := employees.id,
-    employee_name := employees.name,
-    department_name := departments.name,
-    location := departments.location
+# Join with aggregation
+aggregated_df = employees_df.join(
+    departments_df,
+    lambda e, d: e.department_id == d.id
+).group_by(
+    lambda d: d.name
+).select(
+    lambda d: (department_name := d.name),
+    lambda e: (employee_count := count(e.id)),
+    lambda e: (total_salary := sum(e.salary)),
+    lambda e: (avg_salary := avg(e.salary))
+).order_by(
+    lambda d: d.name
 )
 ```
 
-### Conditional Expressions
+### Aggregate Functions with Lambda Expressions
 
 ```python
 from cloud_dataframe.core.dataframe import DataFrame
+from cloud_dataframe.type_system.schema import TableSchema
+from cloud_dataframe.type_system.column import sum, avg, count, min, max
 
-df = DataFrame.from_table("employees")
-
-# Simple if-else with walrus operator
-result_df = df.select(
-    id := df.id,
-    name := df.name,
-    bonus_eligible := lambda x: x.salary > 50000
+# Create a schema for the employees table
+schema = TableSchema(
+    name="Employee",
+    columns={
+        "id": int,
+        "name": str,
+        "department": str,
+        "salary": float,
+        "bonus": float,
+        "tax_rate": float
+    }
 )
 
-# CASE WHEN expression with calculations
-result_df = df.select(
-    id := df.id,
-    name := df.name,
-    salary := df.salary,
-    bonus := lambda x: x.salary * 1.2 if x.is_manager else x.salary * 1.1 if x.age > 40 else x.salary
+# Create a DataFrame with typed properties
+df = DataFrame.from_table_schema("employees", schema)
+
+# Simple aggregate functions
+summary_df = df.select(
+    lambda x: (total_salary := sum(x.salary)),
+    lambda x: (avg_salary := avg(x.salary)),
+    lambda x: (employee_count := count(x.id))
+)
+
+# Complex aggregate functions with expressions
+complex_df = df.select(
+    lambda x: (total_compensation := sum(x.salary + x.bonus)),
+    lambda x: (avg_net_salary := avg(x.salary * (1 - x.tax_rate)))
+)
+
+# Group by with aggregate functions
+grouped_df = df.group_by(lambda x: x.department).select(
+    lambda x: x.department,
+    lambda x: (total_salary := sum(x.salary)),
+    lambda x: (avg_salary := avg(x.salary)),
+    lambda x: (employee_count := count(x.id))
 )
 ```
 
@@ -164,32 +229,169 @@ result_df = df.select(
 
 ```python
 from cloud_dataframe.core.dataframe import DataFrame
-from cloud_dataframe.type_system.column import sum, avg, row_number, rank, dense_rank
-
-df = DataFrame.from_table("employees")
-
-# Window functions with PARTITION BY and ORDER BY
-result_df = df.select(
-    id := df.id,
-    name := df.name,
-    department := df.department,
-    salary := df.salary,
-    dept_rank := lambda x: window(
-        func=rank(),
-        partition=x.department,
-        order_by=[(x.salary, "DESC")]
-    )
+from cloud_dataframe.type_system.schema import TableSchema
+from cloud_dataframe.type_system.column import (
+    sum, avg, row_number, rank, dense_rank,
+    row, range, unbounded, window
 )
 
-# Group by with multiple aggregations
-summary_df = df.group_by_columns("department", "location") \
-    .select(
-        department := df.department,
-        location := df.location,
-        avg_salary := lambda x: avg(x.salary),
-        total_salary := lambda x: sum(x.salary),
-        employee_count := lambda x: count(x.id)
-    )
+# Create a schema for the sales table
+schema = TableSchema(
+    name="Sales",
+    columns={
+        "product_id": int,
+        "date": str,
+        "region": str,
+        "sales": int
+    }
+)
+
+# Create a DataFrame with typed properties
+df = DataFrame.from_table_schema("sales", schema, alias="x")
+
+# Running total with unbounded preceding frame
+running_total_df = df.select(
+    lambda x: x.product_id,
+    lambda x: x.date,
+    lambda x: x.sales,
+    lambda x: (running_total := window(
+        func=sum(x.sales), 
+        partition=x.product_id, 
+        order_by=x.date, 
+        frame=row(unbounded(), 0)
+    ))
+).order_by(
+    lambda x: [x.product_id, x.date]
+)
+
+# Moving average with preceding and following rows
+moving_avg_df = df.select(
+    lambda x: x.product_id,
+    lambda x: x.date,
+    lambda x: x.sales,
+    lambda x: (moving_avg := window(
+        func=avg(x.sales), 
+        partition=x.product_id, 
+        order_by=x.date, 
+        frame=row(1, 1)
+    ))
+).order_by(
+    lambda x: [x.product_id, x.date]
+)
+
+# Complex expression in window function
+complex_window_df = df.select(
+    lambda x: x.product_id,
+    lambda x: x.region,
+    lambda x: x.sales,
+    lambda x: (adjusted_total := window(
+        func=sum(x.sales + 10), 
+        partition=x.region, 
+        frame=range(unbounded(), 0)
+    ))
+).order_by(
+    lambda x: [x.region, x.product_id]
+)
+```
+
+### Conditional Expressions and Nested Functions
+
+```python
+from cloud_dataframe.core.dataframe import DataFrame
+from cloud_dataframe.type_system.schema import TableSchema
+from cloud_dataframe.type_system.column import date_diff
+
+# Create a schema for the employees table
+schema = TableSchema(
+    name="Employee",
+    columns={
+        "id": int,
+        "name": str,
+        "department": str,
+        "salary": float,
+        "bonus": float,
+        "is_manager": bool,
+        "start_date": str,
+        "end_date": str
+    }
+)
+
+# Create a DataFrame with typed properties
+df = DataFrame.from_table_schema("employees", schema)
+
+# Conditional expressions
+result_df = df.select(
+    lambda x: x.id,
+    lambda x: x.name,
+    lambda x: x.salary,
+    lambda x: (bonus := x.salary * 0.2 if x.is_manager else x.salary * 0.1)
+)
+
+# Nested functions with binary operations
+nested_df = df.group_by(lambda x: x.department).select(
+    lambda x: x.department,
+    lambda x: (total_compensation := sum(x.salary + x.bonus)),
+    lambda x: (avg_monthly_salary := avg(x.salary / 12)),
+    lambda x: (max_total_comp := max(x.salary + x.bonus))
+)
+
+# Using scalar functions
+date_df = df.select(
+    lambda x: x.name,
+    lambda x: x.department,
+    lambda x: (days_employed := date_diff(x.start_date, x.end_date))
+)
+
+# Having clause with aggregate expression
+filtered_df = df.group_by(lambda x: x.department).having(
+    lambda x: sum(x.salary) > 100000
+).select(
+    lambda x: x.department,
+    lambda x: (employee_count := count())
+)
+```
+
+### Type-Safe Operations with Dataclasses
+
+```python
+from dataclasses import dataclass
+from typing import Optional
+from cloud_dataframe.core.dataframe import DataFrame, Sort
+from cloud_dataframe.type_system.decorators import dataclass_to_schema
+from cloud_dataframe.type_system.schema import TableSchema
+
+# Define a dataclass for employees
+@dataclass_to_schema()
+class Employee:
+    id: int
+    name: str
+    department: str
+    salary: float
+    location: str
+    is_manager: bool
+    manager_id: Optional[int] = None
+
+# Create a DataFrame with type information from the dataclass
+df = DataFrame.from_table_schema("employees", Employee.__table_schema__)
+
+# Type-safe operations with lambda expressions
+filtered_df = df.filter(
+    lambda x: x.salary > 50000 and x.department == "Engineering"
+)
+
+# Select with column aliases
+result_df = filtered_df.select(
+    lambda x: (employee_id := x.id),
+    lambda x: (employee_name := x.name),
+    lambda x: (dept := x.department),
+    lambda x: (annual_salary := x.salary * 12)
+)
+
+# Order by with multiple columns and sort directions
+ordered_df = result_df.order_by(lambda x: [
+    (x.dept, Sort.ASC),
+    (x.annual_salary, Sort.DESC)
+])
 ```
 
 ### Extending with New Database Backends
