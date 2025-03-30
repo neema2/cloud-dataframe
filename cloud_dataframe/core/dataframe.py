@@ -514,9 +514,15 @@ class DataFrame:
             # Handle lambda functions
             from ..utils.lambda_parser import LambdaParser
             
+            # Get the table schema if available
+            table_schema = None
+            if hasattr(self, 'source') and self.source is not None:
+                if isinstance(self.source, TableReference):
+                    table_schema = self.source.table_schema
+            
             try:
                 # Parse the lambda function to get the expression
-                parsed_condition = LambdaParser.parse_lambda(condition, None)
+                parsed_condition = LambdaParser.parse_lambda(condition, table_schema)
                 
                 # Create a FilterCondition with the parsed expression
                 df_copy.having_condition = FilterCondition(parsed_condition)
