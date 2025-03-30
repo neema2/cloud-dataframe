@@ -107,9 +107,10 @@ class TestPerColumnSortDuckDB(unittest.TestCase):
         """Test mix of tuple and non-tuple specifications with DuckDB."""
         # Test mix of tuple and non-tuple specifications
         ordered_df = self.df.order_by(
-            lambda x: [(x.location, Sort.ASC)],  # Location in ascending order
-            lambda x: x.salary,               # Salary in default order (ASC)
-            desc=False                        # Default direction is ASC for non-tuple columns
+            lambda x: [
+                (x.location, Sort.ASC),  # Location in ascending order
+                x.salary                 # Salary in default order (ASC)
+            ]
         )
         
         # Execute the query

@@ -125,7 +125,8 @@ class TestTypedProperties(unittest.TestCase):
         df = DataFrame.from_table_schema("employees", schema)
         
         # Order by using typed properties
-        ordered_df = df.order_by(lambda x: x.salary, desc=True)
+        from cloud_dataframe.core.dataframe import Sort
+        ordered_df = df.order_by(lambda x: (x.salary, Sort.DESC))
         
         sql = ordered_df.to_sql(dialect="duckdb")
         expected_sql = "SELECT *\nFROM employees x\nORDER BY x.salary DESC"

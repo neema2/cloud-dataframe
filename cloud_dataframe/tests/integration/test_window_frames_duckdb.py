@@ -69,8 +69,7 @@ class TestWindowFramesDuckDB(unittest.TestCase):
                 frame=row(unbounded(), 0)  # unbounded preceding to current row
             ))
         ).order_by(
-            lambda x: x.department,
-            lambda x: x.salary
+            lambda x: [x.department, x.salary]
         )
         
         # Generate SQL
@@ -156,8 +155,7 @@ class TestWindowFramesDuckDB(unittest.TestCase):
                 frame=row(unbounded(), 0)
             ))
         ).order_by(
-            lambda x: x.department,
-            lambda x: x.id
+            lambda x: [x.department, x.id]
         )
         
         # Generate SQL

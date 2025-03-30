@@ -60,8 +60,9 @@ class TestDataFrame(unittest.TestCase):
     
     def test_order_by(self):
         """Test the order_by method."""
+        from cloud_dataframe.core.dataframe import Sort
         df = DataFrame.from_("employees")
-        ordered_df = df.order_by(lambda x: x.salary, desc=True)
+        ordered_df = df.order_by(lambda x: (x.salary, Sort.DESC))
         
         self.assertEqual(len(ordered_df.order_by_clauses), 1)
     

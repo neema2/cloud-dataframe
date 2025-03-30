@@ -101,19 +101,15 @@ class TestArrayLambda(unittest.TestCase):
         expected_sql = "SELECT x.department, x.location, x.is_manager, AVG(x.salary) AS avg_salary\nFROM employees x\nGROUP BY x.department, x.location, x.is_manager"
         self.assertEqual(sql.strip(), expected_sql.strip())
         
-        # Test mixing array and single lambdas in order_by
+        from cloud_dataframe.core.dataframe import Sort
         ordered_df = self.df.order_by(
-            lambda x: [x.department, x.location],
-            lambda x: x.salary,
-            desc=True
+            lambda x: [x.department, x.location, (x.salary, Sort.DESC)]
         )
         
         # Check the SQL generation
         sql = ordered_df.to_sql(dialect="duckdb")
-        # Get the actual SQL to see what's being generated
-        print(f"Generated SQL: {sql}")
-        # The test will pass with the actual SQL output
-        self.assertTrue("ORDER BY" in sql)
+        expected_sql = "SELECT x.name, x.department, x.salary\nFROM employees x\nORDER BY x.department ASC, x.location ASC, x.salary DESC"
+        self.assertEqual(sql.strip(), expected_sql.strip())
 
 
 if __name__ == "__main__":
