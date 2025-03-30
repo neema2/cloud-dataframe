@@ -10,7 +10,7 @@ from typing import Optional
 
 from cloud_dataframe.core.dataframe import DataFrame
 from cloud_dataframe.type_system.schema import TableSchema
-from cloud_dataframe.type_system.column import sum, avg, count, min, max, date_diff, over, row_number, rank, dense_rank
+from cloud_dataframe.type_system.column import sum, avg, count, min, max, date_diff, row_number, rank, dense_rank
 
 
 def setup_test_data():
@@ -236,7 +236,6 @@ def example_4_window_functions():
     df = DataFrame.from_table_schema("employees", schemas["employees"])
     
     # Build query with window functions using lambda expressions
-    # Since our implementation might not support the over() method directly on aggregate functions,
     # we'll use a simpler approach that demonstrates the DataFrame DSL capabilities
     query = df.select(
         lambda x: x.id,

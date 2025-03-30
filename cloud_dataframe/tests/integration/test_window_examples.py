@@ -11,7 +11,7 @@ from typing import Optional, Dict
 
 from cloud_dataframe.core.dataframe import DataFrame, Sort
 from cloud_dataframe.type_system.schema import TableSchema
-from cloud_dataframe.type_system.column import sum, avg, count, rank, dense_rank, row_number, over, window
+from cloud_dataframe.type_system.column import sum, avg, count, rank, dense_rank, row_number, window
 
 
 class TestWindowExamples(unittest.TestCase):

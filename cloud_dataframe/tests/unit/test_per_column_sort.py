@@ -10,7 +10,7 @@ from typing import Optional
 from cloud_dataframe.core.dataframe import DataFrame, Sort, OrderByClause
 from cloud_dataframe.type_system.schema import TableSchema
 from cloud_dataframe.type_system.column import (
-    col, over, row_number, rank, dense_rank, window
+    col, row_number, rank, dense_rank, window
 )
 
 

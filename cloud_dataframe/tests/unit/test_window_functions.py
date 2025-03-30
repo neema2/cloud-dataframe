@@ -10,7 +10,7 @@ from typing import Optional
 from cloud_dataframe.core.dataframe import DataFrame
 from cloud_dataframe.type_system.schema import TableSchema
 from cloud_dataframe.type_system.column import (
-    col, over, row_number, rank, dense_rank, window
+    col, row_number, rank, dense_rank, window
 )
 
 
@@ -109,13 +109,13 @@ class TestWindowFunctions(unittest.TestCase):
             lambda x: x.department,
             lambda x: x.salary,
             lambda x: (row_num := window(func=row_number(), partition=x.department, order_by=x.salary)),
-            lambda x: (rank := window(func=rank(), partition=x.department, order_by=x.salary)),
-            lambda x: (dense_rank := window(func=dense_rank(), partition=x.department, order_by=x.salary))
+            lambda x: (rank_val := window(func=rank(), partition=x.department, order_by=x.salary)),
+            lambda x: (dense_rank_val := window(func=dense_rank(), partition=x.department, order_by=x.salary))
         )
         
         # Check the SQL generation
         sql = df_with_ranks.to_sql(dialect="duckdb")
-        expected_sql = "SELECT x.id, x.name, x.department, x.salary, ROW_NUMBER() OVER (PARTITION BY x.department ORDER BY x.salary ASC) AS row_num, RANK() OVER (PARTITION BY x.department ORDER BY x.salary ASC) AS rank, DENSE_RANK() OVER (PARTITION BY x.department ORDER BY x.salary ASC) AS dense_rank\nFROM employees x"
+        expected_sql = "SELECT x.id, x.name, x.department, x.salary, ROW_NUMBER() OVER (PARTITION BY x.department ORDER BY x.salary ASC) AS row_num, RANK() OVER (PARTITION BY x.department ORDER BY x.salary ASC) AS rank_val, DENSE_RANK() OVER (PARTITION BY x.department ORDER BY x.salary ASC) AS dense_rank_val\nFROM employees x"
         self.assertEqual(sql.strip(), expected_sql.strip())
 
 

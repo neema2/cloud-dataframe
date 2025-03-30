@@ -12,7 +12,7 @@ from typing import Optional
 from cloud_dataframe.core.dataframe import DataFrame
 from cloud_dataframe.type_system.schema import TableSchema
 from cloud_dataframe.type_system.column import (
-    over, row_number, rank, dense_rank, sum,
+    row_number, rank, dense_rank, sum,
     row, range, unbounded, window
 )
 
@@ -142,7 +142,7 @@ class TestWindowFramesDuckDB(unittest.TestCase):
             # We don't check upper bound since it's a sum of random values
     
     def test_lambda_function_with_complex_expression(self):
-        """Test lambda function with complex expression in over()."""
+        """Test lambda function with complex expression in window()."""
         # Build query with complex lambda expression
         query = self.df.select(
             lambda x: x.id,
