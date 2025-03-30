@@ -481,18 +481,31 @@ class DataFrame:
         self.distinct = True
         return self
         
-    def having(self, condition: Union[Expression, Callable]) -> 'DataFrame':
+    def having(self, condition: Union[Callable[[Any], bool], Callable[[Any, Any], bool], FilterCondition, Expression]) -> 'DataFrame':
         """
         Add a HAVING clause to filter grouped results.
         
         Args:
-            condition: The condition to filter by. Can be:
-                - An Expression object
-                - A lambda function that returns a boolean expression
-                - A lambda function with nested function calls (e.g., lambda x: sum(x.salary) > 100000)
+            condition: A lambda function, FilterCondition, or Expression
+                      that defines the HAVING condition. The lambda function can have
+                      one parameter (df) for new columns or two parameters (df, x) for
+                      both new and existing columns.
                 
         Returns:
             The DataFrame with the HAVING clause applied
+            
+        Example:
+            df.select(
+                lambda x: x.id,
+                lambda x: x.department,
+                lambda x: (avg_salary := avg(x.salary))
+            ).having(lambda df: df.avg_salary > 50000)
+            
+            df.select(
+                lambda x: x.id,
+                lambda x: x.department,
+                lambda x: (dept_count := count(x.id))
+            ).having(lambda df, x: (df.dept_count > 5) and (x.department != 'HR'))
         """
         # Create a copy of the DataFrame
         df_copy = self.copy()
@@ -500,15 +513,10 @@ class DataFrame:
         if callable(condition) and not isinstance(condition, Expression):
             # Handle lambda functions
             from ..utils.lambda_parser import LambdaParser
-            # Get the table schema if available
-            table_schema = None
-            if hasattr(self, 'source') and self.source is not None:
-                if isinstance(self.source, TableReference):
-                    table_schema = self.source.table_schema
             
             try:
                 # Parse the lambda function to get the expression
-                parsed_condition = LambdaParser.parse_lambda(condition, table_schema)
+                parsed_condition = LambdaParser.parse_lambda(condition, None)
                 
                 # Create a FilterCondition with the parsed expression
                 df_copy.having_condition = FilterCondition(parsed_condition)
