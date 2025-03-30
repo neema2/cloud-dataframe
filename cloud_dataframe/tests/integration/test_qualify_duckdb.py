@@ -9,7 +9,7 @@ import pandas as pd
 import duckdb
 from typing import Optional
 
-from cloud_dataframe.core.dataframe import DataFrame
+from cloud_dataframe.core.dataframe import DataFrame, Sort
 from cloud_dataframe.type_system.schema import TableSchema
 from cloud_dataframe.type_system.column import (
     row_number, rank, dense_rank, sum, avg,
@@ -144,11 +144,11 @@ class TestQualifyDuckDB(unittest.TestCase):
             lambda x: x.name,
             lambda x: x.department,
             lambda x: x.salary,
-            lambda x: (row_num := window(func=row_number(), partition=x.department, order_by=(x.salary, "DESC")))
+            lambda x: (row_num := window(func=row_number(), partition=x.department, order_by=(x.salary, Sort.DESC)))
         ).qualify(
             lambda df: df.row_num <= 2  # Get top 2 highest paid employees in each department
         ).order_by(
-            lambda x: [x.department, (x.salary, "DESC")]
+            lambda x: [x.department, (x.salary, Sort.DESC)]
         )
         
         sql = query.to_sql(dialect="duckdb")

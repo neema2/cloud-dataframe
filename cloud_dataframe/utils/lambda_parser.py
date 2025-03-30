@@ -229,16 +229,13 @@ class LambdaParser:
                 return (col_expr, sort_direction)
             else:
                 sort_expr = LambdaParser._parse_expression(node.elts[1], args, table_schema)
-                if isinstance(sort_expr, LiteralExpression) and isinstance(sort_expr.value, str) and sort_expr.value.upper() == 'DESC':
-                    return (col_expr, "DESC")
                 return (col_expr, sort_expr)
                 
         elif isinstance(node, ast.Attribute):
             if isinstance(node.value, ast.Name) and node.value.id == "Sort" and node.attr in ("DESC", "ASC"):
                 from ..core.dataframe import Sort
-                from ..type_system.column import LiteralExpression
                 sort_value = Sort.DESC if node.attr == "DESC" else Sort.ASC
-                return LiteralExpression(value=sort_value)
+                return sort_value
             elif isinstance(node.value, ast.Name):
                 table_alias = node.value.id
                 
