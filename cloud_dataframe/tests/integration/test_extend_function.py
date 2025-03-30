@@ -92,6 +92,9 @@ class TestExtendFunctionDuckDB(unittest.TestCase):
         extended_df = df.extend(lambda e: (bonus := e.salary * 0.1))
         
         sql = extended_df.to_sql(dialect="duckdb")
+        expected_sql = "SELECT e.id, e.id, e.id, (e.salary * 0.1) AS bonus\nFROM employees e"
+        self.assertEqual(sql.strip(), expected_sql.strip())
+        
         result = self.conn.execute(sql).fetchall()
         
         self.assertEqual(len(result), 5)  # Should have 5 rows
@@ -118,6 +121,9 @@ class TestExtendFunctionDuckDB(unittest.TestCase):
         )
         
         sql = extended_df.to_sql(dialect="duckdb")
+        expected_sql = "SELECT e.id, e.name, e.salary, d.budget, ((e.salary / d.budget) * 100) AS salary_percent\nFROM employees e INNER JOIN departments d ON e.department = d.name"
+        self.assertEqual(sql.strip(), expected_sql.strip())
+        
         result = self.conn.execute(sql).fetchall()
         
         self.assertEqual(len(result), 5)  # Should have 5 rows
@@ -142,6 +148,9 @@ class TestExtendFunctionDuckDB(unittest.TestCase):
         )
         
         sql = extended_df.to_sql(dialect="duckdb")
+        expected_sql = "SELECT e.department, AVG(e.salary) AS avg_salary, COUNT(e.id) AS emp_count\nFROM employees e\nGROUP BY e.department"
+        self.assertEqual(sql.strip(), expected_sql.strip())
+        
         result = self.conn.execute(sql).fetchall()
         
         self.assertEqual(len(result), 2)  # Should have 2 departments
@@ -159,6 +168,9 @@ class TestExtendFunctionDuckDB(unittest.TestCase):
         df = df.extend(lambda e: (high_salary := e.salary > 100000))
         
         sql = df.to_sql(dialect="duckdb")
+        expected_sql = "SELECT e.id, e.id, e.department AS department, e.salary AS salary, e.salary > 100000 AS high_salary\nFROM employees e"
+        self.assertEqual(sql.strip(), expected_sql.strip())
+        
         result = self.conn.execute(sql).fetchall()
         
         self.assertEqual(len(result), 5)  # Should have 5 rows
@@ -179,6 +191,9 @@ class TestExtendFunctionDuckDB(unittest.TestCase):
         ])
         
         sql = extended_df.to_sql(dialect="duckdb")
+        expected_sql = "SELECT e.id, e.name AS name, e.department AS department, e.location AS location\nFROM employees e"
+        self.assertEqual(sql.strip(), expected_sql.strip())
+        
         result = self.conn.execute(sql).fetchall()
         
         self.assertEqual(len(result), 5)  # Should have 5 rows
