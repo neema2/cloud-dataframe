@@ -419,10 +419,11 @@ def _generate_window_function(func: WindowFunction, df: Optional[DataFrame] = No
                 expr_sql = _generate_expression(clause.expression)
                 direction_sql = clause.direction.value
                 order_by_parts.append(f"{expr_sql} {direction_sql}")
+
             elif isinstance(clause, tuple) and len(clause) == 2:
                 col_expr, sort_dir = clause
                 col_sql = _generate_expression(col_expr)
-                dir_sql = "DESC" if sort_dir == "DESC" else "ASC"
+                dir_sql = "DESC" if sort_dir == "DESC" or (hasattr(sort_dir, "value") and sort_dir.value == "DESC") else "ASC"
                 order_by_parts.append(f"{col_sql} {dir_sql}")
             else:
                 # For backward compatibility with non-OrderByClause objects
