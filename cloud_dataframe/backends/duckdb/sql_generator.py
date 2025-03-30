@@ -660,9 +660,7 @@ def _generate_qualify(df: DataFrame) -> str:
     else:
         condition_sql = _generate_expression(df.qualify_condition)
     
-    condition_sql = condition_sql.replace("x.", "")
-    
-    condition_sql = condition_sql.replace(" & ", ") AND (")
+    condition_sql = condition_sql.replace("df.", "")
     
     return f"QUALIFY {condition_sql}"
 

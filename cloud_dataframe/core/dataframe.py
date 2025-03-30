@@ -539,7 +539,7 @@ class DataFrame:
                 lambda x: x.id,
                 lambda x: x.department,
                 lambda x: (rank_val := window(func=rank(), partition=x.department, order_by=x.salary))
-            ).qualify(lambda x: x.rank_val <= 3)
+            ).qualify(lambda df: df.rank_val <= 3)
         """
         df_copy = self.copy()
         

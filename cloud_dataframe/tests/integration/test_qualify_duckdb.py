@@ -61,7 +61,7 @@ class TestQualifyDuckDB(unittest.TestCase):
             lambda x: x.salary,
             lambda x: (row_num := window(func=row_number(), partition=x.department, order_by=x.salary))
         ).qualify(
-            lambda x: x.row_num <= 2  # Get top 2 employees by salary in each department
+            lambda df: df.row_num <= 2  # Get top 2 employees by salary in each department
         ).order_by(
             lambda x: [x.department, x.salary]
         )
@@ -88,7 +88,7 @@ class TestQualifyDuckDB(unittest.TestCase):
             lambda x: x.salary,
             lambda x: (rank_val := window(func=rank(), partition=x.department, order_by=x.salary))
         ).qualify(
-            lambda x: x.rank_val == 1  # Get employees with the lowest salary in each department
+            lambda df: df.rank_val == 1  # Get employees with the lowest salary in each department
         ).order_by(
             lambda x: [x.department, x.salary]
         )
@@ -118,7 +118,7 @@ class TestQualifyDuckDB(unittest.TestCase):
             lambda x: x.salary,
             lambda x: (dense_rank_val := window(func=dense_rank(), partition=x.department, order_by=x.salary))
         ).qualify(
-            lambda x: x.dense_rank_val <= 2  # Get employees with the two lowest salary ranks in each department
+            lambda df: df.dense_rank_val <= 2  # Get employees with the two lowest salary ranks in each department
         ).order_by(
             lambda x: [x.department, x.salary]
         )
@@ -146,7 +146,7 @@ class TestQualifyDuckDB(unittest.TestCase):
             lambda x: x.salary,
             lambda x: (row_num := window(func=row_number(), partition=x.department, order_by=(x.salary, "DESC")))
         ).qualify(
-            lambda x: x.row_num <= 2  # Get top 2 highest paid employees in each department
+            lambda df: df.row_num <= 2  # Get top 2 highest paid employees in each department
         ).order_by(
             lambda x: [x.department, (x.salary, "DESC")]
         )
@@ -178,13 +178,13 @@ class TestQualifyDuckDB(unittest.TestCase):
             lambda x: (dept_rank := window(func=rank(), partition=x.department, order_by=x.salary)),
             lambda x: (loc_rank := window(func=rank(), partition=x.location, order_by=x.salary))
         ).qualify(
-            lambda x: (x.dept_rank <= 2) & (x.loc_rank <= 2)  # Top 2 in both department and location
+            lambda df: (df.dept_rank <= 2) and (df.loc_rank <= 2)  # Top 2 in both department and location
         ).order_by(
             lambda x: [x.department, x.location, x.salary]
         )
         
         sql = query.to_sql(dialect="duckdb")
-        expected_sql = "SELECT x.id, x.name, x.department, x.location, x.salary, RANK() OVER (PARTITION BY x.department ORDER BY x.salary ASC) AS dept_rank, RANK() OVER (PARTITION BY x.location ORDER BY x.salary ASC) AS loc_rank\nFROM employees x\nQUALIFY (dept_rank <= 2) AND (loc_rank <= 2)\nORDER BY x.department ASC, x.location ASC, x.salary ASC"
+        expected_sql = "SELECT x.id, x.name, x.department, x.location, x.salary, RANK() OVER (PARTITION BY x.department ORDER BY x.salary ASC) AS dept_rank, RANK() OVER (PARTITION BY x.location ORDER BY x.salary ASC) AS loc_rank\nFROM employees x\nQUALIFY dept_rank <= 2 AND loc_rank <= 2\nORDER BY x.department ASC, x.location ASC, x.salary ASC"
         self.assertEqual(sql.strip(), expected_sql.strip())
         
         result = self.conn.execute(sql).fetchdf()

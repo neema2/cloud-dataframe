@@ -39,7 +39,7 @@ class TestQualify(unittest.TestCase):
             lambda x: x.salary,
             lambda x: (row_num := window(func=row_number(), partition=x.department, order_by=x.salary))
         ).qualify(
-            lambda x: x.row_num <= 2
+            lambda df: df.row_num <= 2
         )
         
         self.assertIsNotNone(df_with_qualify.qualify_condition)
@@ -59,7 +59,7 @@ class TestQualify(unittest.TestCase):
             lambda x: (row_num := window(func=row_number(), partition=x.department, order_by=x.salary)),
             lambda x: (rank_val := window(func=rank(), partition=x.department, order_by=x.salary))
         ).qualify(
-            lambda x: (x.row_num <= 2) & (x.rank_val == 1)
+            lambda df: (df.row_num <= 2) and (df.rank_val == 1)
         )
         
         self.assertIsNotNone(df_with_qualify.qualify_condition)
@@ -71,9 +71,9 @@ class TestQualify(unittest.TestCase):
     
     def test_multiple_qualify_calls(self):
         """Test that multiple qualify calls overwrite the previous one."""
-        df_with_qualify1 = self.df.qualify(lambda x: x.salary > 50000)
+        df_with_qualify1 = self.df.qualify(lambda df: df.salary > 50000)
         
-        df_with_qualify2 = df_with_qualify1.qualify(lambda x: x.salary < 100000)
+        df_with_qualify2 = df_with_qualify1.qualify(lambda df: df.salary < 100000)
         
         sql = df_with_qualify2.to_sql(dialect="duckdb")
         self.assertIn("QUALIFY", sql)
@@ -94,7 +94,7 @@ class TestQualify(unittest.TestCase):
         
         try:
             with self.assertRaises(Exception):
-                self.df.qualify(lambda x: x.non_existent_column > 10)
+                self.df.qualify(lambda df: df.non_existent_column > 10)
         finally:
             LambdaParser.parse_lambda = original_parse_lambda
 
