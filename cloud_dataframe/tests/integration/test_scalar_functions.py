@@ -79,11 +79,11 @@ FROM employees e"""
         
         concat_df = df.select(
             lambda e: e.id,
-            lambda e: (full_info := concat(e.name, ' (ID: ', e.id, ', Dept: ', e.department_id, ')'))
+            lambda e: (full_info := concat(e.name, " (ID: ", e.id, ", Dept: ", e.department_id, ")"))
         )
         
         sql = concat_df.to_sql(dialect="duckdb")
-        expected_sql = """SELECT e.id, concat(e.name, ' (ID: ', e.id, ', Dept: ', e.department_id, ')') AS full_info
+        expected_sql = """SELECT e.id, concat(e.name, " (ID: ", e.id, ", Dept: ", e.department_id, ")") AS full_info
 FROM employees e"""
         
         self.assertEqual(sql.strip(), expected_sql.strip())
@@ -102,11 +102,11 @@ FROM employees e"""
         date_diff_df = df.select(
             lambda e: e.id,
             lambda e: e.name,
-            lambda e: (days_employed := date_diff('day', e.hire_date, e.end_date))
+            lambda e: (days_employed := date_diff("day", e.hire_date, e.end_date))
         )
         
         sql = date_diff_df.to_sql(dialect="duckdb")
-        expected_sql = """SELECT e.id, e.name, date_diff('day', e.hire_date, e.end_date) AS days_employed
+        expected_sql = """SELECT e.id, e.name, date_diff("day", e.hire_date, e.end_date) AS days_employed
 FROM employees e"""
         
         self.assertEqual(sql.strip(), expected_sql.strip())
@@ -124,11 +124,11 @@ FROM employees e"""
         date_add_df = df.select(
             lambda e: e.id,
             lambda e: e.name,
-            lambda e: (extended_date := date_add('month', 6, e.end_date))
+            lambda e: (extended_date := date_add("month", 6, e.end_date))
         )
         
         sql = date_add_df.to_sql(dialect="duckdb")
-        expected_sql = """SELECT e.id, e.name, date_add('month', 6, e.end_date) AS extended_date
+        expected_sql = """SELECT e.id, e.name, date_add("month", 6, e.end_date) AS extended_date
 FROM employees e"""
         
         self.assertEqual(sql.strip(), expected_sql.strip())
@@ -181,12 +181,12 @@ FROM employees e"""
         """Test using scalar functions in filter conditions."""
         df = DataFrame.from_("employees", alias="e")
         
-        filtered_df = df.filter(lambda e: date_diff('day', e.hire_date, e.end_date) > 365)
+        filtered_df = df.filter(lambda e: date_diff("day", e.hire_date, e.end_date) > 365)
         
         sql = filtered_df.to_sql(dialect="duckdb")
         expected_sql = """SELECT *
 FROM employees e
-WHERE date_diff('day', e.hire_date, e.end_date) > 365"""
+WHERE date_diff("day", e.hire_date, e.end_date) > 365"""
         
         self.assertEqual(sql.strip(), expected_sql.strip())
         
@@ -201,12 +201,12 @@ WHERE date_diff('day', e.hire_date, e.end_date) > 365"""
         complex_df = df.select(
             lambda e: e.id,
             lambda e: (upper_name := upper(e.name)),
-            lambda e: (years_employed := round((date_diff('day', e.hire_date, e.end_date) / 365), 1)),
-            lambda e: (salary_k := concat(round(e.salary / 1000, 0), 'K'))
+            lambda e: (years_employed := round((date_diff("day", e.hire_date, e.end_date) / 365), 1)),
+            lambda e: (salary_k := concat(round(e.salary / 1000, 0), "K"))
         )
         
         sql = complex_df.to_sql(dialect="duckdb")
-        expected_sql = """SELECT e.id, upper(e.name) AS upper_name, round((date_diff('day', e.hire_date, e.end_date) / 365), 1) AS years_employed, concat(round((e.salary / 1000), 0), 'K') AS salary_k
+        expected_sql = """SELECT e.id, upper(e.name) AS upper_name, round((date_diff("day", e.hire_date, e.end_date) / 365), 1) AS years_employed, concat(round((e.salary / 1000), 0), "K") AS salary_k
 FROM employees e"""
         
         self.assertEqual(sql.strip(), expected_sql.strip())
