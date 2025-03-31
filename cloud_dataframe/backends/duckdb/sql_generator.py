@@ -493,6 +493,10 @@ def _generate_function(func: FunctionExpression) -> str:
     Returns:
         The generated SQL string for the function
     """   
+    func_name_mapping = {
+        "DATE_DIFF": "DATEDIFF"
+    }
+    
     params_sql = ", ".join(_generate_expression(param) for param in func.parameters)
     
     sql_func_name = func_name_mapping.get(func.function_name, func.function_name)
