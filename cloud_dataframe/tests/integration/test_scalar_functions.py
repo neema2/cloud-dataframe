@@ -58,7 +58,7 @@ class TestScalarFunctionsIntegration(unittest.TestCase):
         upper_df = df.select(
             lambda e: e.id,
             lambda e: e.name,
-            lambda e: (upper_name := e.upper(e.name))
+            lambda e: (upper_name := upper(e.name))
         )
         
         sql = upper_df.to_sql(dialect="duckdb")
@@ -81,7 +81,7 @@ FROM employees e"""
         
         concat_df = df.select(
             lambda e: e.id,
-            lambda e: (full_info := e.concat(e.name, ' (ID: ', e.id, ', Dept: ', e.department_id, ')'))
+            lambda e: (full_info := concat(e.name, ' (ID: ', e.id, ', Dept: ', e.department_id, ')'))
         )
         
         sql = concat_df.to_sql(dialect="duckdb")
@@ -106,7 +106,7 @@ FROM employees e"""
         date_diff_df = df.select(
             lambda e: e.id,
             lambda e: e.name,
-            lambda e: (days_employed := e.date_diff('day', e.hire_date, e.end_date))
+            lambda e: (days_employed := date_diff('day', e.hire_date, e.end_date))
         )
         
         sql = date_diff_df.to_sql(dialect="duckdb")
@@ -130,7 +130,7 @@ FROM employees e"""
         date_add_df = df.select(
             lambda e: e.id,
             lambda e: e.name,
-            lambda e: (extended_date := e.date_add('month', 6, e.end_date))
+            lambda e: (extended_date := date_add('month', 6, e.end_date))
         )
         
         sql = date_add_df.to_sql(dialect="duckdb")
@@ -151,7 +151,7 @@ FROM employees e"""
         round_df = df.select(
             lambda e: e.id,
             lambda e: e.name,
-            lambda e: (rounded_salary := e.round(e.salary / 1000, 1))
+            lambda e: (rounded_salary := round(e.salary / 1000, 1))
         )
         
         sql = round_df.to_sql(dialect="duckdb")
@@ -172,7 +172,7 @@ FROM employees e"""
         abs_df = df.select(
             lambda e: e.id,
             lambda e: e.name,
-            lambda e: (salary_diff := e.abs(e.salary - 80000))
+            lambda e: (salary_diff := abs(e.salary - 80000))
         )
         
         sql = abs_df.to_sql(dialect="duckdb")
@@ -193,7 +193,7 @@ FROM employees e"""
         """Test using scalar functions in filter conditions."""
         df = DataFrame.from_("employees", alias="e")
         
-        filtered_df = df.filter(lambda e: e.date_diff('day', e.hire_date, e.end_date) > 365)
+        filtered_df = df.filter(lambda e: date_diff('day', e.hire_date, e.end_date) > 365)
         
         sql = filtered_df.to_sql(dialect="duckdb")
         expected_sql = """SELECT *
@@ -215,9 +215,9 @@ WHERE DATE_DIFF('day', CAST(e.hire_date AS DATE), CAST(e.end_date AS DATE)) > 36
         
         complex_df = df.select(
             lambda e: e.id,
-            lambda e: (upper_name := e.upper(e.name)),
-            lambda e: (years_employed := e.round((e.date_diff('day', e.hire_date, e.end_date) / 365), 1)),
-            lambda e: (salary_k := e.concat(e.round(e.salary / 1000, 0), 'K'))
+            lambda e: (upper_name := upper(e.name)),
+            lambda e: (years_employed := round((date_diff('day', e.hire_date, e.end_date) / 365), 1)),
+            lambda e: (salary_k := concat(round(e.salary / 1000, 0), 'K'))
         )
         
         sql = complex_df.to_sql(dialect="duckdb")
