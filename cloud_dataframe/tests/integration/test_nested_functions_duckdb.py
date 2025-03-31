@@ -14,6 +14,10 @@ from cloud_dataframe.type_system.schema import TableSchema
 from cloud_dataframe.type_system.column import sum, avg, count, min, max
 from cloud_dataframe.functions.registry import FunctionRegistry
 
+def date_diff(unit, start_date, end_date):
+    """Wrapper for DateDiffFunction to use in lambda expressions."""
+    return FunctionRegistry.create_function("date_diff", [unit, start_date, end_date])
+
 
 class TestNestedFunctionsDuckDB(unittest.TestCase):
     """Integration tests for nested function calls with DuckDB."""
@@ -170,7 +174,7 @@ class TestNestedFunctionsDuckDB(unittest.TestCase):
         df = self.df.select(
             lambda x: x.name,
             lambda x: x.department,
-            lambda x: (days_employed := x.date_diff('day', x.start_date, x.end_date))
+            lambda x: (days_employed := date_diff('day', x.start_date, x.end_date))
         )
         
         # Generate SQL and execute it
