@@ -494,34 +494,9 @@ def _generate_function(func: FunctionExpression) -> str:
     """
     # Map function names to their SQL equivalents if needed
     func_name_mapping = {
-        "DATE_DIFF": "DATEDIFF"
-        # Add more mappings as needed
     }
     
-    # Special handling for date_diff function
-    if func.function_name == "DATE_DIFF":
-        if hasattr(func, 'column_names') and len(func.column_names) == 2:
-            # Use stored column names if available
-            params_sql = ", ".join(func.column_names)
-        elif not func.parameters or "*" in str(func.parameters):
-            if func.parameters and hasattr(func.parameters[0], 'table_alias') and func.parameters[0].table_alias:
-                table_alias = func.parameters[0].table_alias
-                params_sql = f"{table_alias}.start_date, {table_alias}.end_date"
-            else:
-                params_sql = "start_date, end_date"
-        else:
-            # Normal case: generate SQL for each parameter
-            params_sql = ", ".join(_generate_expression(param) for param in func.parameters)
-        
-        # Add 'day' as the first parameter and cast date columns for DuckDB
-        date_parts = params_sql.split(',')
-        start_date = date_parts[0].strip()
-        end_date = date_parts[1].strip()
-        
-        params_sql = f"'day', CAST({start_date} AS DATE), CAST({end_date} AS DATE)"
-    else:
-        # Normal case for other functions
-        params_sql = ", ".join(_generate_expression(param) for param in func.parameters)
+    params_sql = ", ".join(_generate_expression(param) for param in func.parameters)
     
     sql_func_name = func_name_mapping.get(func.function_name, func.function_name)
     return f"{sql_func_name}({params_sql})"
