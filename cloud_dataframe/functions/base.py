@@ -13,10 +13,9 @@ class ScalarFunction(FunctionExpression):
     """
     Base class for all scalar functions in the DataFrame DSL.
     
-    This class provides the foundation for implementing SQL scalar functions
-    that can work across different SQL backends. Each subclass should define:
+    Subclasses should define the following class attributes:
     
-    - function_name: The name of the function as it appears in SQL
+    - function_name: The name of the function as it will appear in SQL
     - parameter_types: A list of tuples (param_name, param_type) defining the expected parameters
     - return_type: The type returned by the function
     
@@ -25,18 +24,17 @@ class ScalarFunction(FunctionExpression):
     """
     
     function_name = None
-    parameter_types = []  # List of (param_name, param_type) tuples
+    parameter_types = []
     return_type = None
     
-    def __init__(self, parameters: List[Expression]):
+    def __init__(self, parameters: List):
         """
-        Initialize a scalar function with the given parameters.
+        Initialize the function with the provided parameters.
         
         Args:
             parameters: List of Expression objects representing the function parameters
         """
-        super().__init__()
-        self.parameters = parameters
+        super().__init__(function_name=self.function_name, parameters=parameters)
         
         if self.parameter_types and len(parameters) != len(self.parameter_types):
             expected_count = len(self.parameter_types)
