@@ -12,6 +12,10 @@ from cloud_dataframe.type_system.schema import TableSchema
 from cloud_dataframe.type_system.column import sum, avg, count, min, max, ColumnReference
 from cloud_dataframe.functions.registry import FunctionRegistry
 
+def date_diff(unit, start_date, end_date):
+    """Wrapper for DateDiffFunction to use in lambda expressions."""
+    return FunctionRegistry.create_function("date_diff", [unit, start_date, end_date])
+
 
 class TestNestedFunctions(unittest.TestCase):
     """Test cases for nested function calls in lambda expressions."""
@@ -104,7 +108,7 @@ class TestNestedFunctions(unittest.TestCase):
         df = self.df.select(
             lambda x: x.name,
             lambda x: x.department,
-            lambda x: (days_employed := x.date_diff('day', start_date_col, end_date_col))
+            lambda x: (days_employed := date_diff('day', start_date_col, end_date_col))
         )
         
         # Check the SQL generation
@@ -116,7 +120,7 @@ class TestNestedFunctions(unittest.TestCase):
         """Test scalar function in filter."""
         # Test date_diff in filter
         df = self.df.filter(
-            lambda x: x.date_diff('day', x.start_date, x.end_date) > 365
+            lambda x: date_diff('day', x.start_date, x.end_date) > 365
         )
         
         # Check the SQL generation
