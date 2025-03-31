@@ -12,7 +12,7 @@ from ...core.dataframe import (
 )
 from ...type_system.column import (
     Column, ColumnReference, Expression, LiteralExpression, FunctionExpression,
-    AggregateFunction, WindowFunction, CountFunction
+    AggregateFunction, WindowFunction, CountFunction, ScalarFunction
 )
 
 
@@ -364,7 +364,9 @@ def _generate_expression(expr: Any) -> str:
         return f"{expr.operator} ({expr_sql})"
     
     elif isinstance(expr, FunctionExpression):
-        if isinstance(expr, AggregateFunction):
+        if isinstance(expr, ScalarFunction):
+            return expr.to_sql({"backend": "default"})
+        elif isinstance(expr, AggregateFunction):
             return _generate_aggregate_function(expr)
         elif isinstance(expr, WindowFunction):
             return _generate_window_function(expr)

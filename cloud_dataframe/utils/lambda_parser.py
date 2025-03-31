@@ -16,6 +16,7 @@ from ..type_system.column import (
     RankFunction, RowNumberFunction, DenseRankFunction,
     window, rank, row_number, dense_rank, row, range, unbounded
 )
+from ..functions.registry import FunctionRegistry
 from ..core.dataframe import BinaryOperation, OrderByClause, Sort
 
 
@@ -452,7 +453,11 @@ class LambdaParser:
                         return range(start, end)
                     elif node.func.id == 'unbounded':
                         return LiteralExpression(value="UNBOUNDED")
-                # Support for scalar functions
+                elif FunctionRegistry.get_function_class(node.func.id):
+                    try:
+                        return FunctionRegistry.create_function(node.func.id, args_list)
+                    except ValueError as e:
+                        return FunctionExpression(function_name=node.func.id, parameters=args_list)
                 elif node.func.id in ('date_diff'):
                     from ..type_system.column import DateDiffFunction
                     
