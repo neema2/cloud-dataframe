@@ -1,6 +1,6 @@
 from .column import (
     Expression, LiteralExpression, ColumnReference, Column,
-    FunctionExpression, ScalarFunction, AggregateFunction,
+    FunctionExpression, AggregateFunction,
     SumFunction, AvgFunction, CountFunction, MinFunction, MaxFunction,
     WindowFunction, Window, Frame,
     RowNumberFunction, RankFunction, DenseRankFunction,
@@ -8,3 +8,4 @@ from .column import (
     row_number, rank, dense_rank,
     unbounded, row, range, window
 )
+from ..functions.base import ScalarFunction

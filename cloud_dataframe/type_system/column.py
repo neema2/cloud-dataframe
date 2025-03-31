@@ -7,7 +7,6 @@ type-safe dataframe operations.
 from __future__ import annotations
 from typing import Any, Callable, Dict, List, Optional, Tuple, TypeVar, Union, Generic, cast
 from dataclasses import dataclass, field
-from ..functions.base import ScalarFunction
 
 T = TypeVar('T')
 R = TypeVar('R')
@@ -39,6 +38,11 @@ class FunctionExpression(Expression):
     parameters: List[Expression] = field(default_factory=list)
 
 
+
+@dataclass
+class DateDiffFunction(FunctionExpression):
+    """DATE_DIFF scalar function."""
+    pass
 
 
 @dataclass
@@ -430,7 +434,82 @@ def range(start: Union[int, str] = 0, end: Union[int, str] = 0) -> Frame:
 
 # Scalar functions
 
+def date_diff(expr1: Union[Callable, Expression], expr2: Union[Callable, Expression]) -> DateDiffFunction:
+    """
+    Create a DATE_DIFF scalar function.
+    
+    Args:
+        expr1: First date expression (lambda function or Expression)
+              Example: lambda x: x.start_date
+        expr2: Second date expression (lambda function or Expression)
+              Example: lambda x: x.end_date
+        
+    Returns:
+        A DateDiffFunction expression
+    """
+    from ..utils.lambda_parser import parse_lambda
+    
+    if callable(expr1) and not isinstance(expr1, Expression):
+        parsed_expr1 = parse_lambda(expr1)
+    else:
+        parsed_expr1 = expr1
+    
+    if callable(expr2) and not isinstance(expr2, Expression):
+        parsed_expr2 = parse_lambda(expr2)
+    else:
+        parsed_expr2 = expr2
+    
+    # Store column names for SQL generation
+    col_names = []
+    if isinstance(parsed_expr1, ColumnReference):
+        col_names.append(parsed_expr1.name)
+    if isinstance(parsed_expr2, ColumnReference):
+        col_names.append(parsed_expr2.name)
+    
+    func = DateDiffFunction(
+        function_name="DATE_DIFF",
+        parameters=[parsed_expr1, parsed_expr2]
+    )
+    
+    # Store column names as an attribute for SQL generation
+    if col_names:
+        func.column_names = col_names
+    
+    return func
 
+@dataclass
+class DateDiffFunction(FunctionExpression):
+    """DATE_DIFF scalar function."""
+    pass
+
+
+def date_diff(expr1: Union[Callable, Expression], expr2: Union[Callable, Expression]) -> DateDiffFunction:
+    """
+    Create a DATE_DIFF scalar function.
+    
+    Args:
+        expr1: First date expression
+        expr2: Second date expression
+        
+    Returns:
+        A DateDiffFunction expression
+    """
+    from ..utils.lambda_parser import parse_lambda
+    
+    if callable(expr1):
+        parsed_expr1 = parse_lambda(expr1)
+    else:
+        parsed_expr1 = expr1
+    
+    if callable(expr2):
+        parsed_expr2 = parse_lambda(expr2)
+    else:
+        parsed_expr2 = expr2
+    
+    return DateDiffFunction(
+        function_name="DATE_DIFF",
+        parameters=[parsed_expr1, parsed_expr2]
+    )
 
 
 def window(func: Optional[FunctionExpression] = None,
