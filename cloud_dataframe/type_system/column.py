@@ -7,6 +7,7 @@ type-safe dataframe operations.
 from __future__ import annotations
 from typing import Any, Callable, Dict, List, Optional, Tuple, TypeVar, Union, Generic, cast
 from dataclasses import dataclass, field
+from ..functions.base import ScalarFunction
 
 T = TypeVar('T')
 R = TypeVar('R')
@@ -37,11 +38,6 @@ class FunctionExpression(Expression):
     function_name: str
     parameters: List[Expression] = field(default_factory=list)
 
-
-@dataclass
-class ScalarFunction(FunctionExpression):
-    """Base class for scalar functions."""
-    pass
 
 
 

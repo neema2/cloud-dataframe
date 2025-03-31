@@ -12,8 +12,9 @@ from ...core.dataframe import (
 )
 from ...type_system.column import (
     Column, ColumnReference, Expression, LiteralExpression, FunctionExpression,
-    AggregateFunction, WindowFunction, CountFunction, ScalarFunction
+    AggregateFunction, WindowFunction, CountFunction
 )
+from ...functions.base import ScalarFunction
 
 
 def generate_sql(df: DataFrame) -> str:

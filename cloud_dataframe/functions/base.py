@@ -6,7 +6,11 @@ that can work across different SQL backends.
 """
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
-from cloud_dataframe.type_system.column import Expression, FunctionExpression
+class FunctionExpression:
+    """Function call expression."""
+    def __init__(self, function_name, parameters=None):
+        self.function_name = function_name
+        self.parameters = parameters or []
 
 
 class ScalarFunction(FunctionExpression):
