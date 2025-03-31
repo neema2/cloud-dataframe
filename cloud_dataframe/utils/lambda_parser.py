@@ -6,6 +6,7 @@ and converting them to SQL expressions.
 """
 import ast
 import inspect
+import logging
 import textwrap
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union, cast
 
@@ -454,8 +455,11 @@ class LambdaParser:
                         return LiteralExpression(value="UNBOUNDED")
                 elif FunctionRegistry.get_function_class(node.func.id):
                     try:
+                        logging.debug(f"Attempting to create function: {node.func.id} with args: {args_list}")
                         return FunctionRegistry.create_function(node.func.id, args_list)
                     except ValueError as e:
+                        logging.debug(f"Failed to create function: {node.func.id}. Error: {str(e)}")
+                        logging.debug(f"Args: {args_list}")
                         return FunctionExpression(function_name=node.func.id, parameters=args_list)
             elif isinstance(node.func, ast.Attribute) and node.func.attr == "alias" and len(node.args) == 1:
                 if isinstance(node.args[0], ast.Constant):
