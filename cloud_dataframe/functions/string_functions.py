@@ -58,8 +58,9 @@ class ConcatFunction(ScalarFunction):
         lambda x: concat(x.first_name, ' ', x.last_name)
     """
     function_name = "concat"
-    parameter_types = [("param1", str), ("param2", str)]  # Base parameters, can accept more
+    parameter_types = [("param1", str), ("param2", str)]  # Minimum required parameters
     return_type = str
+    accepts_variable_args = True  # Allow variable number of arguments
     
     def __init__(self, parameters: List):
         super().__init__(parameters)

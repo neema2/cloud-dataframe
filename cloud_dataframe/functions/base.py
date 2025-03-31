@@ -36,12 +36,21 @@ class ScalarFunction(FunctionExpression):
         """
         super().__init__(function_name=self.function_name, parameters=parameters)
         
-        if self.parameter_types and len(parameters) != len(self.parameter_types):
+        accepts_variable_args = getattr(self, 'accepts_variable_args', False)
+        
+        if self.parameter_types and not accepts_variable_args and len(parameters) != len(self.parameter_types):
             expected_count = len(self.parameter_types)
             actual_count = len(parameters)
             raise ValueError(
                 f"Function '{self.function_name}' expects {expected_count} parameters, "
                 f"but {actual_count} were provided."
+            )
+        elif self.parameter_types and accepts_variable_args and len(parameters) < len(self.parameter_types):
+            min_count = len(self.parameter_types)
+            actual_count = len(parameters)
+            raise ValueError(
+                f"Function '{self.function_name}' expects at least {min_count} parameters, "
+                f"but only {actual_count} were provided."
             )
         
         self._sql_cache = {}
