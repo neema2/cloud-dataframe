@@ -11,7 +11,8 @@ from typing import Optional
 
 from cloud_dataframe.core.dataframe import DataFrame
 from cloud_dataframe.type_system.schema import TableSchema
-from cloud_dataframe.type_system.column import sum, avg, count, min, max, date_diff
+from cloud_dataframe.type_system.column import sum, avg, count, min, max
+from cloud_dataframe.functions.registry import FunctionRegistry
 
 
 class TestNestedFunctionsDuckDB(unittest.TestCase):
@@ -169,7 +170,7 @@ class TestNestedFunctionsDuckDB(unittest.TestCase):
         df = self.df.select(
             lambda x: x.name,
             lambda x: x.department,
-            lambda x: (days_employed := date_diff(x.start_date, x.end_date))
+            lambda x: (days_employed := FunctionRegistry.get_function("date_diff")("day", x.start_date, x.end_date))
         )
         
         # Generate SQL and execute it

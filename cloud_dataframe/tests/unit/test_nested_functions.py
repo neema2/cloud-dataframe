@@ -9,7 +9,8 @@ from typing import Optional
 
 from cloud_dataframe.core.dataframe import DataFrame
 from cloud_dataframe.type_system.schema import TableSchema
-from cloud_dataframe.type_system.column import sum, avg, count, min, max, date_diff, ColumnReference
+from cloud_dataframe.type_system.column import sum, avg, count, min, max, ColumnReference
+from cloud_dataframe.functions.registry import FunctionRegistry
 
 
 class TestNestedFunctions(unittest.TestCase):
@@ -103,7 +104,7 @@ class TestNestedFunctions(unittest.TestCase):
         df = self.df.select(
             lambda x: x.name,
             lambda x: x.department,
-            lambda x: (days_employed := date_diff(start_date_col, end_date_col))
+            lambda x: (days_employed := FunctionRegistry.get_function("date_diff")("day", start_date_col, end_date_col))
         )
         
         # Check the SQL generation
@@ -115,7 +116,7 @@ class TestNestedFunctions(unittest.TestCase):
         """Test scalar function in filter."""
         # Test date_diff in filter
         df = self.df.filter(
-            lambda x: date_diff(x.start_date, x.end_date) > 365
+            lambda x: FunctionRegistry.get_function("date_diff")("day", x.start_date, x.end_date) > 365
         )
         
         # Check the SQL generation
