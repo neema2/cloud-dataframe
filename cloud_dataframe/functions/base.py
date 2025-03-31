@@ -6,10 +6,10 @@ that can work across different SQL backends.
 """
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
-from cloud_dataframe.type_system.column import Expression
+from cloud_dataframe.type_system.column import Expression, FunctionExpression
 
 
-class ScalarFunction(Expression):
+class ScalarFunction(FunctionExpression):
     """
     Base class for all scalar functions in the DataFrame DSL.
     
@@ -69,6 +69,28 @@ class ScalarFunction(Expression):
             self.parameters_sql[param_key] = _generate_expression(self.parameters[param_index])
             
         return self.parameters_sql[param_key]
+        
+    def _generate_param_sql_dict(self, backend_context):
+        """
+        Generate a dictionary of parameter name to SQL for all parameters.
+        
+        Args:
+            backend_context: Context object containing backend-specific information
+            
+        Returns:
+            Dictionary mapping parameter names to SQL strings
+        """
+        result = {}
+        for i, (param_name, _) in enumerate(self.parameter_types):
+            if i < len(self.parameters):
+                result[param_name] = self._generate_param_sql(i, backend_context)
+                
+        if len(self.parameters) > len(self.parameter_types):
+            for i in range(len(self.parameter_types), len(self.parameters)):
+                param_name = f"param{i+1}"
+                result[param_name] = self._generate_param_sql(i, backend_context)
+                
+        return result
     
     def generate_sql_default(self, backend_context):
         """
@@ -108,9 +130,10 @@ class ScalarFunction(Expression):
         """
         Generate SQL for the function based on the target backend.
         
-        This method dispatches to the appropriate backend-specific implementation
-        based on the backend specified in the context. If no backend-specific
-        implementation is available, it falls back to the default implementation.
+        This method generates a dict of parameter_name to generated SQL for each parameter,
+        then dispatches to the appropriate backend-specific implementation based on the 
+        backend specified in the context. If no backend-specific implementation is 
+        available, it falls back to the default implementation.
         
         Args:
             backend_context: Context object containing backend-specific information
@@ -118,6 +141,8 @@ class ScalarFunction(Expression):
         Returns:
             SQL string representation of the function
         """
+        self.param_sql_dict = self._generate_param_sql_dict(backend_context)
+        
         backend = getattr(backend_context, 'backend', 'default')
         method_name = f"to_sql_{backend}"
         
