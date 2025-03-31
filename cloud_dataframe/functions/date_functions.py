@@ -25,16 +25,16 @@ class DateDiffFunction(ScalarFunction):
 
     def to_sql_default(self, backend_context):
         """Default implementation (DuckDB)"""
-        part_sql = self._generate_param_sql(0, backend_context)
-        start_sql = self._generate_param_sql(1, backend_context)
-        end_sql = self._generate_param_sql(2, backend_context)
+        part_sql = self.param_sql_dict.get("part", "")
+        start_sql = self.param_sql_dict.get("startdate", "")
+        end_sql = self.param_sql_dict.get("enddate", "")
         return f"DATE_DIFF({part_sql}, CAST({start_sql} AS DATE), CAST({end_sql} AS DATE))"
 
     def to_sql_postgres(self, backend_context):
         """PostgreSQL-specific implementation"""
-        part_sql = self._generate_param_sql(0, backend_context)
-        start_sql = self._generate_param_sql(1, backend_context)
-        end_sql = self._generate_param_sql(2, backend_context)
+        part_sql = self.param_sql_dict.get("part", "")
+        start_sql = self.param_sql_dict.get("startdate", "")
+        end_sql = self.param_sql_dict.get("enddate", "")
         return f"EXTRACT(EPOCH FROM ({end_sql}::timestamp - {start_sql}::timestamp))/86400"
 
 
@@ -54,14 +54,14 @@ class DatePartFunction(ScalarFunction):
 
     def to_sql_default(self, backend_context):
         """Default implementation (DuckDB)"""
-        part_sql = self._generate_param_sql(0, backend_context)
-        date_sql = self._generate_param_sql(1, backend_context)
+        part_sql = self.param_sql_dict.get("part", "")
+        date_sql = self.param_sql_dict.get("date", "")
         return f"DATE_PART({part_sql}, CAST({date_sql} AS DATE))"
 
     def to_sql_postgres(self, backend_context):
         """PostgreSQL-specific implementation"""
-        part_sql = self._generate_param_sql(0, backend_context)
-        date_sql = self._generate_param_sql(1, backend_context)
+        part_sql = self.param_sql_dict.get("part", "")
+        date_sql = self.param_sql_dict.get("date", "")
         return f"EXTRACT({part_sql} FROM {date_sql})"
 
 
@@ -81,8 +81,8 @@ class DateTruncFunction(ScalarFunction):
 
     def to_sql_default(self, backend_context):
         """Default implementation (DuckDB)"""
-        part_sql = self._generate_param_sql(0, backend_context)
-        date_sql = self._generate_param_sql(1, backend_context)
+        part_sql = self.param_sql_dict.get("part", "")
+        date_sql = self.param_sql_dict.get("date", "")
         return f"DATE_TRUNC({part_sql}, CAST({date_sql} AS DATE))"
 
 
@@ -125,16 +125,16 @@ class DateAddFunction(ScalarFunction):
 
     def to_sql_default(self, backend_context):
         """Default implementation (DuckDB)"""
-        part = self._generate_param_sql(0, backend_context).strip("'")
-        interval_sql = self._generate_param_sql(1, backend_context)
-        date_sql = self._generate_param_sql(2, backend_context)
+        part = self.param_sql_dict.get("part", "").strip("'")
+        interval_sql = self.param_sql_dict.get("interval", "")
+        date_sql = self.param_sql_dict.get("date", "")
         return f"(CAST({date_sql} AS DATE) + INTERVAL {interval_sql} {part})"
 
     def to_sql_postgres(self, backend_context):
         """PostgreSQL-specific implementation"""
-        part_sql = self._generate_param_sql(0, backend_context)
-        interval_sql = self._generate_param_sql(1, backend_context)
-        date_sql = self._generate_param_sql(2, backend_context)
+        part_sql = self.param_sql_dict.get("part", "")
+        interval_sql = self.param_sql_dict.get("interval", "")
+        date_sql = self.param_sql_dict.get("date", "")
         return f"({date_sql} + INTERVAL '{interval_sql} {part_sql}')"
 
 
@@ -154,14 +154,14 @@ class DateSubFunction(ScalarFunction):
 
     def to_sql_default(self, backend_context):
         """Default implementation (DuckDB)"""
-        part = self._generate_param_sql(0, backend_context).strip("'")
-        interval_sql = self._generate_param_sql(1, backend_context)
-        date_sql = self._generate_param_sql(2, backend_context)
+        part = self.param_sql_dict.get("part", "").strip("'")
+        interval_sql = self.param_sql_dict.get("interval", "")
+        date_sql = self.param_sql_dict.get("date", "")
         return f"(CAST({date_sql} AS DATE) - INTERVAL {interval_sql} {part})"
 
     def to_sql_postgres(self, backend_context):
         """PostgreSQL-specific implementation"""
-        part_sql = self._generate_param_sql(0, backend_context)
-        interval_sql = self._generate_param_sql(1, backend_context)
-        date_sql = self._generate_param_sql(2, backend_context)
+        part_sql = self.param_sql_dict.get("part", "")
+        interval_sql = self.param_sql_dict.get("interval", "")
+        date_sql = self.param_sql_dict.get("date", "")
         return f"({date_sql} - INTERVAL '{interval_sql} {part_sql}')"
