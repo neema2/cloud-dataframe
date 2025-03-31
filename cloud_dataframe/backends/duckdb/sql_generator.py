@@ -491,11 +491,7 @@ def _generate_function(func: FunctionExpression) -> str:
         
     Returns:
         The generated SQL string for the function
-    """
-    # Map function names to their SQL equivalents if needed
-    func_name_mapping = {
-    }
-    
+    """   
     params_sql = ", ".join(_generate_expression(param) for param in func.parameters)
     
     sql_func_name = func_name_mapping.get(func.function_name, func.function_name)
