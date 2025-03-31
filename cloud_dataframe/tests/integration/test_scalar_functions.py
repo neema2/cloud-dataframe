@@ -67,9 +67,7 @@ FROM employees e"""
         
         self.assertEqual(sql.strip(), expected_sql.strip())
         
-        exec_sql = """SELECT e.id, e.name, UPPER(e.name) AS upper_name 
-FROM employees e"""
-        result = self.conn.execute(exec_sql).fetchall()
+        result = self.conn.execute(sql).fetchall()
         self.assertEqual(len(result), 5)
         
         for row in result:
@@ -90,9 +88,7 @@ FROM employees e"""
         
         self.assertEqual(sql.strip(), expected_sql.strip())
         
-        exec_sql = """SELECT e.id, e.name || ' (ID: ' || e.id || ', Dept: ' || e.department_id || ')' AS full_info
-FROM employees e"""
-        result = self.conn.execute(exec_sql).fetchall()
+        result = self.conn.execute(sql).fetchall()
         self.assertEqual(len(result), 5)
         
         for row in result:
@@ -115,9 +111,7 @@ FROM employees e"""
         
         self.assertEqual(sql.strip(), expected_sql.strip())
         
-        exec_sql = """SELECT e.id, e.name, DATE_DIFF('day', CAST(e.hire_date AS DATE), CAST(e.end_date AS DATE)) AS days_employed
-FROM employees e"""
-        result = self.conn.execute(exec_sql).fetchall()
+        result = self.conn.execute(sql).fetchall()
         self.assertEqual(len(result), 5)
         
         for row in result:
@@ -139,9 +133,7 @@ FROM employees e"""
         
         self.assertEqual(sql.strip(), expected_sql.strip())
         
-        exec_sql = """SELECT e.id, e.name, (CAST(e.end_date AS DATE) + INTERVAL 6 month) AS extended_date
-FROM employees e"""
-        result = self.conn.execute(exec_sql).fetchall()
+        result = self.conn.execute(sql).fetchall()
         self.assertEqual(len(result), 5)
     
     def test_numeric_functions_with_literals(self):
@@ -160,9 +152,7 @@ FROM employees e"""
         
         self.assertEqual(sql.strip(), expected_sql.strip())
         
-        exec_sql = """SELECT e.id, e.name, ROUND(e.salary / 1000, 1) AS rounded_salary
-FROM employees e"""
-        result = self.conn.execute(exec_sql).fetchall()
+        result = self.conn.execute(sql).fetchall()
         self.assertEqual(len(result), 5)
     
     def test_numeric_functions_with_expressions(self):
@@ -181,9 +171,7 @@ FROM employees e"""
         
         self.assertEqual(sql.strip(), expected_sql.strip())
         
-        exec_sql = """SELECT e.id, e.name, ABS(e.salary - 80000) AS salary_diff
-FROM employees e"""
-        result = self.conn.execute(exec_sql).fetchall()
+        result = self.conn.execute(sql).fetchall()
         self.assertEqual(len(result), 5)
         
         for row in result:
@@ -202,10 +190,7 @@ WHERE date_diff('day', e.hire_date, e.end_date) > 365"""
         
         self.assertEqual(sql.strip(), expected_sql.strip())
         
-        exec_sql = """SELECT *
-FROM employees e
-WHERE DATE_DIFF('day', CAST(e.hire_date AS DATE), CAST(e.end_date AS DATE)) > 365"""
-        result = self.conn.execute(exec_sql).fetchall()
+        result = self.conn.execute(sql).fetchall()
         
         self.assertEqual(len(result), 5)
     
@@ -226,13 +211,7 @@ FROM employees e"""
         
         self.assertEqual(sql.strip(), expected_sql.strip())
         
-        exec_sql = """SELECT 
-    e.id, 
-    UPPER(e.name) AS upper_name,
-    ROUND(DATE_DIFF('day', CAST(e.hire_date AS DATE), CAST(e.end_date AS DATE)) / 365, 1) AS years_employed,
-    ROUND(e.salary / 1000, 0) || 'K' AS salary_k
-FROM employees e"""
-        result = self.conn.execute(exec_sql).fetchall()
+        result = self.conn.execute(sql).fetchall()
         self.assertEqual(len(result), 5)
         
         for row in result:
