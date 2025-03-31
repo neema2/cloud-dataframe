@@ -38,11 +38,6 @@ class FunctionExpression(Expression):
     parameters: List[Expression] = field(default_factory=list)
 
 
-@dataclass
-class ScalarFunction(FunctionExpression):
-    """Base class for scalar functions."""
-    pass
-
 
 
 @dataclass
