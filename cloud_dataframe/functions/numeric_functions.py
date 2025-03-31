@@ -25,7 +25,7 @@ class AbsFunction(ScalarFunction):
     
     def to_sql_default(self, backend_context):
         """Default implementation (DuckDB)"""
-        param_sql = self.parameters[0].to_sql(backend_context)
+        param_sql = self.param_sql_dict.get("value", "")
         return f"ABS({param_sql})"
 
 
@@ -48,8 +48,8 @@ class RoundFunction(ScalarFunction):
     
     def to_sql_default(self, backend_context):
         """Default implementation (DuckDB)"""
-        value_sql = self.parameters[0].to_sql(backend_context)
-        decimals_sql = self.parameters[1].to_sql(backend_context)
+        value_sql = self.param_sql_dict.get("value", "")
+        decimals_sql = self.param_sql_dict.get("decimals", "")
         return f"ROUND({value_sql}, {decimals_sql})"
 
 
@@ -69,12 +69,12 @@ class CeilFunction(ScalarFunction):
     
     def to_sql_default(self, backend_context):
         """Default implementation (DuckDB)"""
-        param_sql = self.parameters[0].to_sql(backend_context)
+        param_sql = self.param_sql_dict.get("value", "")
         return f"CEIL({param_sql})"
     
     def to_sql_postgres(self, backend_context):
         """PostgreSQL-specific implementation"""
-        param_sql = self.parameters[0].to_sql(backend_context)
+        param_sql = self.param_sql_dict.get("value", "")
         return f"CEILING({param_sql})"
 
 
@@ -94,7 +94,7 @@ class FloorFunction(ScalarFunction):
     
     def to_sql_default(self, backend_context):
         """Default implementation (DuckDB)"""
-        param_sql = self.parameters[0].to_sql(backend_context)
+        param_sql = self.param_sql_dict.get("value", "")
         return f"FLOOR({param_sql})"
 
 
@@ -114,8 +114,8 @@ class PowerFunction(ScalarFunction):
     
     def to_sql_default(self, backend_context):
         """Default implementation (DuckDB)"""
-        base_sql = self.parameters[0].to_sql(backend_context)
-        exponent_sql = self.parameters[1].to_sql(backend_context)
+        base_sql = self.param_sql_dict.get("base", "")
+        exponent_sql = self.param_sql_dict.get("exponent", "")
         return f"POWER({base_sql}, {exponent_sql})"
 
 
@@ -135,7 +135,7 @@ class SqrtFunction(ScalarFunction):
     
     def to_sql_default(self, backend_context):
         """Default implementation (DuckDB)"""
-        param_sql = self.parameters[0].to_sql(backend_context)
+        param_sql = self.param_sql_dict.get("value", "")
         return f"SQRT({param_sql})"
 
 
@@ -155,12 +155,12 @@ class ModFunction(ScalarFunction):
     
     def to_sql_default(self, backend_context):
         """Default implementation (DuckDB)"""
-        dividend_sql = self.parameters[0].to_sql(backend_context)
-        divisor_sql = self.parameters[1].to_sql(backend_context)
+        dividend_sql = self.param_sql_dict.get("dividend", "")
+        divisor_sql = self.param_sql_dict.get("divisor", "")
         return f"MOD({dividend_sql}, {divisor_sql})"
     
     def to_sql_postgres(self, backend_context):
         """PostgreSQL-specific implementation"""
-        dividend_sql = self.parameters[0].to_sql(backend_context)
-        divisor_sql = self.parameters[1].to_sql(backend_context)
+        dividend_sql = self.param_sql_dict.get("dividend", "")
+        divisor_sql = self.param_sql_dict.get("divisor", "")
         return f"({dividend_sql} % {divisor_sql})"
