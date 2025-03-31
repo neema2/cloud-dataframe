@@ -350,8 +350,7 @@ def _generate_expression(expr: Any) -> str:
     
     elif isinstance(expr, FunctionExpression):
         if isinstance(expr, ScalarFunction):
-            backend_context = type('BackendContext', (), {'backend': 'default'})()
-            return expr.to_sql(backend_context)
+            return expr.to_sql({"backend": "default"})
         elif isinstance(expr, AggregateFunction):
             return _generate_aggregate_function(expr)
         elif isinstance(expr, WindowFunction):
