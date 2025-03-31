@@ -457,13 +457,6 @@ class LambdaParser:
                         return FunctionRegistry.create_function(node.func.id, args_list)
                     except ValueError as e:
                         return FunctionExpression(function_name=node.func.id, parameters=args_list)
-                elif node.func.id in ('date_diff'):
-                    from ..functions.date_functions import DateDiffFunction
-                    
-                    if len(args_list) != 2:
-                        raise ValueError(f"Function {node.func.id}() expects exactly two arguments")
-                        
-                    return DateDiffFunction(parameters=args_list)
             elif isinstance(node.func, ast.Attribute) and node.func.attr == "alias" and len(node.args) == 1:
                 if isinstance(node.args[0], ast.Constant):
                     alias_name = node.args[0].value
