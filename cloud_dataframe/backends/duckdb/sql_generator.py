@@ -12,8 +12,9 @@ from ...core.dataframe import (
 )
 from ...type_system.column import (
     Column, ColumnReference, Expression, LiteralExpression, FunctionExpression,
-    AggregateFunction, WindowFunction, CountFunction, ScalarFunction
+    AggregateFunction, WindowFunction, CountFunction
 )
+from ...functions.base import ScalarFunction
 
 
 def generate_sql(df: DataFrame) -> str:
@@ -494,8 +495,7 @@ def _generate_function(func: FunctionExpression) -> str:
     """   
     params_sql = ", ".join(_generate_expression(param) for param in func.parameters)
     
-    sql_func_name = func_name_mapping.get(func.function_name, func.function_name)
-    return f"{sql_func_name}({params_sql})"
+    return f"{func.function_name}({params_sql})"
 
 
 def _generate_from(df: DataFrame) -> str:
