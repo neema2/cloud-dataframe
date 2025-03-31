@@ -128,6 +128,7 @@ class DateAddFunction(ScalarFunction):
         part = self.param_sql_dict.get("part", "").strip("'")
         interval_sql = self.param_sql_dict.get("interval", "")
         date_sql = self.param_sql_dict.get("date", "")
+        
         return f"(CAST({date_sql} AS DATE) + INTERVAL {interval_sql} {part})"
 
     def to_sql_postgres(self, backend_context):

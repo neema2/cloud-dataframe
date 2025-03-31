@@ -170,7 +170,7 @@ class TestNestedFunctionsDuckDB(unittest.TestCase):
         df = self.df.select(
             lambda x: x.name,
             lambda x: x.department,
-            lambda x: (days_employed := x.date_diff('day', x.start_date, x.end_date))
+            lambda x: (days_employed := FunctionRegistry.get_function("date_diff")("day", x.start_date, x.end_date))
         )
         
         # Generate SQL and execute it
