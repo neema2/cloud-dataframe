@@ -57,9 +57,11 @@ filtered_df = df.filter(lambda x: x.salary > 50000)
 
 # Select specific columns with lambda expressions
 selected_df = df.select(
-    lambda x: x.id,
-    lambda x: x.name,
-    lambda x: (annual_salary := x.salary * 12)
+    lambda x: [
+        x.id,
+        x.name,
+        (annual_salary := x.salary * 12)
+    ]
 )
 
 # Generate SQL for DuckDB
@@ -145,11 +147,13 @@ joined_df = employees_df.join(
     departments_df,
     lambda e, d: e.department_id == d.id
 ).select(
-    lambda e: (employee_id := e.id),
-    lambda e: (employee_name := e.name),
-    lambda d: (department_name := d.name),
-    lambda d: (department_location := d.location),
-    lambda e: (employee_salary := e.salary)
+    lambda e, d: [
+        (employee_id := e.id),
+        (employee_name := e.name),
+        (department_name := d.name),
+        (department_location := d.location),
+        (employee_salary := e.salary)
+    ]
 )
 
 # Left join with lambda expression
@@ -157,11 +161,13 @@ left_joined_df = employees_df.left_join(
     departments_df,
     lambda e, d: e.department_id == d.id
 ).select(
-    lambda e: e.id,
-    lambda e: e.name,
-    lambda d: (department_name := d.name),
-    lambda d: d.location,
-    lambda e: e.salary
+    lambda e, d: [
+        e.id,
+        e.name,
+        (department_name := d.name),
+        d.location,
+        e.salary
+    ]
 )
 
 # Join with aggregation
@@ -171,10 +177,12 @@ aggregated_df = employees_df.join(
 ).group_by(
     lambda d: d.name
 ).select(
-    lambda d: (department_name := d.name),
-    lambda e: (employee_count := count(e.id)),
-    lambda e: (total_salary := sum(e.salary)),
-    lambda e: (avg_salary := avg(e.salary))
+    lambda d, e: [
+        (department_name := d.name),
+        (employee_count := count(e.id)),
+        (total_salary := sum(e.salary)),
+        (avg_salary := avg(e.salary))
+    ]
 ).order_by(
     lambda d: d.name
 )
@@ -205,23 +213,29 @@ df = DataFrame.from_table_schema("employees", schema)
 
 # Simple aggregate functions
 summary_df = df.select(
-    lambda x: (total_salary := sum(x.salary)),
-    lambda x: (avg_salary := avg(x.salary)),
-    lambda x: (employee_count := count(x.id))
+    lambda x: [
+        (total_salary := sum(x.salary)),
+        (avg_salary := avg(x.salary)),
+        (employee_count := count(x.id))
+    ]
 )
 
 # Complex aggregate functions with expressions
 complex_df = df.select(
-    lambda x: (total_compensation := sum(x.salary + x.bonus)),
-    lambda x: (avg_net_salary := avg(x.salary * (1 - x.tax_rate)))
+    lambda x: [
+        (total_compensation := sum(x.salary + x.bonus)),
+        (avg_net_salary := avg(x.salary * (1 - x.tax_rate)))
+    ]
 )
 
 # Group by with aggregate functions
 grouped_df = df.group_by(lambda x: x.department).select(
-    lambda x: x.department,
-    lambda x: (total_salary := sum(x.salary)),
-    lambda x: (avg_salary := avg(x.salary)),
-    lambda x: (employee_count := count(x.id))
+    lambda x: [
+        x.department,
+        (total_salary := sum(x.salary)),
+        (avg_salary := avg(x.salary)),
+        (employee_count := count(x.id))
+    ]
 )
 ```
 
@@ -251,44 +265,50 @@ df = DataFrame.from_table_schema("sales", schema, alias="x")
 
 # Running total with unbounded preceding frame
 running_total_df = df.select(
-    lambda x: x.product_id,
-    lambda x: x.date,
-    lambda x: x.sales,
-    lambda x: (running_total := window(
-        func=sum(x.sales), 
-        partition=x.product_id, 
-        order_by=x.date, 
-        frame=row(unbounded(), 0)
-    ))
+    lambda x: [
+        x.product_id,
+        x.date,
+        x.sales,
+        (running_total := window(
+            func=sum(x.sales), 
+            partition=x.product_id, 
+            order_by=x.date, 
+            frame=row(unbounded(), 0)
+        ))
+    ]
 ).order_by(
     lambda x: [x.product_id, x.date]
 )
 
 # Moving average with preceding and following rows
 moving_avg_df = df.select(
-    lambda x: x.product_id,
-    lambda x: x.date,
-    lambda x: x.sales,
-    lambda x: (moving_avg := window(
-        func=avg(x.sales), 
-        partition=x.product_id, 
-        order_by=x.date, 
-        frame=row(1, 1)
-    ))
+    lambda x: [
+        x.product_id,
+        x.date,
+        x.sales,
+        (moving_avg := window(
+            func=avg(x.sales), 
+            partition=x.product_id, 
+            order_by=x.date, 
+            frame=row(1, 1)
+        ))
+    ]
 ).order_by(
     lambda x: [x.product_id, x.date]
 )
 
 # Complex expression in window function
 complex_window_df = df.select(
-    lambda x: x.product_id,
-    lambda x: x.region,
-    lambda x: x.sales,
-    lambda x: (adjusted_total := window(
-        func=sum(x.sales + 10), 
-        partition=x.region, 
-        frame=range(unbounded(), 0)
-    ))
+    lambda x: [
+        x.product_id,
+        x.region,
+        x.sales,
+        (adjusted_total := window(
+            func=sum(x.sales + 10), 
+            partition=x.region, 
+            frame=range(unbounded(), 0)
+        ))
+    ]
 ).order_by(
     lambda x: [x.region, x.product_id]
 )
@@ -321,33 +341,41 @@ df = DataFrame.from_table_schema("employees", schema)
 
 # Conditional expressions
 result_df = df.select(
-    lambda x: x.id,
-    lambda x: x.name,
-    lambda x: x.salary,
-    lambda x: (bonus := x.salary * 0.2 if x.is_manager else x.salary * 0.1)
+    lambda x: [
+        x.id,
+        x.name,
+        x.salary,
+        (bonus := x.salary * 0.2 if x.is_manager else x.salary * 0.1)
+    ]
 )
 
 # Nested functions with binary operations
 nested_df = df.group_by(lambda x: x.department).select(
-    lambda x: x.department,
-    lambda x: (total_compensation := sum(x.salary + x.bonus)),
-    lambda x: (avg_monthly_salary := avg(x.salary / 12)),
-    lambda x: (max_total_comp := max(x.salary + x.bonus))
+    lambda x: [
+        x.department,
+        (total_compensation := sum(x.salary + x.bonus)),
+        (avg_monthly_salary := avg(x.salary / 12)),
+        (max_total_comp := max(x.salary + x.bonus))
+    ]
 )
 
 # Using scalar functions
 date_df = df.select(
-    lambda x: x.name,
-    lambda x: x.department,
-    lambda x: (days_employed := date_diff(x.start_date, x.end_date))
+    lambda x: [
+        x.name,
+        x.department,
+        (days_employed := date_diff(x.start_date, x.end_date))
+    ]
 )
 
 # Having clause with aggregate expression
 filtered_df = df.group_by(lambda x: x.department).having(
     lambda x: sum(x.salary) > 100000
 ).select(
-    lambda x: x.department,
-    lambda x: (employee_count := count())
+    lambda x: [
+        x.department,
+        (employee_count := count())
+    ]
 )
 ```
 
@@ -381,10 +409,12 @@ filtered_df = df.filter(
 
 # Select with column aliases
 result_df = filtered_df.select(
-    lambda x: (employee_id := x.id),
-    lambda x: (employee_name := x.name),
-    lambda x: (dept := x.department),
-    lambda x: (annual_salary := x.salary * 12)
+    lambda x: [
+        (employee_id := x.id),
+        (employee_name := x.name),
+        (dept := x.department),
+        (annual_salary := x.salary * 12)
+    ]
 )
 
 # Order by with multiple columns and sort directions
