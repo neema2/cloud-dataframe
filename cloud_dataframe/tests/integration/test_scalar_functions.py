@@ -8,7 +8,7 @@ import unittest
 import os
 import duckdb
 from cloud_dataframe.core.dataframe import DataFrame
-from cloud_dataframe.type_system.column import col, literal, as_column, count, avg, sum
+from cloud_dataframe.type_system.column import col, literal, count, avg, sum
 from cloud_dataframe.functions.registry import FunctionRegistry
 
 
