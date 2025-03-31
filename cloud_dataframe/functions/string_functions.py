@@ -25,7 +25,7 @@ class UpperFunction(ScalarFunction):
     
     def to_sql_default(self, backend_context):
         """Default implementation (DuckDB)"""
-        param_sql = self.parameters[0].to_sql(backend_context)
+        param_sql = self.param_sql_dict.get("text", "")
         return f"UPPER({param_sql})"
     
 
@@ -46,7 +46,7 @@ class LowerFunction(ScalarFunction):
     
     def to_sql_default(self, backend_context):
         """Default implementation (DuckDB)"""
-        param_sql = self.parameters[0].to_sql(backend_context)
+        param_sql = self.param_sql_dict.get("text", "")
         return f"LOWER({param_sql})"
 
 
@@ -58,22 +58,34 @@ class ConcatFunction(ScalarFunction):
         lambda x: concat(x.first_name, ' ', x.last_name)
     """
     function_name = "concat"
-    parameter_types = []  # Variable number of parameters
+    parameter_types = [("param1", str), ("param2", str)]  # Base parameters, can accept more
     return_type = str
     
     def __init__(self, parameters: List):
-        from cloud_dataframe.type_system.column import Expression
-        super(Expression, self).__init__()
-        self.parameters = parameters
+        super().__init__(parameters)
     
     def to_sql_default(self, backend_context):
         """Default implementation (DuckDB)"""
-        params_sql = [p.to_sql(backend_context) for p in self.parameters]
+        params_sql = []
+        for i in range(len(self.parameters)):
+            param_key = f"param{i+1}"
+            if param_key in self.param_sql_dict:
+                params_sql.append(self.param_sql_dict[param_key])
+            else:
+                from ..backends.duckdb.sql_generator import _generate_expression
+                params_sql.append(_generate_expression(self.parameters[i]))
         return " || ".join(params_sql)
     
     def to_sql_postgres(self, backend_context):
         """PostgreSQL-specific implementation"""
-        params_sql = [p.to_sql(backend_context) for p in self.parameters]
+        params_sql = []
+        for i in range(len(self.parameters)):
+            param_key = f"param{i+1}"
+            if param_key in self.param_sql_dict:
+                params_sql.append(self.param_sql_dict[param_key])
+            else:
+                from ..backends.duckdb.sql_generator import _generate_expression
+                params_sql.append(_generate_expression(self.parameters[i]))
         return f"CONCAT({', '.join(params_sql)})"
 
 
@@ -93,9 +105,9 @@ class SubstringFunction(ScalarFunction):
     
     def to_sql_default(self, backend_context):
         """Default implementation (DuckDB)"""
-        text_sql = self.parameters[0].to_sql(backend_context)
-        start_sql = self.parameters[1].to_sql(backend_context)
-        length_sql = self.parameters[2].to_sql(backend_context)
+        text_sql = self.param_sql_dict.get("text", "")
+        start_sql = self.param_sql_dict.get("start", "")
+        length_sql = self.param_sql_dict.get("length", "")
         return f"SUBSTRING({text_sql}, {start_sql}, {length_sql})"
 
 
@@ -115,12 +127,12 @@ class LengthFunction(ScalarFunction):
     
     def to_sql_default(self, backend_context):
         """Default implementation (DuckDB)"""
-        param_sql = self.parameters[0].to_sql(backend_context)
+        param_sql = self.param_sql_dict.get("text", "")
         return f"LENGTH({param_sql})"
     
     def to_sql_postgres(self, backend_context):
         """PostgreSQL-specific implementation"""
-        param_sql = self.parameters[0].to_sql(backend_context)
+        param_sql = self.param_sql_dict.get("text", "")
         return f"CHAR_LENGTH({param_sql})"
 
 
@@ -140,7 +152,7 @@ class ReplaceFunction(ScalarFunction):
     
     def to_sql_default(self, backend_context):
         """Default implementation (DuckDB)"""
-        text_sql = self.parameters[0].to_sql(backend_context)
-        search_sql = self.parameters[1].to_sql(backend_context)
-        replacement_sql = self.parameters[2].to_sql(backend_context)
+        text_sql = self.param_sql_dict.get("text", "")
+        search_sql = self.param_sql_dict.get("search", "")
+        replacement_sql = self.param_sql_dict.get("replacement", "")
         return f"REPLACE({text_sql}, {search_sql}, {replacement_sql})"
