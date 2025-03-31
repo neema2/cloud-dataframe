@@ -104,7 +104,7 @@ class TestNestedFunctions(unittest.TestCase):
         df = self.df.select(
             lambda x: x.name,
             lambda x: x.department,
-            lambda x: (days_employed := FunctionRegistry.get_function("date_diff")("day", start_date_col, end_date_col))
+            lambda x: (days_employed := x.date_diff('day', start_date_col, end_date_col))
         )
         
         # Check the SQL generation
@@ -116,7 +116,7 @@ class TestNestedFunctions(unittest.TestCase):
         """Test scalar function in filter."""
         # Test date_diff in filter
         df = self.df.filter(
-            lambda x: FunctionRegistry.get_function("date_diff")("day", x.start_date, x.end_date) > 365
+            lambda x: x.date_diff('day', x.start_date, x.end_date) > 365
         )
         
         # Check the SQL generation
