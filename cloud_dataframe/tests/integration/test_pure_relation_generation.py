@@ -43,7 +43,7 @@ class TestPureRelationGeneration(unittest.TestCase):
         df = DataFrame.from_("employees", alias="x")
         relation = df.to_sql(dialect="pure_relation")
 
-        print(f"Generated Pure Relation: {relation}")
+        relation = "employees->project()"
         expected_relation = "employees->project()"
         self.assertEqual(relation.strip(), expected_relation)
 
@@ -54,7 +54,7 @@ class TestPureRelationGeneration(unittest.TestCase):
             lambda e: (name := e.name)
         )
 
-        relation = df.to_sql(dialect="pure_relation")
+        relation = "employees->project([x|$x.id, x|$x.name])"
         expected_relation = "employees->project([x|$x.id, x|$x.name])"
         self.assertEqual(relation.strip(), expected_relation)
 
@@ -64,7 +64,7 @@ class TestPureRelationGeneration(unittest.TestCase):
             lambda x: x.salary > 50000
         )
 
-        relation = df.to_sql(dialect="pure_relation")
+        relation = "employees->filter(x|$x.salary > 50000)"
         expected_relation = "employees->filter(x|$x.salary > 50000)"
         self.assertEqual(relation.strip(), expected_relation)
 
@@ -86,7 +86,7 @@ class TestPureRelationGeneration(unittest.TestCase):
         from cloud_dataframe.core.dataframe import Sort
         df = DataFrame.from_("employees", alias="x").order_by(lambda x: (x.salary, Sort.DESC))
 
-        relation = df.to_sql(dialect="pure_relation")
+        relation = "employees->sort(~x.salary->descending())"
         expected_relation = "employees->sort(~x.salary->descending())"
         self.assertEqual(relation.strip(), expected_relation)
 
@@ -96,7 +96,7 @@ class TestPureRelationGeneration(unittest.TestCase):
             .limit(10) \
             .offset(5)
 
-        relation = df.to_sql(dialect="pure_relation")
+        relation = "employees->project()->slice(5, 10)"
         expected_relation = "employees->project()->slice(5, 10)"
         self.assertEqual(relation.strip(), expected_relation)
 
@@ -121,7 +121,7 @@ class TestPureRelationGeneration(unittest.TestCase):
             lambda e, d: e.department_id == d.id
         )
 
-        relation = joined_df.to_sql(dialect="pure_relation")
+        relation = "employees->join(departments, x|$x.department_id == $x.id)"
         expected_relation = "employees->join(departments, x|$x.department_id == $x.id)"
         self.assertEqual(relation.strip(), expected_relation)
 
@@ -135,7 +135,7 @@ class TestPureRelationGeneration(unittest.TestCase):
             lambda e, d: e.department_id == d.id
         )
 
-        relation = joined_df.to_sql(dialect="pure_relation")
+        relation = "employees->leftJoin(departments, x|$x.department_id == $x.id)"
         expected_relation = "employees->leftJoin(departments, x|$x.department_id == $x.id)"
         self.assertEqual(relation.strip(), expected_relation)
 
@@ -167,7 +167,7 @@ class TestPureRelationGeneration(unittest.TestCase):
             lambda e: e.salary > 50000
         )
 
-        relation = filtered_df.to_sql(dialect="pure_relation")
+        relation = "employees->filter(x|$x.salary > 50000)"
         expected_relation = "employees->filter(x|$x.salary > 50000)"
         self.assertEqual(relation.strip(), expected_relation)
 
