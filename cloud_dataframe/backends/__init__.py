@@ -45,3 +45,6 @@ def get_sql_generator(dialect: str) -> Callable[[DataFrame], str]:
 # Import and register the DuckDB SQL generator
 from .duckdb.sql_generator import generate_sql as generate_duckdb_sql
 register_sql_generator("duckdb", generate_duckdb_sql)
+
+from .pure_relation.relation_generator import generate_relation as generate_pure_relation
+register_sql_generator("pure_relation", generate_pure_relation)
