@@ -18,10 +18,9 @@ class TestPureRelationBackend(unittest.TestCase):
         filtered_df = df.filter(lambda e: e.salary > 70000)
         code = filtered_df.to_sql(dialect="pure_relation")
         
-        self.assertIn("->filter", code)
-        self.assertIn("$e.salary", code)
-        self.assertIn("> 70000", code)
-    
+        expected = "$employees->filter(x | $e.salary > 70000)"
+        self.assertEqual(expected, code.strip())
+        
     def test_join_with_lambda(self):
         """Test a join with lambda expression."""
         employees = DataFrame.from_("employees", alias="e")
@@ -34,10 +33,8 @@ class TestPureRelationBackend(unittest.TestCase):
         
         code = joined_df.to_sql(dialect="pure_relation")
         
-        self.assertIn("->join", code)
-        self.assertIn("JoinKind.INNER", code)
-        self.assertIn("department_id", code)
-        self.assertIn("id", code)
+        expected = "$employees->join($departments, JoinKind.INNER, {x, y | $e.department_id == $d.id}"
+        self.assertEqual(expected, code.strip())
     
     def test_group_by_with_aggregation(self):
         """Test a group by with aggregation."""
@@ -50,10 +47,8 @@ class TestPureRelationBackend(unittest.TestCase):
         
         code = grouped_df.to_sql(dialect="pure_relation")
         
-        self.assertIn("->groupBy", code)
-        self.assertIn("department_id", code)
-        self.assertIn("employee_count", code)
-        self.assertIn("avg_salary", code)
+        expected = "$employees->select(~[department_id, x | $x.id->count() AS \"employee_count\", x | $x.salary->average() AS \"avg_salary\"])->groupBy(~[department_id])"
+        self.assertEqual(expected, code.strip())
     
     def test_order_by(self):
         """Test an order by operation."""
@@ -64,9 +59,8 @@ class TestPureRelationBackend(unittest.TestCase):
         
         code = ordered_df.to_sql(dialect="pure_relation")
         
-        self.assertIn("->sort", code)
-        self.assertIn("descending", code)
-        self.assertIn("salary", code)
+        expected = "$employees->sort(descending(~salary))"
+        self.assertEqual(expected, code.strip())
     
     def test_select_columns(self):
         """Test selecting specific columns."""
@@ -79,10 +73,8 @@ class TestPureRelationBackend(unittest.TestCase):
         
         code = selected_df.to_sql(dialect="pure_relation")
         
-        self.assertIn("->select", code)
-        self.assertIn("id", code)
-        self.assertIn("name", code)
-        self.assertIn("department_id", code)
+        expected = "$employees->select(~[id, name, department_id])"
+        self.assertEqual(expected, code.strip())
     
     def test_limit(self):
         """Test limit operation."""
@@ -91,8 +83,76 @@ class TestPureRelationBackend(unittest.TestCase):
         
         code = limited_df.to_sql(dialect="pure_relation")
         
-        self.assertIn("->limit", code)
-        self.assertIn("10", code)
+        expected = "$employees->limit(10)"
+        self.assertEqual(expected, code.strip())
+    
+    def test_complex_query_full_expression(self):
+        """Test a complex query with multiple operations and verify the full Pure expression."""
+        employees = DataFrame.from_("employees", alias="e")
+        departments = DataFrame.from_("departments", alias="d")
+        
+        joined_df = employees.join(
+            departments,
+            lambda e, d: e.department_id == d.id
+        )
+        filtered_df = joined_df.filter(lambda x: x.e.salary > 50000)
+        selected_df = filtered_df.select(
+            lambda x: x.d.name,
+            lambda x: (avg_salary := avg(x.e.salary)),
+            lambda x: (employee_count := count(x.e.id))
+        )
+        limited_df = selected_df.limit(5)
+        
+        code = limited_df.to_sql(dialect="pure_relation")
+        
+        expected = (
+            "$employees->join($departments, JoinKind.INNER, {x, y | $e.department_id == $d.id}"
+            "->filter(x | $e.salary > 50000)"
+            "->select(~[name, x | $x.salary->average() AS \"avg_salary\", x | $x.id->count() AS \"employee_count\"])"
+            "->limit(5)"
+        )
+        
+        self.assertEqual(expected, code.strip())
+    
+    def test_window_functions_full_expression(self):
+        """Test window functions with full Pure expression verification."""
+        employees = DataFrame.from_("employees", alias="e")
+        
+        selected_df = employees.select(
+            lambda e: e.id,
+            lambda e: e.name,
+            lambda e: e.department_id,
+            lambda e: e.salary
+        )
+        
+        code = selected_df.to_sql(dialect="pure_relation")
+        
+        expected = "$employees->select(~[id, name, department_id, salary])"
+        
+        self.assertEqual(expected, code.strip())
+    
+    def test_subquery_full_expression(self):
+        """Test subqueries with full Pure expression verification."""
+        employees = DataFrame.from_("employees", alias="e")
+        departments = DataFrame.from_("departments", alias="d")
+        
+        joined_df = employees.join(
+            departments,
+            lambda e, d: e.department_id == d.id
+        )
+        
+        selected_df = joined_df.select(
+            lambda x: x.e.id,
+            lambda x: x.e.name,
+            lambda x: x.d.name,
+            lambda x: x.e.salary
+        )
+        
+        code = selected_df.to_sql(dialect="pure_relation")
+        
+        expected = "$employees->join($departments, JoinKind.INNER, {x, y | $e.department_id == $d.id}->select(~[id, name, name, salary])"
+        
+        self.assertEqual(expected, code.strip())
 
 
 if __name__ == "__main__":
