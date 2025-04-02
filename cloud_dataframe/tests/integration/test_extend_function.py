@@ -185,7 +185,7 @@ class TestExtendFunctionDuckDB(unittest.TestCase):
         self.assertIn("e.salary as salary", sql_lower)
         self.assertIn("e.salary > 100000 as high_salary", sql_lower)
         self.assertIn("e.id", sql_lower)
-        self.assertIn("from employees e", sql_lower)
+        self.assertIn("from employees as e", sql_lower)
         
         result = self.conn.execute(sql).fetchall()
         

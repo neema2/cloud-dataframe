@@ -219,7 +219,7 @@ class TestHavingFunctionDuckDB(unittest.TestCase):
         )
         
         sql = df_with_having.to_sql(dialect="duckdb")
-        expected_sql = "SELECT x.department, AVG(x.salary) AS avg_salary, COUNT(x.id) AS emp_count\nFROM employees x\nGROUP BY x.department\nHAVING avg_salary > 90000 AND AVG(x.salary) > 100000"
+        expected_sql = "SELECT x.department, AVG(x.salary) AS avg_salary, COUNT(x.id) AS emp_count\nFROM employees AS x\nGROUP BY x.department\nHAVING avg_salary > 90000 AND AVG(x.salary) > 100000"
         self.assertEqual(sql.strip(), expected_sql.strip())
         
         result = self.conn.execute(sql).fetchall()

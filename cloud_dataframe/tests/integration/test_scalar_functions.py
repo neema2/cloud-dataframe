@@ -63,7 +63,7 @@ class TestScalarFunctionsIntegration(unittest.TestCase):
         
         sql = upper_df.to_sql(dialect="duckdb")
         expected_sql = """SELECT e.id, e.name, UPPER(e.name) AS upper_name
-FROM employees e"""
+FROM employees AS e"""
         
         self.assertEqual(sql.strip(), expected_sql.strip())
         
@@ -84,7 +84,7 @@ FROM employees e"""
         
         sql = concat_df.to_sql(dialect="duckdb")
         expected_sql = """SELECT e.id, e.name || ' (ID: ' || e.id || ', Dept: ' || e.department_id || ')' AS full_info
-FROM employees e"""
+FROM employees AS e"""
         
         self.assertEqual(sql.strip(), expected_sql.strip())
         
@@ -107,7 +107,7 @@ FROM employees e"""
         
         sql = date_diff_df.to_sql(dialect="duckdb")
         expected_sql = """SELECT e.id, e.name, DATE_DIFF('day', CAST(e.hire_date AS DATE), CAST(e.end_date AS DATE)) AS days_employed
-FROM employees e"""
+FROM employees AS e"""
         
         self.assertEqual(sql.strip(), expected_sql.strip())
         
@@ -129,7 +129,7 @@ FROM employees e"""
         
         sql = date_add_df.to_sql(dialect="duckdb")
         expected_sql = """SELECT e.id, e.name, (CAST(e.end_date AS DATE) + INTERVAL 6 month) AS extended_date
-FROM employees e"""
+FROM employees AS e"""
         
         self.assertEqual(sql.strip(), expected_sql.strip())
         
@@ -148,7 +148,7 @@ FROM employees e"""
         
         sql = round_df.to_sql(dialect="duckdb")
         expected_sql = """SELECT e.id, e.name, ROUND((e.salary / 1000), 1) AS rounded_salary
-FROM employees e"""
+FROM employees AS e"""
         
         self.assertEqual(sql.strip(), expected_sql.strip())
         
@@ -167,7 +167,7 @@ FROM employees e"""
         
         sql = abs_df.to_sql(dialect="duckdb")
         expected_sql = """SELECT e.id, e.name, ABS((e.salary - 80000)) AS salary_diff
-FROM employees e"""
+FROM employees AS e"""
         
         self.assertEqual(sql.strip(), expected_sql.strip())
         
@@ -185,7 +185,7 @@ FROM employees e"""
         
         sql = filtered_df.to_sql(dialect="duckdb")
         expected_sql = """SELECT *
-FROM employees e
+FROM employees AS e
 WHERE DATE_DIFF('day', CAST(e.hire_date AS DATE), CAST(e.end_date AS DATE)) > 365"""
         
         self.assertEqual(sql.strip(), expected_sql.strip())
@@ -207,7 +207,7 @@ WHERE DATE_DIFF('day', CAST(e.hire_date AS DATE), CAST(e.end_date AS DATE)) > 36
         
         sql = complex_df.to_sql(dialect="duckdb")
         expected_sql = """SELECT e.id, UPPER(e.name) AS upper_name, ROUND((DATE_DIFF('day', CAST(e.hire_date AS DATE), CAST(e.end_date AS DATE)) / 365), 1) AS years_employed, ROUND((e.salary / 1000), 0) || 'K' AS salary_k
-FROM employees e"""
+FROM employees AS e"""
         
         self.assertEqual(sql.strip(), expected_sql.strip())
         
