@@ -82,7 +82,7 @@ class TestColumnAlias(unittest.TestCase):
         )
         
         sql = df.to_sql(dialect="duckdb")
-        expected_sql = "SELECT e.id AS employee_id, e.name AS employee_name, e.department AS department, (e.salary * 12) AS annual_salary\nFROM employees e"
+        expected_sql = "SELECT e.id AS employee_id, e.name AS employee_name, e.department AS department, (e.salary * 12) AS annual_salary\nFROM employees AS e"
         self.assertEqual(sql.strip(), expected_sql)
 
 if __name__ == "__main__":
