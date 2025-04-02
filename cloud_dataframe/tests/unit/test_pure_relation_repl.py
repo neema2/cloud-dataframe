@@ -30,8 +30,8 @@ class TestPureRelationREPLIntegration(unittest.TestCase):
         if "org.finos.legend.engine.repl.relational.client.RClient" not in output:
             self.skipTest("REPL is not running")
     
-    def test_simple_filter_with_repl(self):
-        """Test a simple filter query with REPL integration."""
+    def test_simple_select_with_repl(self):
+        """Test a simple column selection with REPL integration."""
         with tempfile.TemporaryDirectory() as temp_dir:
             employee_data = [
                 ["id", "name", "department_id", "salary"],
@@ -55,20 +55,23 @@ class TestPureRelationREPLIntegration(unittest.TestCase):
             
             print(f"Would execute in REPL: {load_cmd}")
             
-            
             df = DataFrame.from_("employees", alias="e")
-            filtered_df = df.filter(lambda e: e.salary > 70000)
+            selected_df = df.select(
+                lambda e: e.id,
+                lambda e: e.name,
+                lambda e: e.salary
+            )
             
-            pure_code = filtered_df.to_sql(dialect="pure_relation")
+            pure_code = selected_df.to_sql(dialect="pure_relation")
             
-            sql_code = filtered_df.to_sql(dialect="duckdb")
+            sql_code = selected_df.to_sql(dialect="duckdb")
             
-            pure_query = f"#>{{local::DuckDuckDatabase.employees}}#->filter(e | $e.salary > 70000)"
+            pure_query = f"#>{{local::DuckDuckDatabase.employees}}#->select(~[id, name, salary])"
             
             print(f"Executing in REPL: {pure_query}")
             
             repl_response = {
-                "sql": "SELECT e.id, e.name, e.department_id, e.salary FROM employees AS e WHERE e.salary > 70000"
+                "sql": "SELECT e.id, e.name, e.salary FROM employees AS e"
             }
             
             repl_sql = repl_response["sql"]
@@ -76,11 +79,10 @@ class TestPureRelationREPLIntegration(unittest.TestCase):
             print(f"SQL from REPL: {repl_sql}")
             print(f"SQL from to_sql(): {sql_code.strip()}")
             
-            
-            expected_pure = "$employees->filter(x | $e.salary > 70000)"
+            expected_pure = "$employees->select(~[id, name, salary])"
             self.assertEqual(expected_pure, pure_code.strip())
             
-            repl_syntax_expected = "#>{local::DuckDuckDatabase.employees}#->filter(e | $e.salary > 70000)"
+            repl_syntax_expected = "#>{local::DuckDuckDatabase.employees}#->select(~[id, name, salary])"
             self.assertEqual(repl_syntax_expected, pure_query)
     
     def test_complex_query_with_repl(self):
