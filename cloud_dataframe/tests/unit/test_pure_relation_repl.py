@@ -138,7 +138,7 @@ class TestPureRelationREPLIntegration(unittest.TestCase):
             selected_df = filtered_df.select(
                 lambda x: x.e.id,
                 lambda x: x.e.name,
-                lambda x: x.d.name.alias("department_name"),
+                lambda x: (department_name := x.d.name),
                 lambda x: x.e.salary
             )
             
