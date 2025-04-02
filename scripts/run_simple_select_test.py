@@ -34,11 +34,12 @@ def main():
         
         print(f'Created test data at: {employee_csv}')
         
-        df = DataFrame.from_('employees', alias='e')
+        df = DataFrame.from_('employees', alias='employees_0')
+        
         selected_df = df.select(
-            lambda e: e.id,
-            lambda e: e.name,
-            lambda e: e.salary
+            lambda e: (id := e.id),
+            lambda e: (name := e.name),
+            lambda e: (salary := e.salary)
         )
         
         sql_code = selected_df.to_sql(dialect='duckdb')
