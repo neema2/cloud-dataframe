@@ -51,7 +51,7 @@ class TestExtendFunction(unittest.TestCase):
         self.assertEqual(len(extended_df.columns), 2)
         
         sql = extended_df.to_sql(dialect="duckdb")
-        expected_sql = "SELECT e.id, e.department AS department\nFROM employees e"
+        expected_sql = "SELECT e.id, e.department AS department\nFROM employees AS e"
         self.assertEqual(sql.strip(), expected_sql.strip())
     
     def test_extend_with_computed_column(self):
@@ -63,7 +63,7 @@ class TestExtendFunction(unittest.TestCase):
         self.assertEqual(len(extended_df.columns), 2)
         
         sql = extended_df.to_sql(dialect="duckdb")
-        expected_sql = "SELECT e.id, (e.salary * 1.1) AS salary_bonus\nFROM employees e"
+        expected_sql = "SELECT e.id, (e.salary * 1.1) AS salary_bonus\nFROM employees AS e"
         self.assertEqual(sql.strip(), expected_sql.strip())
     
     def test_extend_with_multiple_columns(self):
@@ -78,7 +78,7 @@ class TestExtendFunction(unittest.TestCase):
         self.assertEqual(len(extended_df.columns), 3)
         
         sql = extended_df.to_sql(dialect="duckdb")
-        expected_sql = "SELECT e.id, e.name AS name, e.department AS department\nFROM employees e"
+        expected_sql = "SELECT e.id, e.name AS name, e.department AS department\nFROM employees AS e"
         self.assertEqual(sql.strip(), expected_sql.strip())
     
     def test_extend_with_array_lambda(self):
@@ -93,7 +93,7 @@ class TestExtendFunction(unittest.TestCase):
         self.assertEqual(len(extended_df.columns), 3)
         
         sql = extended_df.to_sql(dialect="duckdb")
-        expected_sql = "SELECT e.id, e.name AS name, e.department AS department\nFROM employees e"
+        expected_sql = "SELECT e.id, e.name AS name, e.department AS department\nFROM employees AS e"
         self.assertEqual(sql.strip(), expected_sql.strip())
     
     def test_extend_with_join(self):
@@ -124,7 +124,7 @@ class TestExtendFunction(unittest.TestCase):
         self.assertEqual(len(extended_df.columns), 4)
         
         sql = extended_df.to_sql(dialect="duckdb")
-        expected_sql = "SELECT e.id, e.name, d.budget, (d.budget / e.salary) AS budget_per_employee\nFROM employees e INNER JOIN departments d ON e.department = d.name"
+        expected_sql = "SELECT e.id, e.name, d.budget, (d.budget / e.salary) AS budget_per_employee\nFROM employees AS e INNER JOIN departments AS d ON e.department = d.name"
         self.assertEqual(sql.strip(), expected_sql.strip())
     
     def test_extend_with_sort_tuple(self):
@@ -138,7 +138,7 @@ class TestExtendFunction(unittest.TestCase):
         self.assertEqual(len(extended_df.columns), 2)
         
         sql = extended_df.to_sql(dialect="duckdb")
-        expected_sql = "SELECT e.id, e.salary AS salary\nFROM employees e"
+        expected_sql = "SELECT e.id, e.salary AS salary\nFROM employees AS e"
         self.assertEqual(sql.strip(), expected_sql.strip())
     
     def test_extend_with_array_mixed_formats(self):
@@ -156,7 +156,7 @@ class TestExtendFunction(unittest.TestCase):
         self.assertEqual(len(extended_df.columns), 4)
         
         sql = extended_df.to_sql(dialect="duckdb")
-        expected_sql = "SELECT e.id, e.name AS name, e.salary AS salary, e.department\nFROM employees e"
+        expected_sql = "SELECT e.id, e.name AS name, e.salary AS salary, e.department\nFROM employees AS e"
         self.assertEqual(sql.strip(), expected_sql.strip())
 
 
