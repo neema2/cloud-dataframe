@@ -531,13 +531,13 @@ def _generate_source(source: Any) -> str:
             table_sql = f"{source.schema}.{table_sql}"
         
         if source.alias:
-            return f"{table_sql} {source.alias}"
+            return f"{table_sql} AS {source.alias}"
         else:
             return table_sql
     
     elif isinstance(source, SubquerySource):
         subquery_sql = generate_sql(source.dataframe)
-        return f"({subquery_sql}) {source.alias}"
+        return f"({subquery_sql}) AS {source.alias}"
     
     elif isinstance(source, JoinOperation):
         left_sql = _generate_source(source.left)
@@ -547,11 +547,11 @@ def _generate_source(source: Any) -> str:
         right_table_alias = source.right_alias if hasattr(source, 'right_alias') and source.right_alias else None
         
         if isinstance(source.left, TableReference) and not source.left.alias and left_table_alias:
-            left_sql = f"{left_sql} {left_table_alias}"
+            left_sql = f"{left_sql} AS {left_table_alias}"
             source.left.alias = left_table_alias
         
         if isinstance(source.right, TableReference) and not source.right.alias and right_table_alias:
-            right_sql = f"{right_sql} {right_table_alias}"
+            right_sql = f"{right_sql} AS {right_table_alias}"
             source.right.alias = right_table_alias
         
         join_type_sql = source.join_type.value
