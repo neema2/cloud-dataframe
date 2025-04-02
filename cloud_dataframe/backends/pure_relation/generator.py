@@ -118,7 +118,7 @@ def _generate_source(source: Any) -> str:
             
             condition_code = _generate_expression(source.condition)
             
-            return f"{left_code}->join({right_code}, JoinKind.{join_type}, {{x, y | {condition_code.replace('left.', '$x.').replace('right.', '$y.')}}}"
+            return f"{left_code}->join({right_code}, JoinKind.{join_type}, {{x, y | {condition_code.replace('left.', '$x.').replace('right.', '$y.')}}})"
     else:
         return str(source)
 

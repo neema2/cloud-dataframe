@@ -101,11 +101,11 @@ class TestPureRelationBackend(unittest.TestCase):
             departments,
             lambda e, d: e.department_id == d.id
         )
-        filtered_df = joined_df.filter(lambda x: x.e.salary > 50000)
+        filtered_df = joined_df.filter(lambda e: e.salary > 50000)
         selected_df = filtered_df.select(
-            lambda x: x.d.name,
-            lambda x: (avg_salary := avg(x.e.salary)),
-            lambda x: (employee_count := count(x.e.id))
+            lambda d: d.name,
+            lambda e: (avg_salary := avg(e.salary)),
+            lambda e: (employee_count := count(e.id))
         )
         limited_df = selected_df.limit(5)
         
@@ -148,10 +148,10 @@ class TestPureRelationBackend(unittest.TestCase):
         )
         
         selected_df = joined_df.select(
-            lambda x: x.e.id,
-            lambda x: x.e.name,
-            lambda x: x.d.name,
-            lambda x: x.e.salary
+            lambda e: e.id,
+            lambda e: e.name,
+            lambda d: d.name,
+            lambda e: e.salary
         )
         
         code = selected_df.to_sql(dialect="pure_relation")
@@ -230,13 +230,13 @@ class TestPureRelationBackend(unittest.TestCase):
                 lambda e, d: e.department_id == d.id
             )
             
-            filtered_df = joined_df.filter(lambda x: x.e.salary > 70000)
+            filtered_df = joined_df.filter(lambda e: e.salary > 70000)
             
             selected_df = filtered_df.select(
-                lambda x: x.e.id,
-                lambda x: x.e.name,
-                lambda x: (department_name := x.d.name),
-                lambda x: x.e.salary
+                lambda e: e.id,
+                lambda e: e.name,
+                lambda d: (department_name := d.name),
+                lambda e: e.salary
             )
             
             pure_code = selected_df.to_sql(dialect="pure_relation")
