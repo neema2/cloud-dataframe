@@ -41,7 +41,7 @@ class TestLambdaAggregates(unittest.TestCase):
         )
         
         sql = query.to_sql(dialect="duckdb")
-        expected = "SELECT x.name, SUM(x.salary) AS total_salary, AVG(x.salary) AS avg_salary, COUNT(x.id) AS employee_count, MIN(x.salary) AS min_salary, MAX(x.salary) AS max_salary\nFROM employees x"
+        expected = "SELECT x.name, SUM(x.salary) AS total_salary, AVG(x.salary) AS avg_salary, COUNT(x.id) AS employee_count, MIN(x.salary) AS min_salary, MAX(x.salary) AS max_salary\nFROM employees AS x"
         self.assertEqual(sql.strip(), expected)
     
     def test_complex_lambda_aggregates(self):
@@ -54,7 +54,7 @@ class TestLambdaAggregates(unittest.TestCase):
         )
         
         sql = query.to_sql(dialect="duckdb")
-        expected = "SELECT x.name, SUM((x.salary + x.bonus)) AS total_compensation, AVG((x.salary * (1 - x.tax_rate))) AS avg_net_salary\nFROM employees x"
+        expected = "SELECT x.name, SUM((x.salary + x.bonus)) AS total_compensation, AVG((x.salary * (1 - x.tax_rate))) AS avg_net_salary\nFROM employees AS x"
         self.assertEqual(sql.strip(), expected)
     
     def test_count_distinct(self):
@@ -64,7 +64,7 @@ class TestLambdaAggregates(unittest.TestCase):
         )
         
         sql = query.to_sql(dialect="duckdb")
-        expected = "SELECT COUNT(DISTINCT x.name) AS unique_names\nFROM employees x"
+        expected = "SELECT COUNT(DISTINCT x.name) AS unique_names\nFROM employees AS x"
         self.assertEqual(sql.strip(), expected)
     
     def test_aggregate_in_group_by(self):
@@ -76,7 +76,7 @@ class TestLambdaAggregates(unittest.TestCase):
         )
         
         sql = query.to_sql(dialect="duckdb")
-        expected = "SELECT x.name, SUM(x.salary) AS total_salary, AVG(x.bonus) AS avg_bonus\nFROM employees x\nGROUP BY x.name"
+        expected = "SELECT x.name, SUM(x.salary) AS total_salary, AVG(x.bonus) AS avg_bonus\nFROM employees AS x\nGROUP BY x.name"
         self.assertEqual(sql.strip(), expected)
 
 
