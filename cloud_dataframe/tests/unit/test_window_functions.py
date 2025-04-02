@@ -48,7 +48,7 @@ class TestWindowFunctions(unittest.TestCase):
         
         # Check the SQL generation
         sql = df_with_rank.to_sql(dialect="duckdb")
-        expected_sql = "SELECT x.id, x.name, x.department, x.salary, ROW_NUMBER() OVER (PARTITION BY x.department ORDER BY x.salary ASC) AS salary_rank\nFROM employees x"
+        expected_sql = "SELECT x.id, x.name, x.department, x.salary, ROW_NUMBER() OVER (PARTITION BY x.department ORDER BY x.salary ASC) AS salary_rank\nFROM employees AS x"
         self.assertEqual(sql.strip(), expected_sql.strip())
     
     def test_window_with_array_lambda_partition_by(self):
@@ -65,7 +65,7 @@ class TestWindowFunctions(unittest.TestCase):
         
         # Check the SQL generation
         sql = df_with_rank.to_sql(dialect="duckdb")
-        expected_sql = "SELECT x.id, x.name, x.department, x.location, x.salary, ROW_NUMBER() OVER (PARTITION BY x.department, x.location ORDER BY x.salary ASC) AS salary_rank\nFROM employees x"
+        expected_sql = "SELECT x.id, x.name, x.department, x.location, x.salary, ROW_NUMBER() OVER (PARTITION BY x.department, x.location ORDER BY x.salary ASC) AS salary_rank\nFROM employees AS x"
         self.assertEqual(sql.strip(), expected_sql.strip())
     
     def test_window_with_lambda_order_by(self):
@@ -81,7 +81,7 @@ class TestWindowFunctions(unittest.TestCase):
         
         # Check the SQL generation
         sql = df_with_rank.to_sql(dialect="duckdb")
-        expected_sql = "SELECT x.id, x.name, x.department, x.salary, RANK() OVER (PARTITION BY x.department ORDER BY x.salary ASC) AS salary_rank\nFROM employees x"
+        expected_sql = "SELECT x.id, x.name, x.department, x.salary, RANK() OVER (PARTITION BY x.department ORDER BY x.salary ASC) AS salary_rank\nFROM employees AS x"
         self.assertEqual(sql.strip(), expected_sql.strip())
     
     def test_window_with_array_lambda_order_by(self):
@@ -97,7 +97,7 @@ class TestWindowFunctions(unittest.TestCase):
         
         # Check the SQL generation
         sql = df_with_rank.to_sql(dialect="duckdb")
-        expected_sql = "SELECT x.id, x.name, x.department, x.salary, DENSE_RANK() OVER (PARTITION BY x.department ORDER BY x.salary ASC, x.id ASC) AS salary_rank\nFROM employees x"
+        expected_sql = "SELECT x.id, x.name, x.department, x.salary, DENSE_RANK() OVER (PARTITION BY x.department ORDER BY x.salary ASC, x.id ASC) AS salary_rank\nFROM employees AS x"
         self.assertEqual(sql.strip(), expected_sql.strip())
     
     def test_multiple_window_functions(self):
@@ -115,7 +115,7 @@ class TestWindowFunctions(unittest.TestCase):
         
         # Check the SQL generation
         sql = df_with_ranks.to_sql(dialect="duckdb")
-        expected_sql = "SELECT x.id, x.name, x.department, x.salary, ROW_NUMBER() OVER (PARTITION BY x.department ORDER BY x.salary ASC) AS row_num, RANK() OVER (PARTITION BY x.department ORDER BY x.salary ASC) AS rank_val, DENSE_RANK() OVER (PARTITION BY x.department ORDER BY x.salary ASC) AS dense_rank_val\nFROM employees x"
+        expected_sql = "SELECT x.id, x.name, x.department, x.salary, ROW_NUMBER() OVER (PARTITION BY x.department ORDER BY x.salary ASC) AS row_num, RANK() OVER (PARTITION BY x.department ORDER BY x.salary ASC) AS rank_val, DENSE_RANK() OVER (PARTITION BY x.department ORDER BY x.salary ASC) AS dense_rank_val\nFROM employees AS x"
         self.assertEqual(sql.strip(), expected_sql.strip())
 
 

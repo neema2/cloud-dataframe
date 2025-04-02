@@ -45,7 +45,7 @@ class TestJoinWithLambda(unittest.TestCase):
         )
         
         sql = joined_df.to_sql(dialect="duckdb")
-        expected_sql = "SELECT *\nFROM employees e INNER JOIN departments d ON e.department_id = d.id"
+        expected_sql = "SELECT *\nFROM employees AS e INNER JOIN departments AS d ON e.department_id = d.id"
         self.assertEqual(sql.strip(), expected_sql)
     
     def test_left_join(self):
@@ -59,7 +59,7 @@ class TestJoinWithLambda(unittest.TestCase):
         )
         
         sql = joined_df.to_sql(dialect="duckdb")
-        expected_sql = "SELECT *\nFROM employees e LEFT JOIN departments d ON e.department_id = d.id"
+        expected_sql = "SELECT *\nFROM employees AS e LEFT JOIN departments AS d ON e.department_id = d.id"
         self.assertEqual(sql.strip(), expected_sql)
     
     def test_right_join(self):
@@ -73,7 +73,7 @@ class TestJoinWithLambda(unittest.TestCase):
         )
         
         sql = joined_df.to_sql(dialect="duckdb")
-        expected_sql = "SELECT *\nFROM employees e RIGHT JOIN departments d ON e.department_id = d.id"
+        expected_sql = "SELECT *\nFROM employees AS e RIGHT JOIN departments AS d ON e.department_id = d.id"
         self.assertEqual(sql.strip(), expected_sql)
     
     def test_full_join(self):
@@ -87,7 +87,7 @@ class TestJoinWithLambda(unittest.TestCase):
         )
         
         sql = joined_df.to_sql(dialect="duckdb")
-        expected_sql = "SELECT *\nFROM employees e FULL JOIN departments d ON e.department_id = d.id"
+        expected_sql = "SELECT *\nFROM employees AS e FULL JOIN departments AS d ON e.department_id = d.id"
         self.assertEqual(sql.strip(), expected_sql)
     
     def test_complex_join_condition(self):
@@ -101,7 +101,7 @@ class TestJoinWithLambda(unittest.TestCase):
         )
         
         sql = joined_df.to_sql(dialect="duckdb")
-        expected_sql = "SELECT *\nFROM employees e INNER JOIN departments d ON e.department_id = d.id AND e.salary > 50000"
+        expected_sql = "SELECT *\nFROM employees AS e INNER JOIN departments AS d ON e.department_id = d.id AND e.salary > 50000"
         self.assertEqual(sql.strip(), expected_sql)
     
     def test_join_with_multiple_conditions(self):
@@ -115,7 +115,7 @@ class TestJoinWithLambda(unittest.TestCase):
         )
         
         sql = joined_df.to_sql(dialect="duckdb")
-        expected_sql = "SELECT *\nFROM employees e INNER JOIN departments d ON e.department_id = d.id AND e.salary > 50000 AND d.location = 'New York'"
+        expected_sql = "SELECT *\nFROM employees AS e INNER JOIN departments AS d ON e.department_id = d.id AND e.salary > 50000 AND d.location = 'New York'"
         self.assertEqual(sql.strip(), expected_sql)
 
 

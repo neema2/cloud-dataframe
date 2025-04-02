@@ -67,7 +67,7 @@ class TestQualifyDuckDB(unittest.TestCase):
         )
         
         sql = query.to_sql(dialect="duckdb")
-        expected_sql = "SELECT x.id, x.name, x.department, x.salary, ROW_NUMBER() OVER (PARTITION BY x.department ORDER BY x.salary ASC) AS row_num\nFROM employees x\nQUALIFY row_num <= 2\nORDER BY x.department ASC, x.salary ASC"
+        expected_sql = "SELECT x.id, x.name, x.department, x.salary, ROW_NUMBER() OVER (PARTITION BY x.department ORDER BY x.salary ASC) AS row_num\nFROM employees AS x\nQUALIFY row_num <= 2\nORDER BY x.department ASC, x.salary ASC"
         self.assertEqual(sql.strip(), expected_sql.strip())
         
         result = self.conn.execute(sql).fetchdf()
@@ -94,7 +94,7 @@ class TestQualifyDuckDB(unittest.TestCase):
         )
         
         sql = query.to_sql(dialect="duckdb")
-        expected_sql = "SELECT x.id, x.name, x.department, x.salary, RANK() OVER (PARTITION BY x.department ORDER BY x.salary ASC) AS rank_val\nFROM employees x\nQUALIFY rank_val = 1\nORDER BY x.department ASC, x.salary ASC"
+        expected_sql = "SELECT x.id, x.name, x.department, x.salary, RANK() OVER (PARTITION BY x.department ORDER BY x.salary ASC) AS rank_val\nFROM employees AS x\nQUALIFY rank_val = 1\nORDER BY x.department ASC, x.salary ASC"
         self.assertEqual(sql.strip(), expected_sql.strip())
         
         result = self.conn.execute(sql).fetchdf()
@@ -124,7 +124,7 @@ class TestQualifyDuckDB(unittest.TestCase):
         )
         
         sql = query.to_sql(dialect="duckdb")
-        expected_sql = "SELECT x.id, x.name, x.department, x.location, x.salary, DENSE_RANK() OVER (PARTITION BY x.department ORDER BY x.salary ASC) AS dense_rank_val\nFROM employees x\nQUALIFY dense_rank_val <= 2\nORDER BY x.department ASC, x.salary ASC"
+        expected_sql = "SELECT x.id, x.name, x.department, x.location, x.salary, DENSE_RANK() OVER (PARTITION BY x.department ORDER BY x.salary ASC) AS dense_rank_val\nFROM employees AS x\nQUALIFY dense_rank_val <= 2\nORDER BY x.department ASC, x.salary ASC"
         self.assertEqual(sql.strip(), expected_sql.strip())
         
         result = self.conn.execute(sql).fetchdf()
@@ -152,7 +152,7 @@ class TestQualifyDuckDB(unittest.TestCase):
         )
         
         sql = query.to_sql(dialect="duckdb")
-        expected_sql = "SELECT x.id, x.name, x.department, x.salary, ROW_NUMBER() OVER (PARTITION BY x.department ORDER BY x.salary DESC) AS row_num\nFROM employees x\nQUALIFY row_num <= 2\nORDER BY x.department ASC, x.salary DESC"
+        expected_sql = "SELECT x.id, x.name, x.department, x.salary, ROW_NUMBER() OVER (PARTITION BY x.department ORDER BY x.salary DESC) AS row_num\nFROM employees AS x\nQUALIFY row_num <= 2\nORDER BY x.department ASC, x.salary DESC"
         self.assertEqual(sql.strip(), expected_sql.strip())
         
         result = self.conn.execute(sql).fetchdf()
@@ -184,7 +184,7 @@ class TestQualifyDuckDB(unittest.TestCase):
         )
         
         sql = query.to_sql(dialect="duckdb")
-        expected_sql = "SELECT x.id, x.name, x.department, x.location, x.salary, RANK() OVER (PARTITION BY x.department ORDER BY x.salary ASC) AS dept_rank, RANK() OVER (PARTITION BY x.location ORDER BY x.salary ASC) AS loc_rank\nFROM employees x\nQUALIFY dept_rank <= 2 AND loc_rank <= 2\nORDER BY x.department ASC, x.location ASC, x.salary ASC"
+        expected_sql = "SELECT x.id, x.name, x.department, x.location, x.salary, RANK() OVER (PARTITION BY x.department ORDER BY x.salary ASC) AS dept_rank, RANK() OVER (PARTITION BY x.location ORDER BY x.salary ASC) AS loc_rank\nFROM employees AS x\nQUALIFY dept_rank <= 2 AND loc_rank <= 2\nORDER BY x.department ASC, x.location ASC, x.salary ASC"
         self.assertEqual(sql.strip(), expected_sql.strip())
         
         result = self.conn.execute(sql).fetchdf()

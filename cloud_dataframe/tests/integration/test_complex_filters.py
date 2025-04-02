@@ -36,7 +36,7 @@ class TestComplexFilterConditions(unittest.TestCase):
         )
         
         sql = df.to_sql(dialect="duckdb")
-        expected_sql = "SELECT *\nFROM employees e\nWHERE e.salary > 50000"
+        expected_sql = "SELECT *\nFROM employees AS e\nWHERE e.salary > 50000"
         self.assertEqual(sql.strip(), expected_sql)
     
     def test_boolean_and_condition(self):
@@ -46,7 +46,7 @@ class TestComplexFilterConditions(unittest.TestCase):
         )
         
         sql = df.to_sql(dialect="duckdb")
-        expected_sql = "SELECT *\nFROM employees e\nWHERE e.salary > 50000 AND e.department = 'Engineering'"
+        expected_sql = "SELECT *\nFROM employees AS e\nWHERE e.salary > 50000 AND e.department = 'Engineering'"
         self.assertEqual(sql.strip(), expected_sql)
     
     def test_boolean_or_condition(self):
@@ -56,7 +56,7 @@ class TestComplexFilterConditions(unittest.TestCase):
         )
         
         sql = df.to_sql(dialect="duckdb")
-        expected_sql = "SELECT *\nFROM employees e\nWHERE (e.department = 'Engineering' OR e.department = 'Sales')"
+        expected_sql = "SELECT *\nFROM employees AS e\nWHERE (e.department = 'Engineering' OR e.department = 'Sales')"
         self.assertEqual(sql.strip(), expected_sql)
     
     def test_complex_boolean_condition(self):
@@ -66,7 +66,7 @@ class TestComplexFilterConditions(unittest.TestCase):
         )
         
         sql = df.to_sql(dialect="duckdb")
-        expected_sql = "SELECT *\nFROM employees e\nWHERE (e.department = 'Engineering' OR e.department = 'Sales') AND e.salary > 60000"
+        expected_sql = "SELECT *\nFROM employees AS e\nWHERE (e.department = 'Engineering' OR e.department = 'Sales') AND e.salary > 60000"
         self.assertEqual(sql.strip(), expected_sql)
     
     def test_multiple_and_conditions(self):
@@ -76,7 +76,7 @@ class TestComplexFilterConditions(unittest.TestCase):
         )
         
         sql = df.to_sql(dialect="duckdb")
-        expected_sql = "SELECT *\nFROM employees e\nWHERE e.salary > 50000 AND e.age > 30 AND e.is_manager = TRUE"
+        expected_sql = "SELECT *\nFROM employees AS e\nWHERE e.salary > 50000 AND e.age > 30 AND e.is_manager = TRUE"
         self.assertEqual(sql.strip(), expected_sql)
     
     def test_multiple_or_conditions(self):
@@ -86,7 +86,7 @@ class TestComplexFilterConditions(unittest.TestCase):
         )
         
         sql = df.to_sql(dialect="duckdb")
-        expected_sql = "SELECT *\nFROM employees e\nWHERE e.department = 'Engineering' OR e.department = 'Sales' OR e.department = 'Marketing'"
+        expected_sql = "SELECT *\nFROM employees AS e\nWHERE e.department = 'Engineering' OR e.department = 'Sales' OR e.department = 'Marketing'"
         self.assertEqual(sql.strip(), expected_sql)
     
     def test_not_equal_condition(self):
@@ -96,7 +96,7 @@ class TestComplexFilterConditions(unittest.TestCase):
         )
         
         sql = df.to_sql(dialect="duckdb")
-        expected_sql = "SELECT *\nFROM employees e\nWHERE e.department != 'HR'"
+        expected_sql = "SELECT *\nFROM employees AS e\nWHERE e.department != 'HR'"
         self.assertEqual(sql.strip(), expected_sql)
     
     def test_less_than_equal_condition(self):
@@ -106,7 +106,7 @@ class TestComplexFilterConditions(unittest.TestCase):
         )
         
         sql = df.to_sql(dialect="duckdb")
-        expected_sql = "SELECT *\nFROM employees e\nWHERE e.age <= 40"
+        expected_sql = "SELECT *\nFROM employees AS e\nWHERE e.age <= 40"
         self.assertEqual(sql.strip(), expected_sql)
     
     def test_greater_than_equal_condition(self):
@@ -116,7 +116,7 @@ class TestComplexFilterConditions(unittest.TestCase):
         )
         
         sql = df.to_sql(dialect="duckdb")
-        expected_sql = "SELECT *\nFROM employees e\nWHERE e.salary >= 75000"
+        expected_sql = "SELECT *\nFROM employees AS e\nWHERE e.salary >= 75000"
         self.assertEqual(sql.strip(), expected_sql)
     
     def test_boolean_equality(self):
@@ -126,7 +126,7 @@ class TestComplexFilterConditions(unittest.TestCase):
         )
         
         sql = df.to_sql(dialect="duckdb")
-        expected_sql = "SELECT *\nFROM employees e\nWHERE e.is_manager = TRUE"
+        expected_sql = "SELECT *\nFROM employees AS e\nWHERE e.is_manager = TRUE"
         self.assertEqual(sql.strip(), expected_sql)
     
     def test_complex_nested_condition(self):
@@ -136,7 +136,7 @@ class TestComplexFilterConditions(unittest.TestCase):
         )
         
         sql = df.to_sql(dialect="duckdb")
-        expected_sql = "SELECT *\nFROM employees x\nWHERE x.department = 'Engineering' AND x.salary > 80000 OR x.department = 'Sales' AND x.salary > 60000 OR x.is_manager = TRUE AND x.age > 40"
+        expected_sql = "SELECT *\nFROM employees AS x\nWHERE x.department = 'Engineering' AND x.salary > 80000 OR x.department = 'Sales' AND x.salary > 60000 OR x.is_manager = TRUE AND x.age > 40"
         self.assertEqual(sql.strip(), expected_sql)
     
     def test_chained_filters(self):
@@ -146,7 +146,7 @@ class TestComplexFilterConditions(unittest.TestCase):
         )
         
         sql = df.to_sql(dialect="duckdb")
-        expected_sql = "SELECT *\nFROM employees e\nWHERE e.salary > 50000 AND e.department = 'Engineering' AND e.age > 30"
+        expected_sql = "SELECT *\nFROM employees AS e\nWHERE e.salary > 50000 AND e.department = 'Engineering' AND e.age > 30"
         self.assertEqual(sql.strip(), expected_sql)
 
 

@@ -79,7 +79,7 @@ class TestHavingFunctionDuckDB(unittest.TestCase):
         )
         
         sql = df_with_having.to_sql(dialect="duckdb")
-        expected_sql = "SELECT x.department, AVG(x.salary) AS avg_salary\nFROM employees x\nGROUP BY x.department\nHAVING x.department != 'HR'"
+        expected_sql = "SELECT x.department, AVG(x.salary) AS avg_salary\nFROM employees AS x\nGROUP BY x.department\nHAVING x.department != 'HR'"
         self.assertEqual(sql.strip(), expected_sql.strip())
         
         result = self.conn.execute(sql).fetchall()
@@ -100,7 +100,7 @@ class TestHavingFunctionDuckDB(unittest.TestCase):
         )
         
         sql = df_with_having.to_sql(dialect="duckdb")
-        expected_sql = "SELECT x.department, AVG(x.salary) AS avg_salary\nFROM employees x\nGROUP BY x.department\nHAVING AVG(x.salary) > 100000"
+        expected_sql = "SELECT x.department, AVG(x.salary) AS avg_salary\nFROM employees AS x\nGROUP BY x.department\nHAVING AVG(x.salary) > 100000"
         self.assertEqual(sql.strip(), expected_sql.strip())
         
         result = self.conn.execute(sql).fetchall()
@@ -120,7 +120,7 @@ class TestHavingFunctionDuckDB(unittest.TestCase):
         )
         
         sql = df_with_having.to_sql(dialect="duckdb")
-        expected_sql = "SELECT x.department, AVG(x.salary) AS avg_salary\nFROM employees x\nGROUP BY x.department\nHAVING avg_salary > 100000"
+        expected_sql = "SELECT x.department, AVG(x.salary) AS avg_salary\nFROM employees AS x\nGROUP BY x.department\nHAVING avg_salary > 100000"
         self.assertEqual(sql.strip(), expected_sql.strip())
         
         result = self.conn.execute(sql).fetchall()
@@ -141,7 +141,7 @@ class TestHavingFunctionDuckDB(unittest.TestCase):
         )
         
         sql = df_with_having.to_sql(dialect="duckdb")
-        expected_sql = "SELECT x.department, AVG(x.salary) AS avg_salary, COUNT(x.id) AS emp_count\nFROM employees x\nGROUP BY x.department\nHAVING avg_salary > 85000 AND emp_count > 1"
+        expected_sql = "SELECT x.department, AVG(x.salary) AS avg_salary, COUNT(x.id) AS emp_count\nFROM employees AS x\nGROUP BY x.department\nHAVING avg_salary > 85000 AND emp_count > 1"
         self.assertEqual(sql.strip(), expected_sql.strip())
         
         result = self.conn.execute(sql).fetchall()
@@ -166,7 +166,7 @@ class TestHavingFunctionDuckDB(unittest.TestCase):
         )
         
         sql = df_with_having.to_sql(dialect="duckdb")
-        expected_sql = "SELECT x.department, x.location, AVG(x.salary) AS avg_salary, COUNT(x.id) AS emp_count\nFROM employees x\nGROUP BY x.department, x.location\nHAVING avg_salary > 90000 AND x.location = 'New York'"
+        expected_sql = "SELECT x.department, x.location, AVG(x.salary) AS avg_salary, COUNT(x.id) AS emp_count\nFROM employees AS x\nGROUP BY x.department, x.location\nHAVING avg_salary > 90000 AND x.location = 'New York'"
         self.assertEqual(sql.strip(), expected_sql.strip())
         
         result = self.conn.execute(sql).fetchall()
@@ -193,7 +193,7 @@ class TestHavingFunctionDuckDB(unittest.TestCase):
         )
         
         sql = df_with_having.to_sql(dialect="duckdb")
-        expected_sql = "SELECT x.department, MIN(x.salary) AS min_salary, MAX(x.salary) AS max_salary, (MAX(x.salary) - MIN(x.salary)) AS salary_range\nFROM employees x\nGROUP BY x.department\nHAVING min_salary > 80000 AND salary_range < 30000"
+        expected_sql = "SELECT x.department, MIN(x.salary) AS min_salary, MAX(x.salary) AS max_salary, (MAX(x.salary) - MIN(x.salary)) AS salary_range\nFROM employees AS x\nGROUP BY x.department\nHAVING min_salary > 80000 AND salary_range < 30000"
         self.assertEqual(sql.strip(), expected_sql.strip())
         
         result = self.conn.execute(sql).fetchall()
@@ -219,7 +219,7 @@ class TestHavingFunctionDuckDB(unittest.TestCase):
         )
         
         sql = df_with_having.to_sql(dialect="duckdb")
-        expected_sql = "SELECT x.department, AVG(x.salary) AS avg_salary, COUNT(x.id) AS emp_count\nFROM employees x\nGROUP BY x.department\nHAVING avg_salary > 90000 AND AVG(x.salary) > 100000"
+        expected_sql = "SELECT x.department, AVG(x.salary) AS avg_salary, COUNT(x.id) AS emp_count\nFROM employees AS x\nGROUP BY x.department\nHAVING avg_salary > 90000 AND AVG(x.salary) > 100000"
         self.assertEqual(sql.strip(), expected_sql.strip())
         
         result = self.conn.execute(sql).fetchall()

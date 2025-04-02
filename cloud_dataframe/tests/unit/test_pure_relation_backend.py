@@ -39,7 +39,7 @@ class TestPureRelationBackend(unittest.TestCase):
         
         code = joined_df.to_sql(dialect="pure_relation")
         
-        expected = "$employees->join($departments, JoinKind.INNER, {x, y | $e.department_id == $d.id}"
+        expected = "$employees->join($departments, JoinKind.INNER, {x, y | $e.department_id == $d.id})"
         self.assertEqual(expected, code.strip())
     
     def test_group_by_with_aggregation(self):
@@ -112,7 +112,7 @@ class TestPureRelationBackend(unittest.TestCase):
         code = limited_df.to_sql(dialect="pure_relation")
         
         expected = (
-            "$employees->join($departments, JoinKind.INNER, {x, y | $e.department_id == $d.id}"
+            "$employees->join($departments, JoinKind.INNER, {x, y | $e.department_id == $d.id})"
             "->filter(x | $e.salary > 50000)"
             "->select(~[name, x | $x.salary->average() AS \"avg_salary\", x | $x.id->count() AS \"employee_count\"])"
             "->limit(5)"
@@ -156,7 +156,7 @@ class TestPureRelationBackend(unittest.TestCase):
         
         code = selected_df.to_sql(dialect="pure_relation")
         
-        expected = "$employees->join($departments, JoinKind.INNER, {x, y | $e.department_id == $d.id}->select(~[id, name, name, salary])"
+        expected = "$employees->join($departments, JoinKind.INNER, {x, y | $e.department_id == $d.id})->select(~[id, name, name, salary])"
         
         self.assertEqual(expected, code.strip())
 

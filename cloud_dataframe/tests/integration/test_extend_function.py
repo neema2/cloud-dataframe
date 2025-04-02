@@ -93,7 +93,7 @@ class TestExtendFunctionDuckDB(unittest.TestCase):
         
         sql = extended_df.to_sql(dialect="duckdb")
         
-        expected_sql = "SELECT e.id, e.name, e.salary, (e.salary * 0.1) AS bonus\nFROM employees e"
+        expected_sql = "SELECT e.id, e.name, e.salary, (e.salary * 0.1) AS bonus\nFROM employees AS e"
         self.assertEqual(sql.strip(), expected_sql.strip())
         
         result = self.conn.execute(sql).fetchall()
@@ -124,7 +124,7 @@ class TestExtendFunctionDuckDB(unittest.TestCase):
         )
         
         sql = extended_df.to_sql(dialect="duckdb")
-        expected_sql = "SELECT e.id, e.name, e.salary, d.budget, ((e.salary / d.budget) * 100) AS salary_percent\nFROM employees e INNER JOIN departments d ON e.department = d.name"
+        expected_sql = "SELECT e.id, e.name, e.salary, d.budget, ((e.salary / d.budget) * 100) AS salary_percent\nFROM employees AS e INNER JOIN departments AS d ON e.department = d.name"
         self.assertEqual(sql.strip(), expected_sql.strip())
         
         result = self.conn.execute(sql).fetchall()
@@ -153,7 +153,7 @@ class TestExtendFunctionDuckDB(unittest.TestCase):
         )
         
         sql = extended_df.to_sql(dialect="duckdb")
-        expected_sql = "SELECT e.department, AVG(e.salary) AS avg_salary, COUNT(e.id) AS emp_count\nFROM employees e\nGROUP BY e.department"
+        expected_sql = "SELECT e.department, AVG(e.salary) AS avg_salary, COUNT(e.id) AS emp_count\nFROM employees AS e\nGROUP BY e.department"
         self.assertEqual(sql.strip(), expected_sql.strip())
         
         result = self.conn.execute(sql).fetchall()
@@ -177,7 +177,7 @@ class TestExtendFunctionDuckDB(unittest.TestCase):
         
         sql = df.to_sql(dialect="duckdb")
         
-        expected_sql = "SELECT e.id, e.name, e.department AS department, e.salary AS salary, e.salary > 100000 AS high_salary\nFROM employees e"
+        expected_sql = "SELECT e.id, e.name, e.department AS department, e.salary AS salary, e.salary > 100000 AS high_salary\nFROM employees AS e"
         self.assertEqual(sql.strip(), expected_sql.strip())
         
         sql_lower = sql.lower()
@@ -185,7 +185,7 @@ class TestExtendFunctionDuckDB(unittest.TestCase):
         self.assertIn("e.salary as salary", sql_lower)
         self.assertIn("e.salary > 100000 as high_salary", sql_lower)
         self.assertIn("e.id", sql_lower)
-        self.assertIn("from employees e", sql_lower)
+        self.assertIn("from employees as e", sql_lower)
         
         result = self.conn.execute(sql).fetchall()
         
@@ -214,7 +214,7 @@ class TestExtendFunctionDuckDB(unittest.TestCase):
         ])
         
         sql = extended_df.to_sql(dialect="duckdb")
-        expected_sql = "SELECT e.id, e.name AS name, e.department AS department, e.location AS location\nFROM employees e"
+        expected_sql = "SELECT e.id, e.name AS name, e.department AS department, e.location AS location\nFROM employees AS e"
         self.assertEqual(sql.strip(), expected_sql.strip())
         
         result = self.conn.execute(sql).fetchall()

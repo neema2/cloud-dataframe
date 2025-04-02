@@ -88,7 +88,7 @@ class TestSqlGenerationDuckDB(unittest.TestCase):
         sql = df.to_sql(dialect="duckdb")
         
         # Verify SQL
-        expected_sql = "SELECT *\nFROM employees x"
+        expected_sql = "SELECT *\nFROM employees AS x"
         self.assertEqual(sql.strip(), expected_sql)
         
         # Execute query and verify results
@@ -116,7 +116,7 @@ class TestSqlGenerationDuckDB(unittest.TestCase):
         
         # Verify SQL
         self.assertIn("SELECT x.id, x.name, x.salary", sql)
-        self.assertIn("FROM employees x", sql)
+        self.assertIn("FROM employees AS x", sql)
         
         # Execute query and verify results
         result = self.conn.execute(sql).fetchall()
@@ -140,7 +140,7 @@ class TestSqlGenerationDuckDB(unittest.TestCase):
         sql = df.to_sql(dialect="duckdb")
         
         # Verify SQL
-        expected_sql = "SELECT *\nFROM employees x\nWHERE x.salary > 75000"
+        expected_sql = "SELECT *\nFROM employees AS x\nWHERE x.salary > 75000"
         self.assertEqual(sql.strip(), expected_sql)
         
         # Execute query and verify results
@@ -170,7 +170,7 @@ class TestSqlGenerationDuckDB(unittest.TestCase):
         
         # Verify SQL
         self.assertIn("SELECT x.id, x.name, x.department", sql)
-        self.assertIn("FROM employees x", sql)
+        self.assertIn("FROM employees AS x", sql)
         self.assertIn("WHERE x.salary > 75000", sql)
         
         # Execute query and verify results
@@ -201,7 +201,7 @@ class TestSqlGenerationDuckDB(unittest.TestCase):
         
         # Verify SQL - adjust expected SQL to match what the library actually generates
         self.assertIn("SELECT x.department", sql)
-        self.assertIn("FROM employees x", sql)
+        self.assertIn("FROM employees AS x", sql)
         self.assertIn("GROUP BY x.department", sql)
         
     def test_select_with_where_group_by_having(self):
@@ -240,7 +240,7 @@ class TestSqlGenerationDuckDB(unittest.TestCase):
         result = self.conn.execute(sql).fetchall()
         
         self.assertIn("SELECT", sql)
-        self.assertIn("FROM employees", sql)
+        self.assertIn("FROM employees AS", sql)
         self.assertIn("WHERE", sql)
         self.assertIn("GROUP BY", sql)
         self.assertIn("HAVING", sql)
@@ -265,7 +265,7 @@ class TestSqlGenerationDuckDB(unittest.TestCase):
         # since the DSL might not directly support the syntax we need
         sql = """SELECT x.id, x.name, x.department, x.salary,
   ROW_NUMBER() OVER (PARTITION BY x.department ORDER BY x.salary DESC) AS rank_in_dept
-FROM employees x
+FROM employees AS x
 WHERE x.salary > 0"""
         
         # Verify SQL contains window function

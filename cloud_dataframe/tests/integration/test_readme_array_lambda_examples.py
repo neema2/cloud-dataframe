@@ -98,7 +98,7 @@ class TestReadmeArrayLambdaExamples(unittest.TestCase):
         )
         
         sql = selected_df.to_sql(dialect="duckdb")
-        expected_sql = "SELECT x.id, x.name, (x.salary * 12) AS annual_salary\nFROM employees x"
+        expected_sql = "SELECT x.id, x.name, (x.salary * 12) AS annual_salary\nFROM employees AS x"
         self.assertEqual(sql.strip(), expected_sql.strip())
         
         result = self.conn.execute(sql).fetchall()
@@ -189,7 +189,7 @@ class TestReadmeArrayLambdaExamples(unittest.TestCase):
         )
         
         sql = summary_df.to_sql(dialect="duckdb")
-        expected_sql = "SELECT SUM(x.salary) AS total_salary, AVG(x.salary) AS avg_salary, COUNT(x.id) AS employee_count\nFROM employees x"
+        expected_sql = "SELECT SUM(x.salary) AS total_salary, AVG(x.salary) AS avg_salary, COUNT(x.id) AS employee_count\nFROM employees AS x"
         self.assertEqual(sql.strip(), expected_sql.strip())
         
         result = self.conn.execute(sql).fetchall()

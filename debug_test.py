@@ -35,7 +35,7 @@ def debug_test_scalar_function_date_diff():
     )
     
     actual_sql = test_df.to_sql(dialect="duckdb")
-    expected_sql = "SELECT x.name, x.department, DATEDIFF('day', CAST(x.start_date_col AS DATE), CAST(x.end_date_col AS DATE)) AS days_employed\nFROM employees x"
+    expected_sql = "SELECT x.name, x.department, DATEDIFF('day', CAST(x.start_date_col AS DATE), CAST(x.end_date_col AS DATE)) AS days_employed\nFROM employees AS x"
     
     print("ACTUAL SQL:")
     print(actual_sql)
