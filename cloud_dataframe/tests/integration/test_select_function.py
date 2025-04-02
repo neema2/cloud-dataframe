@@ -63,7 +63,7 @@ class TestSelectFunctionDuckDB(unittest.TestCase):
         df = self.df_employees.select(lambda e: e.id)
         
         sql = df.to_sql(dialect="duckdb")
-        expected_sql = "SELECT e.id\nFROM employees e"
+        expected_sql = "SELECT e.id\nFROM employees AS e"
         self.assertEqual(sql.strip(), expected_sql.strip())
         
         result = self.conn.execute(sql).fetchall()
@@ -81,7 +81,7 @@ class TestSelectFunctionDuckDB(unittest.TestCase):
         
         sql = df.to_sql(dialect="duckdb")
         
-        expected_sql = "SELECT e.id, e.name, e.salary\nFROM employees e"
+        expected_sql = "SELECT e.id, e.name, e.salary\nFROM employees AS e"
         self.assertEqual(sql.strip(), expected_sql.strip())
         
         result = self.conn.execute(sql).fetchall()
@@ -99,7 +99,7 @@ class TestSelectFunctionDuckDB(unittest.TestCase):
         
         sql = df.to_sql(dialect="duckdb")
         
-        expected_sql = "SELECT e.id AS employee_id, e.name AS employee_name, e.salary AS employee_salary\nFROM employees e"
+        expected_sql = "SELECT e.id AS employee_id, e.name AS employee_name, e.salary AS employee_salary\nFROM employees AS e"
         self.assertEqual(sql.strip(), expected_sql.strip())
         
         result = self.conn.execute(sql).fetchall()
@@ -117,7 +117,7 @@ class TestSelectFunctionDuckDB(unittest.TestCase):
         
         sql = df.to_sql(dialect="duckdb")
         
-        expected_sql = "SELECT e.id, e.name, (e.salary * 0.1) AS bonus\nFROM employees e"
+        expected_sql = "SELECT e.id, e.name, (e.salary * 0.1) AS bonus\nFROM employees AS e"
         self.assertEqual(sql.strip(), expected_sql.strip())
         
         result = self.conn.execute(sql).fetchall()
@@ -136,7 +136,7 @@ class TestSelectFunctionDuckDB(unittest.TestCase):
         
         sql = df.to_sql(dialect="duckdb")
         
-        expected_sql = "SELECT e.id, e.name, e.salary > 100000 AS high_salary\nFROM employees e"
+        expected_sql = "SELECT e.id, e.name, e.salary > 100000 AS high_salary\nFROM employees AS e"
         self.assertEqual(sql.strip(), expected_sql.strip())
         
         result = self.conn.execute(sql).fetchall()
@@ -155,7 +155,7 @@ class TestSelectFunctionDuckDB(unittest.TestCase):
         
         sql = df.to_sql(dialect="duckdb")
         
-        expected_sql = "SELECT e.id, e.name, e.salary > 100000 AS high_salary\nFROM employees e"
+        expected_sql = "SELECT e.id, e.name, e.salary > 100000 AS high_salary\nFROM employees AS e"
         self.assertEqual(sql.strip(), expected_sql.strip())
         
         result = self.conn.execute(sql).fetchall()
@@ -175,7 +175,7 @@ class TestSelectFunctionDuckDB(unittest.TestCase):
         
         sql = df.to_sql(dialect="duckdb")
         
-        expected_sql = "SELECT e.department, AVG(e.salary) AS avg_salary, COUNT(e.id) AS emp_count\nFROM employees e\nGROUP BY e.department"
+        expected_sql = "SELECT e.department, AVG(e.salary) AS avg_salary, COUNT(e.id) AS emp_count\nFROM employees AS e\nGROUP BY e.department"
         self.assertEqual(sql.strip(), expected_sql.strip())
         
         result = self.conn.execute(sql).fetchall()
