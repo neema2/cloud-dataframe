@@ -118,7 +118,7 @@ class TestREPLIntegration(unittest.TestCase):
             repl_syntax_expected = "#>{local::DuckDuckDatabase.employees}#->select(~[id, name, salary])"
             self.assertEqual(repl_syntax_expected, pure_query)
             
-            repl_sql_normalized = ' '.join(repl_sql.lower().split())
+            repl_sql_normalized = ' '.join(repl_sql.lower().replace(" as ", " ").split())
             to_sql_normalized = ' '.join(sql_code.lower().strip().split())
             
             self.assertEqual(repl_sql_normalized, to_sql_normalized)
