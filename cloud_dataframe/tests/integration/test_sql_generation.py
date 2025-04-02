@@ -44,7 +44,7 @@ class TestDuckDBSQLGeneration(unittest.TestCase):
         sql = df.to_sql(dialect="duckdb")
         
         print(f"Generated SQL: {sql}")
-        expected_sql = "SELECT *\nFROM employees x"
+        expected_sql = "SELECT *\nFROM employees AS x"
         self.assertEqual(sql.strip(), expected_sql)
     
     def test_select_columns(self):
@@ -65,7 +65,7 @@ class TestDuckDBSQLGeneration(unittest.TestCase):
         )
         
         sql = df.to_sql(dialect="duckdb")
-        expected_sql = "SELECT *\nFROM employees x\nWHERE x.salary > 50000"
+        expected_sql = "SELECT *\nFROM employees AS x\nWHERE x.salary > 50000"
         self.assertEqual(sql.strip(), expected_sql)
     
     def test_group_by(self):
@@ -80,7 +80,7 @@ class TestDuckDBSQLGeneration(unittest.TestCase):
         self.assertIn("SELECT x.department", sql)
         self.assertIn("COUNT", sql)
         self.assertIn("AVG", sql)
-        self.assertIn("FROM employees x", sql)
+        self.assertIn("FROM employees AS x", sql)
         self.assertIn("GROUP BY x.department", sql)
     
     def test_order_by(self):
@@ -89,7 +89,7 @@ class TestDuckDBSQLGeneration(unittest.TestCase):
         df = DataFrame.from_("employees", alias="x").order_by(lambda x: (x.salary, Sort.DESC))
         
         sql = df.to_sql(dialect="duckdb")
-        expected_sql = "SELECT *\nFROM employees x\nORDER BY x.salary DESC"
+        expected_sql = "SELECT *\nFROM employees AS x\nORDER BY x.salary DESC"
         self.assertEqual(sql.strip(), expected_sql)
     
     def test_limit_offset(self):
@@ -99,7 +99,7 @@ class TestDuckDBSQLGeneration(unittest.TestCase):
             .offset(5)
         
         sql = df.to_sql(dialect="duckdb")
-        expected_sql = "SELECT *\nFROM employees x\nLIMIT 10 OFFSET 5"
+        expected_sql = "SELECT *\nFROM employees AS x\nLIMIT 10 OFFSET 5"
         self.assertEqual(sql.strip(), expected_sql)
     
     def test_distinct(self):
@@ -111,9 +111,9 @@ class TestDuckDBSQLGeneration(unittest.TestCase):
             )
         
         sql = df.to_sql(dialect="duckdb")
-        expected_sql = "SELECT DISTINCT x.department AS department\nFROM employees x"
+        expected_sql = "SELECT DISTINCT x.department AS department\nFROM employees AS x"
         self.assertIn("SELECT DISTINCT", sql)
-        self.assertIn("FROM employees x", sql)
+        self.assertIn("FROM employees AS x", sql)
     
     def test_join(self):
         """Test generating SQL for a JOIN query."""
@@ -126,7 +126,7 @@ class TestDuckDBSQLGeneration(unittest.TestCase):
         )
         
         sql = joined_df.to_sql(dialect="duckdb")
-        expected_sql = "SELECT *\nFROM employees e INNER JOIN departments d ON e.department_id = d.id"
+        expected_sql = "SELECT *\nFROM employees AS e INNER JOIN departments AS d ON e.department_id = d.id"
         self.assertEqual(sql.strip(), expected_sql)
     
     def test_left_join(self):
@@ -140,7 +140,7 @@ class TestDuckDBSQLGeneration(unittest.TestCase):
         )
         
         sql = joined_df.to_sql(dialect="duckdb")
-        expected_sql = "SELECT *\nFROM employees e LEFT JOIN departments d ON e.department_id = d.id"
+        expected_sql = "SELECT *\nFROM employees AS e LEFT JOIN departments AS d ON e.department_id = d.id"
         self.assertEqual(sql.strip(), expected_sql)
     
     def test_with_cte(self):
@@ -155,7 +155,7 @@ class TestDuckDBSQLGeneration(unittest.TestCase):
         sql = df.to_sql(dialect="duckdb")
         # Update the expected SQL to match the actual implementation
         # The actual implementation doesn't include the WITH clause
-        expected_sql = "SELECT *\nFROM departments d INNER JOIN dept_counts dc ON d.id = dc.department_id"
+        expected_sql = "SELECT *\nFROM departments AS d INNER JOIN dept_counts AS dc ON d.id = dc.department_id"
         self.assertEqual(sql.strip(), expected_sql)
     
     def test_type_safe_operations(self):
@@ -178,7 +178,7 @@ class TestDuckDBSQLGeneration(unittest.TestCase):
         )
         
         sql = filtered_df.to_sql(dialect="duckdb")
-        expected_sql = "SELECT *\nFROM employees e\nWHERE e.salary > 50000"
+        expected_sql = "SELECT *\nFROM employees AS e\nWHERE e.salary > 50000"
         self.assertEqual(sql.strip(), expected_sql)
 
 

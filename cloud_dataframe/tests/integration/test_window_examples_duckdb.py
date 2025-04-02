@@ -71,7 +71,7 @@ class TestWindowExamplesDuckDB(unittest.TestCase):
         
         # Generate SQL
         sql = query.to_sql(dialect="duckdb")
-        expected_sql = "SELECT x.product_id, x.date, x.sales, SUM(x.sales) OVER (PARTITION BY x.product_id ORDER BY x.date ASC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS running_total\nFROM sales x\nORDER BY x.product_id ASC, x.date ASC"
+        expected_sql = "SELECT x.product_id, x.date, x.sales, SUM(x.sales) OVER (PARTITION BY x.product_id ORDER BY x.date ASC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS running_total\nFROM sales AS x\nORDER BY x.product_id ASC, x.date ASC"
         self.assertEqual(sql.strip(), expected_sql.strip())
         
         # Execute query
@@ -106,7 +106,7 @@ class TestWindowExamplesDuckDB(unittest.TestCase):
         
         # Generate SQL
         sql = query.to_sql(dialect="duckdb")
-        expected_sql = "SELECT x.product_id, x.date, x.sales, AVG(x.sales) OVER (PARTITION BY x.product_id ORDER BY x.date ASC ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING) AS moving_avg\nFROM sales x\nORDER BY x.product_id ASC, x.date ASC"
+        expected_sql = "SELECT x.product_id, x.date, x.sales, AVG(x.sales) OVER (PARTITION BY x.product_id ORDER BY x.date ASC ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING) AS moving_avg\nFROM sales AS x\nORDER BY x.product_id ASC, x.date ASC"
         self.assertEqual(sql.strip(), expected_sql.strip())
         
         # Execute query
@@ -135,7 +135,7 @@ class TestWindowExamplesDuckDB(unittest.TestCase):
         
         # Generate SQL
         sql = query.to_sql(dialect="duckdb")
-        expected_sql = "SELECT x.product_id, x.region, x.sales, SUM((x.sales + 10)) OVER (PARTITION BY x.region RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS adjusted_total\nFROM sales x\nORDER BY x.region ASC, x.product_id ASC"
+        expected_sql = "SELECT x.product_id, x.region, x.sales, SUM((x.sales + 10)) OVER (PARTITION BY x.region RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS adjusted_total\nFROM sales AS x\nORDER BY x.region ASC, x.product_id ASC"
         self.assertEqual(sql.strip(), expected_sql.strip())
         
         # Execute query
