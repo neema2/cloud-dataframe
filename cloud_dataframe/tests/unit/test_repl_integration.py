@@ -64,48 +64,24 @@ class TestREPLIntegration(unittest.TestCase):
             
             
             print(f"Executing in REPL: {load_cmd}")
-            load_process = subprocess.Popen(
-                ["echo", load_cmd],
-                stdout=subprocess.PIPE
-            )
             
-            repl_process = subprocess.Popen(
-                ["cat"],
-                stdin=load_process.stdout,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True
-            )
+            subprocess.run(["write_to_shell_process", "id=run_repl", f"content={load_cmd}", "press_enter=true"], check=True)
             
-            load_process.stdout.close()
-            load_output, load_error = repl_process.communicate()
-            
-            print(f"REPL load output: {load_output}")
-            if load_error:
-                print(f"REPL load error: {load_error}")
-            
-            print(f"Executing in REPL: {pure_query}")
+            time.sleep(2)
             
             debug_cmd = "debug"
-            query_process = subprocess.Popen(
-                ["echo", f"{debug_cmd}\n{pure_query}"],
-                stdout=subprocess.PIPE
-            )
+            print(f"Enabling debug mode: {debug_cmd}")
+            subprocess.run(["write_to_shell_process", "id=run_repl", f"content={debug_cmd}", "press_enter=true"], check=True)
             
-            repl_query_process = subprocess.Popen(
-                ["cat"],
-                stdin=query_process.stdout,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True
-            )
+            time.sleep(1)
             
-            query_process.stdout.close()
-            query_output, query_error = repl_query_process.communicate()
+            print(f"Executing in REPL: {pure_query}")
+            subprocess.run(["write_to_shell_process", "id=run_repl", f"content={pure_query}", "press_enter=true"], check=True)
             
-            print(f"REPL query output: {query_output}")
-            if query_error:
-                print(f"REPL query error: {query_error}")
+            time.sleep(2)
+            
+            repl_output = subprocess.check_output(["view_shell", "id=run_repl"], text=True)
+            print(f"REPL output: {repl_output}")
             
             repl_sql = "SELECT e.id, e.name, e.salary FROM employees AS e"
             
