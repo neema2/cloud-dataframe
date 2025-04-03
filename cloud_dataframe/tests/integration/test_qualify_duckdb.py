@@ -5,9 +5,8 @@ This module contains tests for using the QUALIFY clause to filter window functio
 results using the cloud-dataframe library with DuckDB.
 """
 import unittest
-import pandas as pd
 import duckdb
-from typing import Optional
+from typing import Optional, Dict, List, Any, Tuple
 
 from cloud_dataframe.core.dataframe import DataFrame, Sort
 from cloud_dataframe.type_system.schema import TableSchema
@@ -24,16 +23,17 @@ class TestQualifyDuckDB(unittest.TestCase):
         """Set up test fixtures."""
         self.conn = duckdb.connect(":memory:")
         
-        employees_data = pd.DataFrame({
-            "id": [1, 2, 3, 4, 5, 6, 7, 8],
-            "name": ["Alice", "Bob", "Charlie", "Dave", "Eve", "Frank", "Grace", "Heidi"],
-            "department": ["Engineering", "Engineering", "Engineering", "Sales", "Sales", "Marketing", "Marketing", "Marketing"],
-            "location": ["NY", "SF", "NY", "SF", "NY", "SF", "NY", "SF"],
-            "salary": [100000, 120000, 110000, 90000, 95000, 105000, 115000, 125000]
-        })
-        
-        self.conn.register("employees_data", employees_data)
-        self.conn.execute("CREATE TABLE employees AS SELECT * FROM employees_data")
+        self.conn.execute("""
+            CREATE TABLE employees AS
+            SELECT 1 AS id, 'Alice' AS name, 'Engineering' AS department, 'NY' AS location, 100000 AS salary UNION ALL
+            SELECT 2, 'Bob', 'Engineering', 'SF', 120000 UNION ALL
+            SELECT 3, 'Charlie', 'Engineering', 'NY', 110000 UNION ALL
+            SELECT 4, 'Dave', 'Sales', 'SF', 90000 UNION ALL
+            SELECT 5, 'Eve', 'Sales', 'NY', 95000 UNION ALL
+            SELECT 6, 'Frank', 'Marketing', 'SF', 105000 UNION ALL
+            SELECT 7, 'Grace', 'Marketing', 'NY', 115000 UNION ALL
+            SELECT 8, 'Heidi', 'Marketing', 'SF', 125000
+        """)
         
         self.schema = TableSchema(
             name="Employees",
@@ -70,14 +70,17 @@ class TestQualifyDuckDB(unittest.TestCase):
         expected_sql = "SELECT x.id, x.name, x.department, x.salary, ROW_NUMBER() OVER (PARTITION BY x.department ORDER BY x.salary ASC) AS row_num\nFROM employees AS x\nQUALIFY row_num <= 2\nORDER BY x.department ASC, x.salary ASC"
         self.assertEqual(sql.strip(), expected_sql.strip())
         
-        result = self.conn.execute(sql).fetchdf()
+        result = self.conn.execute(sql).fetchall()
         
-        self.assertEqual(len(result), 6)  # 2 employees from each of the 3 departments
+        column_names = ["id", "name", "department", "salary", "row_num"]
+        result_dicts = [dict(zip(column_names, row)) for row in result]
+        
+        self.assertEqual(len(result_dicts), 6)  # 2 employees from each of the 3 departments
         
         for dept in ["Engineering", "Sales", "Marketing"]:
-            dept_rows = result[result["department"] == dept]
+            dept_rows = [row for row in result_dicts if row["department"] == dept]
             self.assertEqual(len(dept_rows), 2)  # 2 employees per department
-            self.assertTrue(all(dept_rows["row_num"] <= 2))  # All row_num values are <= 2
+            self.assertTrue(all(row["row_num"] <= 2 for row in dept_rows))  # All row_num values are <= 2
     
     def test_qualify_with_rank(self):
         """Test QUALIFY clause with rank() function."""
@@ -97,16 +100,20 @@ class TestQualifyDuckDB(unittest.TestCase):
         expected_sql = "SELECT x.id, x.name, x.department, x.salary, RANK() OVER (PARTITION BY x.department ORDER BY x.salary ASC) AS rank_val\nFROM employees AS x\nQUALIFY rank_val = 1\nORDER BY x.department ASC, x.salary ASC"
         self.assertEqual(sql.strip(), expected_sql.strip())
         
-        result = self.conn.execute(sql).fetchdf()
+        result = self.conn.execute(sql).fetchall()
         
-        self.assertEqual(len(result), 3)  # 1 employee from each of the 3 departments
+        column_names = ["id", "name", "department", "salary", "rank_val"]
+        result_dicts = [dict(zip(column_names, row)) for row in result]
         
-        departments = result["department"].unique()
+        self.assertEqual(len(result_dicts), 3)  # 1 employee from each of the 3 departments
+        
+        departments = set(row["department"] for row in result_dicts)
         self.assertEqual(len(departments), 3)
+        
         for dept in departments:
-            dept_rows = result[result["department"] == dept]
+            dept_rows = [row for row in result_dicts if row["department"] == dept]
             self.assertEqual(len(dept_rows), 1)
-            self.assertEqual(dept_rows["rank_val"].iloc[0], 1)
+            self.assertEqual(dept_rows[0]["rank_val"], 1)
     
     def test_qualify_with_dense_rank(self):
         """Test QUALIFY clause with dense_rank() function."""
@@ -127,15 +134,18 @@ class TestQualifyDuckDB(unittest.TestCase):
         expected_sql = "SELECT x.id, x.name, x.department, x.location, x.salary, DENSE_RANK() OVER (PARTITION BY x.department ORDER BY x.salary ASC) AS dense_rank_val\nFROM employees AS x\nQUALIFY dense_rank_val <= 2\nORDER BY x.department ASC, x.salary ASC"
         self.assertEqual(sql.strip(), expected_sql.strip())
         
-        result = self.conn.execute(sql).fetchdf()
+        result = self.conn.execute(sql).fetchall()
         
-        departments = result["department"].unique()
+        column_names = ["id", "name", "department", "location", "salary", "dense_rank_val"]
+        result_dicts = [dict(zip(column_names, row)) for row in result]
+        
+        departments = set(row["department"] for row in result_dicts)
         self.assertEqual(len(departments), 3)
         
         for dept in departments:
-            dept_rows = result[result["department"] == dept]
+            dept_rows = [row for row in result_dicts if row["department"] == dept]
             self.assertTrue(len(dept_rows) >= 1)
-            self.assertTrue(all(dept_rows["dense_rank_val"] <= 2))
+            self.assertTrue(all(row["dense_rank_val"] <= 2 for row in dept_rows))
     
     def test_qualify_with_desc_ordering(self):
         """Test QUALIFY clause with descending order in window function."""
@@ -155,17 +165,20 @@ class TestQualifyDuckDB(unittest.TestCase):
         expected_sql = "SELECT x.id, x.name, x.department, x.salary, ROW_NUMBER() OVER (PARTITION BY x.department ORDER BY x.salary DESC) AS row_num\nFROM employees AS x\nQUALIFY row_num <= 2\nORDER BY x.department ASC, x.salary DESC"
         self.assertEqual(sql.strip(), expected_sql.strip())
         
-        result = self.conn.execute(sql).fetchdf()
+        result = self.conn.execute(sql).fetchall()
         
-        self.assertEqual(len(result), 6)  # 2 employees from each of the 3 departments
+        column_names = ["id", "name", "department", "salary", "row_num"]
+        result_dicts = [dict(zip(column_names, row)) for row in result]
+        
+        self.assertEqual(len(result_dicts), 6)  # 2 employees from each of the 3 departments
         
         for dept in ["Engineering", "Sales", "Marketing"]:
-            dept_rows = result[result["department"] == dept]
+            dept_rows = [row for row in result_dicts if row["department"] == dept]
             self.assertEqual(len(dept_rows), 2)
-            self.assertTrue(all(dept_rows["row_num"] <= 2))
+            self.assertTrue(all(row["row_num"] <= 2 for row in dept_rows))
             
             if len(dept_rows) > 1:
-                self.assertTrue(dept_rows["salary"].iloc[0] >= dept_rows["salary"].iloc[1])
+                self.assertTrue(dept_rows[0]["salary"] >= dept_rows[1]["salary"])
     
     def test_qualify_with_complex_condition(self):
         """Test QUALIFY clause with complex condition."""
@@ -187,12 +200,15 @@ class TestQualifyDuckDB(unittest.TestCase):
         expected_sql = "SELECT x.id, x.name, x.department, x.location, x.salary, RANK() OVER (PARTITION BY x.department ORDER BY x.salary ASC) AS dept_rank, RANK() OVER (PARTITION BY x.location ORDER BY x.salary ASC) AS loc_rank\nFROM employees AS x\nQUALIFY dept_rank <= 2 AND loc_rank <= 2\nORDER BY x.department ASC, x.location ASC, x.salary ASC"
         self.assertEqual(sql.strip(), expected_sql.strip())
         
-        result = self.conn.execute(sql).fetchdf()
+        result = self.conn.execute(sql).fetchall()
         
-        self.assertTrue(len(result) > 0)
+        column_names = ["id", "name", "department", "location", "salary", "dept_rank", "loc_rank"]
+        result_dicts = [dict(zip(column_names, row)) for row in result]
         
-        self.assertTrue(all(result["dept_rank"] <= 2))
-        self.assertTrue(all(result["loc_rank"] <= 2))
+        self.assertTrue(len(result_dicts) > 0)
+        
+        self.assertTrue(all(row["dept_rank"] <= 2 for row in result_dicts))
+        self.assertTrue(all(row["loc_rank"] <= 2 for row in result_dicts))
 
 
 if __name__ == "__main__":

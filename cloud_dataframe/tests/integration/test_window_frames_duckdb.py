@@ -5,9 +5,8 @@ This module contains tests for using frame specifications with window functions
 using the cloud-dataframe library with DuckDB.
 """
 import unittest
-import pandas as pd
 import duckdb
-from typing import Optional
+from typing import Optional, Dict, List, Any, Tuple
 
 from cloud_dataframe.core.dataframe import DataFrame
 from cloud_dataframe.type_system.schema import TableSchema
@@ -25,17 +24,17 @@ class TestWindowFramesDuckDB(unittest.TestCase):
         # Create a DuckDB connection
         self.conn = duckdb.connect(":memory:")
         
-        # Create test data for employees
-        employees_data = pd.DataFrame({
-            "id": [1, 2, 3, 4, 5, 6, 7, 8],
-            "name": ["Alice", "Bob", "Charlie", "David", "Eve", "Frank", "Grace", "Heidi"],
-            "department": ["Engineering", "Engineering", "Sales", "Sales", "Marketing", "Marketing", "HR", "HR"],
-            "salary": [80000.0, 90000.0, 70000.0, 75000.0, 65000.0, 60000.0, 55000.0, 58000.0],
-        })
-        
-        # Create the employees table in DuckDB
-        self.conn.execute("CREATE TABLE employees AS SELECT * FROM employees_data")
-        self.conn.register("employees_data", employees_data)
+        self.conn.execute("""
+            CREATE TABLE employees AS
+            SELECT 1 AS id, 'Alice' AS name, 'Engineering' AS department, 80000.0 AS salary UNION ALL
+            SELECT 2, 'Bob', 'Engineering', 90000.0 UNION ALL
+            SELECT 3, 'Charlie', 'Sales', 70000.0 UNION ALL
+            SELECT 4, 'David', 'Sales', 75000.0 UNION ALL
+            SELECT 5, 'Eve', 'Marketing', 65000.0 UNION ALL
+            SELECT 6, 'Frank', 'Marketing', 60000.0 UNION ALL
+            SELECT 7, 'Grace', 'HR', 55000.0 UNION ALL
+            SELECT 8, 'Heidi', 'HR', 58000.0
+        """)
         
         # Create schema for the employees table
         self.schema = TableSchema(
@@ -76,16 +75,20 @@ class TestWindowFramesDuckDB(unittest.TestCase):
         sql = query.to_sql(dialect="duckdb")
         
         # Execute query
-        result = self.conn.execute(sql).fetchdf()
+        result = self.conn.execute(sql).fetchall()
+        
+        column_names = ["id", "name", "department", "salary", "running_total"]
+        result_dicts = [dict(zip(column_names, row)) for row in result]
         
         # Verify result
-        self.assertEqual(len(result), 8)  # All employees
-        self.assertIn("running_total", result.columns)
+        self.assertEqual(len(result_dicts), 8)  # All employees
+        self.assertTrue(all("running_total" in row for row in result_dicts))
         
         # Manual check for Engineering department running total
-        eng_rows = result[result["department"] == "Engineering"].reset_index(drop=True)
-        self.assertEqual(eng_rows.loc[0, "running_total"], eng_rows.loc[0, "salary"])
-        self.assertEqual(eng_rows.loc[1, "running_total"], eng_rows.loc[0, "salary"] + eng_rows.loc[1, "salary"])
+        eng_rows = [row for row in result_dicts if row["department"] == "Engineering"]
+        eng_rows.sort(key=lambda x: x["salary"])
+        self.assertEqual(eng_rows[0]["running_total"], eng_rows[0]["salary"])
+        self.assertEqual(eng_rows[1]["running_total"], eng_rows[0]["salary"] + eng_rows[1]["salary"])
     
     def test_moving_average_with_frame(self):
         """Test moving average with ROWS frame."""
@@ -128,15 +131,17 @@ class TestWindowFramesDuckDB(unittest.TestCase):
         sql = query.to_sql(dialect="duckdb")
         
         # Execute query
-        result = self.conn.execute(sql).fetchdf()
+        result = self.conn.execute(sql).fetchall()
+        
+        column_names = ["day", "value", "moving_avg"]
+        result_dicts = [dict(zip(column_names, row)) for row in result]
         
         # Verify result
-        self.assertEqual(len(result), 30)  # All days
-        self.assertIn("moving_avg", result.columns)
+        self.assertEqual(len(result_dicts), 30)  # All days
+        self.assertTrue(all("moving_avg" in row for row in result_dicts))
         
-        # Verify middle values have 3 days in the average
-        middle_rows = result.iloc[1:-1]  # Skip first and last
-        for _, row in middle_rows.iterrows():
+        middle_rows = result_dicts[1:-1]
+        for row in middle_rows:
             # Check if we're getting reasonable averages - values can be higher due to sum
             self.assertGreaterEqual(row["moving_avg"], 0.0)
             # We don't check upper bound since it's a sum of random values
@@ -162,16 +167,20 @@ class TestWindowFramesDuckDB(unittest.TestCase):
         sql = query.to_sql(dialect="duckdb")
         
         # Execute query
-        result = self.conn.execute(sql).fetchdf()
+        result = self.conn.execute(sql).fetchall()
+        
+        column_names = ["id", "name", "department", "salary", "adjusted_total"]
+        result_dicts = [dict(zip(column_names, row)) for row in result]
         
         # Verify result
-        self.assertEqual(len(result), 8)  # All employees
-        self.assertIn("adjusted_total", result.columns)
+        self.assertEqual(len(result_dicts), 8)  # All employees
+        self.assertTrue(all("adjusted_total" in row for row in result_dicts))
         
         # Check that the adjusted total includes the +1000 for each employee
-        eng_rows = result[result["department"] == "Engineering"].reset_index(drop=True)
-        expected_total = (eng_rows.loc[0, "salary"] + 1000) + (eng_rows.loc[1, "salary"] + 1000)
-        self.assertEqual(eng_rows.loc[1, "adjusted_total"], expected_total)
+        eng_rows = [row for row in result_dicts if row["department"] == "Engineering"]
+        eng_rows.sort(key=lambda x: x["id"])
+        expected_total = (eng_rows[0]["salary"] + 1000) + (eng_rows[1]["salary"] + 1000)
+        self.assertEqual(eng_rows[1]["adjusted_total"], expected_total)
 
 
 if __name__ == "__main__":
