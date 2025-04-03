@@ -260,7 +260,7 @@ def main():
 
         index = pure_code2.find("->")
         code2 = pure_code2[index+2:]
-        repl_pure_code = f"$employees->select(~[id, name, salary])->rename(~id, ~employee_id)->rename(~name, ~employee_name)->rename(~salary, ~employee_salary)"
+        repl_pure_code = "local::DuckDuckDatabase.employees->project([id, name, salary])"
         print(f"Executing in REPL: {repl_pure_code}")
         query_output = send_to_repl(repl_pure_code)
         print("Query output:")
