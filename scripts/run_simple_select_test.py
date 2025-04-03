@@ -261,7 +261,7 @@ def main():
         index = pure_code2.find("->")
         code2 = pure_code2[index+2:]
         table_name = "employees"
-        repl_pure_code = f"#>{{local::DuckDuckDatabase.{table_name}}}#->{code2}"
+        repl_pure_code = f"#>{{local::DuckDuckDatabase.{table_name}}}#->{code2}->from(local::DuckDuckRuntime)"
         print(f"Executing in REPL: {repl_pure_code}")
         query_output = send_to_repl(repl_pure_code)
         print("Query output:")
