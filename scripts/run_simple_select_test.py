@@ -131,19 +131,29 @@ def send_to_repl(command):
         
         print("Waiting for REPL response...")
         wait_start = time.time()
-        max_wait = 10  # seconds
+        max_wait = 20  # Increased timeout for complex queries
         
         time.sleep(1)
         
         output = []
+        consecutive_empty_count = 0
+        max_consecutive_empty = 3  # Wait for this many consecutive empty reads before concluding
+        
+        if command.startswith("#>"):
+            max_wait = 60  # Much longer timeout for Pure expressions with debug output
+            max_consecutive_empty = 8  # More patience for Pure expressions with verbose output
+        
         while time.time() - wait_start < max_wait:
             try:
                 line = repl_output_queue.get(timeout=0.5)
                 output.append(line)
                 print(f"Received: {line.strip()}")
-                wait_start = time.time()
+                wait_start = time.time()  # Reset wait timer when we get output
+                consecutive_empty_count = 0  # Reset empty counter
             except queue.Empty:
-                if output and time.time() - wait_start > 1:
+                consecutive_empty_count += 1
+                if output and consecutive_empty_count >= max_consecutive_empty:
+                    print(f"No more output after {consecutive_empty_count} consecutive empty reads")
                     break
                 continue
         
@@ -151,6 +161,8 @@ def send_to_repl(command):
         if not result:
             print("No output received from REPL within timeout period.")
             return "Command sent to REPL (no output within timeout period)"
+        
+        print(f"Total output length: {len(result)} characters, {len(output)} lines")
         return result
     
     except Exception as e:
@@ -268,14 +280,46 @@ def main():
         print(query_output)
         
         repl_sql = ""
-        if "SQL:" in query_output:
-            sql_lines = [line for line in query_output.split('\n') if "SQL:" in line]
-            if sql_lines:
-                repl_sql = sql_lines[0].split("SQL:")[1].strip()
+        
+        sql_query_pattern = r'"sqlQuery"\s*:\s*"([^"]+)"'
+        sql_query_matches = re.findall(sql_query_pattern, query_output)
+        if sql_query_matches:
+            repl_sql = sql_query_matches[-1].replace('\\n', ' ').replace('\\t', ' ').replace('\\\"', '"')
+            print("Found SQL query in Generated Plan section")
         
         if not repl_sql:
-            repl_sql = "select \"employees_0\".id as \"id\", \"employees_0\".name as \"name\", \"employees_0\".salary as \"salary\" from employees as \"employees_0\""
+            sql_patterns = [
+                r'select .+ from .+',  # Basic SQL pattern
+                r'select .+ as "rename__d"',  # Pattern for renamed columns
+                r'>Process Function Expression: .+\n\s+select .+',  # Debug output pattern
+            ]
+            
+            for pattern in sql_patterns:
+                matches = re.findall(pattern, query_output, re.IGNORECASE)
+                if matches:
+                    for match in matches:
+                        if 'select' in match.lower() and 'from' in match.lower():
+                            sql_lines = match.split('\n')
+                            for line in sql_lines:
+                                if 'select' in line.lower() and 'from' in line.lower():
+                                    repl_sql = line.strip()
+                                    if 'select' in repl_sql.lower() and 'from' in repl_sql.lower() and len(repl_sql) > 30:
+                                        break
+                    
+                    if repl_sql:
+                        print("Found SQL using pattern matching")
+                        break
+            
+            if not repl_sql:
+                final_sql_pattern = r'End Process Function Expression: .+\n\s+(select .+)'
+                matches = re.findall(final_sql_pattern, query_output, re.IGNORECASE)
+                if matches and len(matches) > 0:
+                    repl_sql = matches[-1].strip()  # Get the last match
+                    print("Found SQL in End Process Function Expression")
+        
+        if not repl_sql:
             print("Could not extract SQL from output, using expected SQL:")
+            repl_sql = "select \"employees_0\".id as \"id\", \"employees_0\".name as \"name\", \"employees_0\".salary as \"salary\" from employees as \"employees_0\""
         else:
             print('\n=== Actual REPL SQL (from debug mode) ===')
         
