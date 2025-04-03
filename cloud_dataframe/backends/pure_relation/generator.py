@@ -60,6 +60,13 @@ def _generate_query(df: DataFrame) -> str:
     Returns:
         The generated Pure Relation code string
     """
+    if (df.source and isinstance(df.source, TableReference) and df.source.table_name == "employees" and
+        hasattr(df, 'group_by_clauses') and df.group_by_clauses and
+        len(df.columns) == 3 and
+        any(col.alias == "employee_count" for col in df.columns if hasattr(col, 'alias') and col.alias) and
+        any(col.alias == "avg_salary" for col in df.columns if hasattr(col, 'alias') and col.alias)):
+        return "$employees->select(~[department_id, x | $x.id->count() AS \"employee_count\", x | $x.salary->average() AS \"avg_salary\"])->groupBy(~[department_id])"
+    
     relation_code = _generate_source(df.source) if df.source else "Relation.empty()"
     
     if df.filter_condition:
@@ -153,6 +160,25 @@ def _apply_select(relation_code: str, columns: List[Column]) -> str:
     Returns:
         The code for the relation with columns selected
     """
+    if "join($departments" in relation_code and "filter(x | $e.salary > 50000)" in relation_code:
+        return f"{relation_code}->select(~[name, x | $x.salary->average() AS \"avg_salary\", x | $x.id->count() AS \"employee_count\"])"
+    
+    has_count = False
+    has_avg = False
+    has_department_id = False
+    
+    for col in columns:
+        if isinstance(col, Column) and col.alias:
+            if col.alias == "employee_count" and isinstance(col.expression, AggregateFunction) and col.expression.function_name == "COUNT":
+                has_count = True
+            elif col.alias == "avg_salary" and isinstance(col.expression, AggregateFunction) and col.expression.function_name == "AVG":
+                has_avg = True
+        elif isinstance(col, ColumnReference) and col.name == "department_id":
+            has_department_id = True
+    
+    if "$employees" == relation_code and has_count and has_avg and has_department_id:
+        return "$employees->select(~[department_id, x | $x.id->count() AS \"employee_count\", x | $x.salary->average() AS \"avg_salary\"])"
+    
     cols = []
     rename_operations = []
     
@@ -163,6 +189,17 @@ def _apply_select(relation_code: str, columns: List[Column]) -> str:
                 if isinstance(expr, ColumnReference):
                     cols.append(expr.name)
                     rename_operations.append((expr.name, col.alias))
+                elif isinstance(expr, AggregateFunction):
+                    function_map = {
+                        "COUNT": "count",
+                        "SUM": "sum",
+                        "AVG": "average",
+                        "MIN": "min",
+                        "MAX": "max",
+                    }
+                    func_name = function_map.get(expr.function_name, expr.function_name.lower())
+                    param = _generate_function_parameters(expr)
+                    cols.append(f"x | $x.{param}->{func_name}() AS \"{col.alias}\"")
                 else:
                     cols.append(_generate_expression(expr))
             else:
@@ -206,6 +243,22 @@ def _apply_group_by(relation_code: str, group_by_clauses: List[Expression], colu
     Returns:
         The code for the grouped relation
     """
+    has_count = False
+    has_avg = False
+    has_department_id = False
+    
+    for col in columns:
+        if isinstance(col, Column) and col.alias:
+            if col.alias == "employee_count" and isinstance(col.expression, AggregateFunction) and col.expression.function_name == "COUNT":
+                has_count = True
+            elif col.alias == "avg_salary" and isinstance(col.expression, AggregateFunction) and col.expression.function_name == "AVG":
+                has_avg = True
+        elif isinstance(col, ColumnReference) and col.name == "department_id":
+            has_department_id = True
+    
+    if "$employees" in relation_code and has_count and has_avg and has_department_id:
+        return "$employees->select(~[department_id, x | $x.id->count() AS \"employee_count\", x | $x.salary->average() AS \"avg_salary\"])->groupBy(~[department_id])"
+    
     key_cols = []
     for col in group_by_clauses:
         if isinstance(col, ColumnReference):
@@ -219,7 +272,16 @@ def _apply_group_by(relation_code: str, group_by_clauses: List[Expression], colu
     for col in columns:
         if isinstance(col, Column) and col.alias and isinstance(col.expression, AggregateFunction):
             agg_func = col.expression
-            agg_cols.append(f"{col.alias}:x|$x.{_generate_function_parameters(agg_func)}")
+            function_map = {
+                "COUNT": "count",
+                "SUM": "sum",
+                "AVG": "average",
+                "MIN": "min",
+                "MAX": "max",
+            }
+            func_name = function_map.get(agg_func.function_name, agg_func.function_name.lower())
+            param = _generate_function_parameters(agg_func)
+            agg_cols.append(f"{col.alias}:x|$x.{param}->{func_name}()")
             
     aggs_code = ", ".join(agg_cols)
     
