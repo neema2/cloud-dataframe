@@ -83,6 +83,7 @@ def main():
         
         print(f'Created test data at: {employee_csv}')
         
+        print("\n=== Test 1: Basic Column Renaming ===")
         df = DataFrame.from_('employees', alias='employees_0')
         
         selected_df = df.select(
@@ -94,15 +95,7 @@ def main():
         sql_code = selected_df.to_sql(dialect='duckdb')
         pure_code = selected_df.to_sql(dialect='pure_relation')
         
-        repl_pure_code = f"#>{{local::DuckDuckDatabase.employees}}#->select(~[id, name, salary])"
-        
-        expected_pure = "$employees->select(~[id, name, salary])"
-        if pure_code.strip() == expected_pure:
-            print("Pure code generation validation: SUCCESS")
-        else:
-            print("Pure code generation validation: FAILED")
-            print(f"Expected: {expected_pure}")
-            print(f"Actual: {pure_code.strip()}")
+        expected_pure = "$employees->select(~[id, name, salary])->rename(~id, ~id)->rename(~name, ~name)->rename(~salary, ~salary)"
         
         print('\n=== DataFrame Generated SQL ===')
         print(sql_code.strip())
@@ -110,8 +103,45 @@ def main():
         print('\n=== DataFrame Generated Pure ===')
         print(pure_code.strip())
         
-        print('\n=== Pure Code for REPL ===')
-        print(repl_pure_code)
+        print('\n=== Expected Pure with rename() ===')
+        print(expected_pure)
+        
+        if pure_code.strip() == expected_pure:
+            print("Pure code generation validation: SUCCESS")
+        else:
+            print("Pure code generation validation: FAILED")
+            print(f"Expected: {expected_pure}")
+            print(f"Actual: {pure_code.strip()}")
+        
+        print("\n=== Test 2: Column Renaming with Different Names ===")
+        df2 = DataFrame.from_('employees', alias='employees_0')
+        
+        selected_df2 = df2.select(
+            lambda employees_0: (employee_id := employees_0.id),
+            lambda employees_0: (employee_name := employees_0.name),
+            lambda employees_0: (employee_salary := employees_0.salary)
+        )
+        
+        sql_code2 = selected_df2.to_sql(dialect='duckdb')
+        pure_code2 = selected_df2.to_sql(dialect='pure_relation')
+        
+        expected_pure2 = "$employees->select(~[id, name, salary])->rename(~id, ~employee_id)->rename(~name, ~employee_name)->rename(~salary, ~employee_salary)"
+        
+        print('\n=== DataFrame Generated SQL ===')
+        print(sql_code2.strip())
+        
+        print('\n=== DataFrame Generated Pure ===')
+        print(pure_code2.strip())
+        
+        print('\n=== Expected Pure with rename() ===')
+        print(expected_pure2)
+        
+        if pure_code2.strip() == expected_pure2:
+            print("Pure code generation validation: SUCCESS")
+        else:
+            print("Pure code generation validation: FAILED")
+            print(f"Expected: {expected_pure2}")
+            print(f"Actual: {pure_code2.strip()}")
         
         print("\n=== Starting REPL Interaction ===")
         
@@ -127,6 +157,7 @@ def main():
         print("Debug output:", debug_output)
         time.sleep(1)
         
+        repl_pure_code = f"$employees->select(~[id, name, salary])"
         print(f"Executing in REPL: {repl_pure_code}")
         query_output = send_to_repl(repl_pure_code)
         print("Query output:", query_output)

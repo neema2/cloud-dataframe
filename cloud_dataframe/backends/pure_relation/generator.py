@@ -154,10 +154,17 @@ def _apply_select(relation_code: str, columns: List[Column]) -> str:
         The code for the relation with columns selected
     """
     cols = []
+    rename_operations = []
+    
     for col in columns:
         if isinstance(col, Column):
             if col.alias:
-                cols.append(col.alias)
+                expr = col.expression
+                if isinstance(expr, ColumnReference):
+                    cols.append(expr.name)
+                    rename_operations.append((expr.name, col.alias))
+                else:
+                    cols.append(_generate_expression(expr))
             else:
                 expr = col.expression
                 if isinstance(expr, ColumnReference):
@@ -166,12 +173,25 @@ def _apply_select(relation_code: str, columns: List[Column]) -> str:
                     cols.append(_generate_expression(expr))
         elif isinstance(col, ColumnReference):
             cols.append(col.name)
+        elif isinstance(col, BinaryOperation) and col.operator == "AS":
+            if isinstance(col.right, LiteralExpression) and isinstance(col.left, ColumnReference):
+                old_col_name = col.left.name
+                new_col_name = col.right.value
+                cols.append(old_col_name)
+                rename_operations.append((old_col_name, new_col_name))
+            else:
+                cols.append(_generate_expression(col))
         else:
             cols.append(_generate_expression(col))
             
     cols_code = ", ".join(cols)
     
-    return f"{relation_code}->select(~[{cols_code}])"
+    result = f"{relation_code}->select(~[{cols_code}])"
+    
+    for old_col, new_col in rename_operations:
+        result = f"{result}->rename(~{old_col}, ~{new_col})"
+    
+    return result
 
 
 def _apply_group_by(relation_code: str, group_by_clauses: List[Expression], columns: List[Column]) -> str:
