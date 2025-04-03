@@ -20,8 +20,30 @@ import json
 import re
 import threading
 import queue
+import sqlparse
 sys.path.append('/home/ubuntu/repos/cloud-dataframe')
 from cloud_dataframe.core.dataframe import DataFrame
+
+def format_sql_query(sql_query):
+    """Format a SQL query for better readability.
+    
+    Args:
+        sql_query: The SQL query string to format
+        
+    Returns:
+        A formatted SQL query with proper indentation and line breaks
+    """
+    formatted = sqlparse.format(
+        sql_query,
+        reindent=True,
+        keyword_case='upper',
+        indent_width=4,
+        wrap_after=80
+    )
+    
+    result = "SQL Query:\n" + formatted
+    
+    return result
 
 repl_process = None
 repl_output_queue = queue.Queue()
@@ -284,7 +306,8 @@ def main():
         sql_query_pattern = r'"sqlQuery"\s*:\s*"([^"]+)"'
         sql_query_matches = re.findall(sql_query_pattern, query_output)
         if sql_query_matches:
-            repl_sql = sql_query_matches[-1]
+            raw_sql = sql_query_matches[-1]
+            repl_sql = raw_sql.replace('\\n', '\n').replace('\\t', '    ').replace('\\"', '"')
             print("Found SQL query in Generated Plan section")
                 
         if not repl_sql:
@@ -292,8 +315,9 @@ def main():
             repl_sql = "FAILED to get SQL output"
         else:
             print('\n=== Actual REPL SQL (from debug mode) ===')
-        
-        print(repl_sql)
+            
+            formatted_sql = format_sql_query(repl_sql)
+            print(formatted_sql)
         
         print('\n=== Validation ===')
         expected_sql_normalized = ' '.join(sql_code.lower().strip().replace(' as ', ' ').split())
