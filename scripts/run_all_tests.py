@@ -11,7 +11,7 @@ def discover_and_run_tests():
     """Discover and run all tests in the tests directory."""
     logger.info("Discovering all tests in cloud_dataframe/tests directory...")
     
-    base_dir = Path(__file__).parent
+    base_dir = Path(__file__).parent.parent
     test_dir = base_dir / "cloud_dataframe" / "tests"
     
     loader = unittest.TestLoader()
