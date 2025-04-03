@@ -284,42 +284,12 @@ def main():
         sql_query_pattern = r'"sqlQuery"\s*:\s*"([^"]+)"'
         sql_query_matches = re.findall(sql_query_pattern, query_output)
         if sql_query_matches:
-            repl_sql = sql_query_matches[-1].replace('\\n', ' ').replace('\\t', ' ').replace('\\\"', '"')
+            repl_sql = sql_query_matches[-1]
             print("Found SQL query in Generated Plan section")
-        
-        if not repl_sql:
-            sql_patterns = [
-                r'select .+ from .+',  # Basic SQL pattern
-                r'select .+ as "rename__d"',  # Pattern for renamed columns
-                r'>Process Function Expression: .+\n\s+select .+',  # Debug output pattern
-            ]
-            
-            for pattern in sql_patterns:
-                matches = re.findall(pattern, query_output, re.IGNORECASE)
-                if matches:
-                    for match in matches:
-                        if 'select' in match.lower() and 'from' in match.lower():
-                            sql_lines = match.split('\n')
-                            for line in sql_lines:
-                                if 'select' in line.lower() and 'from' in line.lower():
-                                    repl_sql = line.strip()
-                                    if 'select' in repl_sql.lower() and 'from' in repl_sql.lower() and len(repl_sql) > 30:
-                                        break
-                    
-                    if repl_sql:
-                        print("Found SQL using pattern matching")
-                        break
-            
-            if not repl_sql:
-                final_sql_pattern = r'End Process Function Expression: .+\n\s+(select .+)'
-                matches = re.findall(final_sql_pattern, query_output, re.IGNORECASE)
-                if matches and len(matches) > 0:
-                    repl_sql = matches[-1].strip()  # Get the last match
-                    print("Found SQL in End Process Function Expression")
-        
+                
         if not repl_sql:
             print("Could not extract SQL from output, using expected SQL:")
-            repl_sql = "select \"employees_0\".id as \"id\", \"employees_0\".name as \"name\", \"employees_0\".salary as \"salary\" from employees as \"employees_0\""
+            repl_sql = "FAILED to get SQL output"
         else:
             print('\n=== Actual REPL SQL (from debug mode) ===')
         
