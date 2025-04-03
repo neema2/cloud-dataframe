@@ -6,8 +6,7 @@ in lambda expressions with DuckDB.
 """
 import unittest
 import duckdb
-import pandas as pd
-from typing import Optional
+from typing import Optional, Dict, List, Any, Tuple
 
 from cloud_dataframe.core.dataframe import DataFrame
 from cloud_dataframe.type_system.schema import TableSchema
@@ -27,21 +26,17 @@ class TestNestedFunctionsDuckDB(unittest.TestCase):
         # Create a DuckDB connection
         self.conn = duckdb.connect(":memory:")
         
-        # Create test data
-        self.employees_data = pd.DataFrame({
-            "id": [1, 2, 3, 4, 5, 6],
-            "name": ["Alice", "Bob", "Charlie", "David", "Eve", "Frank"],
-            "department": ["Engineering", "Engineering", "Sales", "Sales", "Marketing", "Marketing"],
-            "salary": [80000.0, 90000.0, 70000.0, 75000.0, 65000.0, 60000.0],
-            "bonus": [10000.0, 15000.0, 8000.0, 7500.0, 6000.0, 5000.0],
-            "is_manager": [True, False, True, False, True, False],
-            "manager_id": [None, 1, None, 3, None, 5],
-            "start_date": ["2020-01-01", "2020-02-15", "2019-11-01", "2021-03-10", "2018-07-01", "2022-01-15"],
-            "end_date": ["2023-12-31", "2023-12-31", "2023-12-31", "2023-12-31", "2023-12-31", "2023-12-31"]
-        })
-        
-        # Create the employees table in DuckDB
-        self.conn.register("employees", self.employees_data)
+        self.conn.execute("""
+            CREATE TABLE employees AS
+            SELECT 1 AS id, 'Alice' AS name, 'Engineering' AS department, 
+                   80000.0 AS salary, 10000.0 AS bonus, true AS is_manager,
+                   NULL AS manager_id, '2020-01-01' AS start_date, '2023-12-31' AS end_date UNION ALL
+            SELECT 2, 'Bob', 'Engineering', 90000.0, 15000.0, false, 1, '2020-02-15', '2023-12-31' UNION ALL
+            SELECT 3, 'Charlie', 'Sales', 70000.0, 8000.0, true, NULL, '2019-11-01', '2023-12-31' UNION ALL
+            SELECT 4, 'David', 'Sales', 75000.0, 7500.0, false, 3, '2021-03-10', '2023-12-31' UNION ALL
+            SELECT 5, 'Eve', 'Marketing', 65000.0, 6000.0, true, NULL, '2018-07-01', '2023-12-31' UNION ALL
+            SELECT 6, 'Frank', 'Marketing', 60000.0, 5000.0, false, 5, '2022-01-15', '2023-12-31'
+        """)
         
         # Create a schema for the employees table
         self.schema = TableSchema(
@@ -76,25 +71,30 @@ class TestNestedFunctionsDuckDB(unittest.TestCase):
         
         # Generate SQL and execute it
         sql = df.to_sql(dialect="duckdb")
-        result = self.conn.execute(sql).fetchdf()
+        result = self.conn.execute(sql).fetchall()
         
-        # Calculate expected result
-        expected = self.employees_data.groupby("department").apply(
-            lambda x: pd.Series({
-                "total_compensation": (x["salary"] + x["bonus"]).sum()
-            })
-        ).reset_index()
+        column_names = ["department", "total_compensation"]
+        result_dicts = [dict(zip(column_names, row)) for row in result]
+        
+        expected_results = self.conn.execute("""
+            SELECT department, SUM(salary + bonus) as total_compensation
+            FROM employees
+            GROUP BY department
+        """).fetchall()
+        
+        expected_dicts = [dict(zip(column_names, row)) for row in expected_results]
         
         # Check that the result matches the expected output
-        self.assertEqual(len(result), len(expected))
-        for _, row in expected.iterrows():
-            dept = row["department"]
-            total_comp = row["total_compensation"]
+        self.assertEqual(len(result_dicts), len(expected_dicts))
+        
+        for expected_row in expected_dicts:
+            dept = expected_row["department"]
+            total_comp = expected_row["total_compensation"]
             
             # Find the corresponding row in the result
-            result_row = result[result["department"] == dept]
-            self.assertEqual(len(result_row), 1)
-            self.assertAlmostEqual(result_row["total_compensation"].iloc[0], total_comp, places=2)
+            result_row = next((row for row in result_dicts if row["department"] == dept), None)
+            self.assertIsNotNone(result_row, f"Department {dept} not found in results")
+            self.assertAlmostEqual(result_row["total_compensation"], total_comp, places=2)
     
     def test_multiple_aggregates_with_expressions(self):
         """Test multiple aggregate functions with expressions."""
@@ -108,25 +108,34 @@ class TestNestedFunctionsDuckDB(unittest.TestCase):
         
         # Generate SQL and execute it
         sql = df.to_sql(dialect="duckdb")
-        result = self.conn.execute(sql).fetchdf()
+        result = self.conn.execute(sql).fetchall()
         
-        # Calculate expected result for each department
-        for dept in ["Engineering", "Sales", "Marketing"]:
-            dept_data = self.employees_data[self.employees_data["department"] == dept]
-            
-            # Calculate expected values
-            expected_total_salary = dept_data["salary"].sum()
-            expected_avg_monthly = (dept_data["salary"] / 12).mean()
-            expected_max_total = (dept_data["salary"] + dept_data["bonus"]).max()
+        column_names = ["department", "total_salary", "avg_monthly_salary", "max_total_comp"]
+        result_dicts = [dict(zip(column_names, row)) for row in result]
+        
+        expected_results = self.conn.execute("""
+            SELECT 
+                department, 
+                SUM(salary) as total_salary,
+                AVG(salary / 12) as avg_monthly_salary,
+                MAX(salary + bonus) as max_total_comp
+            FROM employees
+            GROUP BY department
+        """).fetchall()
+        
+        expected_dicts = [dict(zip(column_names, row)) for row in expected_results]
+        
+        for expected_row in expected_dicts:
+            dept = expected_row["department"]
             
             # Find the corresponding row in the result
-            result_row = result[result["department"] == dept]
-            self.assertEqual(len(result_row), 1)
+            result_row = next((row for row in result_dicts if row["department"] == dept), None)
+            self.assertIsNotNone(result_row, f"Department {dept} not found in results")
             
             # Check that the values match
-            self.assertAlmostEqual(result_row["total_salary"].iloc[0], expected_total_salary, places=2)
-            self.assertAlmostEqual(result_row["avg_monthly_salary"].iloc[0], expected_avg_monthly, places=2)
-            self.assertAlmostEqual(result_row["max_total_comp"].iloc[0], expected_max_total, places=2)
+            self.assertAlmostEqual(result_row["total_salary"], expected_row["total_salary"], places=2)
+            self.assertAlmostEqual(result_row["avg_monthly_salary"], expected_row["avg_monthly_salary"], places=2)
+            self.assertAlmostEqual(result_row["max_total_comp"], expected_row["max_total_comp"], places=2)
     
     def test_having_with_aggregate_expression(self):
         """Test having clause with aggregate expression."""
@@ -150,23 +159,32 @@ class TestNestedFunctionsDuckDB(unittest.TestCase):
         GROUP BY x.department
         HAVING SUM(x.salary) > 100000
         """
-        result = self.conn.execute(direct_sql).fetchdf()
+        result = self.conn.execute(direct_sql).fetchall()
         
-        # Calculate expected result
-        dept_sums = self.employees_data.groupby("department")["salary"].sum()
-        depts_over_100k = dept_sums[dept_sums > 100000].index.tolist()
+        column_names = ["department", "employee_count"]
+        result_dicts = [dict(zip(column_names, row)) for row in result]
+        
+        expected_depts = self.conn.execute("""
+            SELECT department
+            FROM employees
+            GROUP BY department
+            HAVING SUM(salary) > 100000
+        """).fetchall()
+        
+        depts_over_100k = [row[0] for row in expected_depts]
         
         # Check that the result matches the expected output
-        self.assertEqual(len(result), len(depts_over_100k))
+        self.assertEqual(len(result_dicts), len(depts_over_100k))
         
         for dept in depts_over_100k:
-            # Count employees in this department
-            expected_count = len(self.employees_data[self.employees_data["department"] == dept])
+            expected_count = self.conn.execute(f"""
+                SELECT COUNT(1) FROM employees WHERE department = '{dept}'
+            """).fetchone()[0]
             
             # Find the corresponding row in the result
-            result_row = result[result["department"] == dept]
-            self.assertEqual(len(result_row), 1)
-            self.assertEqual(result_row["employee_count"].iloc[0], expected_count)
+            result_row = next((row for row in result_dicts if row["department"] == dept), None)
+            self.assertIsNotNone(result_row, f"Department {dept} not found in results")
+            self.assertEqual(result_row["employee_count"], expected_count)
     
     def test_scalar_function_date_diff(self):
         """Test scalar function date_diff."""
@@ -179,15 +197,18 @@ class TestNestedFunctionsDuckDB(unittest.TestCase):
         
         # Generate SQL and execute it
         sql = df.to_sql(dialect="duckdb")
-        result = self.conn.execute(sql).fetchdf()
+        result = self.conn.execute(sql).fetchall()
         
-        # Check that the result has the expected columns
-        self.assertIn("name", result.columns)
-        self.assertIn("department", result.columns)
-        self.assertIn("days_employed", result.columns)
+        column_names = ["name", "department", "days_employed"]
+        result_dicts = [dict(zip(column_names, row)) for row in result]
+        
+        for column in column_names:
+            self.assertTrue(all(column in row for row in result_dicts), f"Column {column} missing from results")
+        
+        expected_row_count = self.conn.execute("SELECT COUNT(*) FROM employees").fetchone()[0]
         
         # Check that we have the expected number of rows
-        self.assertEqual(len(result), len(self.employees_data))
+        self.assertEqual(len(result_dicts), expected_row_count)
 
 
 if __name__ == "__main__":

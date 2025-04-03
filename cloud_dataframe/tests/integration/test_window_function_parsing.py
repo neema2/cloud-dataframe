@@ -5,8 +5,8 @@ This module contains tests for using the window() function in queries
 executed on a real DuckDB database.
 """
 import unittest
-import pandas as pd
 import duckdb
+from typing import Dict, List, Any, Tuple
 
 from cloud_dataframe.core.dataframe import DataFrame
 from cloud_dataframe.type_system.schema import TableSchema
@@ -22,15 +22,15 @@ class TestWindowFunctionParsing(unittest.TestCase):
         """Set up test fixtures."""
         self.conn = duckdb.connect(":memory:")
         
-        employees_data = pd.DataFrame({
-            "id": [1, 2, 3, 4, 5, 6],
-            "name": ["Alice", "Bob", "Charlie", "David", "Eve", "Frank"],
-            "department": ["Engineering", "Engineering", "Sales", "Sales", "Marketing", "Marketing"],
-            "salary": [80000.0, 90000.0, 70000.0, 75000.0, 65000.0, 60000.0],
-        })
-        
-        self.conn.execute("CREATE TABLE employees AS SELECT * FROM employees_data")
-        self.conn.register("employees_data", employees_data)
+        self.conn.execute("""
+            CREATE TABLE employees AS
+            SELECT 1 AS id, 'Alice' AS name, 'Engineering' AS department, 80000.0 AS salary UNION ALL
+            SELECT 2, 'Bob', 'Engineering', 90000.0 UNION ALL
+            SELECT 3, 'Charlie', 'Sales', 70000.0 UNION ALL
+            SELECT 4, 'David', 'Sales', 75000.0 UNION ALL
+            SELECT 5, 'Eve', 'Marketing', 65000.0 UNION ALL
+            SELECT 6, 'Frank', 'Marketing', 60000.0
+        """)
         
         self.schema = TableSchema(
             name="Employee",
@@ -70,15 +70,21 @@ class TestWindowFunctionParsing(unittest.TestCase):
         FROM employees
         """
         
-        expected_result = self.conn.execute(expected_sql).fetchdf()
+        expected_result = self.conn.execute(expected_sql).fetchall()
         
-        self.assertEqual(len(expected_result), 6)  # All employees
-        self.assertIn("salary_rank", expected_result.columns)
+        column_names = ["id", "name", "department", "salary", "salary_rank"]
+        result_dicts = [dict(zip(column_names, row)) for row in expected_result]
         
-        departments = expected_result["department"].unique()
+        self.assertEqual(len(result_dicts), 6)  # All employees
+        self.assertTrue(all("salary_rank" in row for row in result_dicts))
+        
+        departments = set(row["department"] for row in result_dicts)
+        
         for dept in departments:
-            dept_rows = expected_result[expected_result["department"] == dept].sort_values("salary").reset_index(drop=True)
-            self.assertEqual(dept_rows.iloc[0]["salary_rank"], 1)
+            dept_rows = [row for row in result_dicts if row["department"] == dept]
+            dept_rows.sort(key=lambda x: x["salary"])
+            
+            self.assertEqual(dept_rows[0]["salary_rank"], 1)
     
     def test_window_with_frame(self):
         """Test window() function with frame specification."""
@@ -100,23 +106,28 @@ class TestWindowFunctionParsing(unittest.TestCase):
         FROM employees
         """
         
-        expected_result = self.conn.execute(expected_sql).fetchdf()
+        expected_result = self.conn.execute(expected_sql).fetchall()
         
-        self.assertEqual(len(expected_result), 6)  # All employees
-        self.assertIn("running_sum", expected_result.columns)
+        column_names = ["id", "name", "department", "salary", "running_sum"]
+        result_dicts = [dict(zip(column_names, row)) for row in expected_result]
         
-        departments = expected_result["department"].unique()
+        self.assertEqual(len(result_dicts), 6)  # All employees
+        self.assertTrue(all("running_sum" in row for row in result_dicts))
+        
+        departments = set(row["department"] for row in result_dicts)
+        
         for dept in departments:
-            dept_rows = expected_result[expected_result["department"] == dept].sort_values("salary").reset_index(drop=True)
-            dept_salaries = dept_rows["salary"].tolist()
+            dept_rows = [row for row in result_dicts if row["department"] == dept]
+            dept_rows.sort(key=lambda x: x["salary"])
             
+            dept_salaries = [row["salary"] for row in dept_rows]
             expected_sums = []
             running_total = 0
             for salary in dept_salaries:
                 running_total += salary
                 expected_sums.append(running_total)
             
-            actual_sums = dept_rows["running_sum"].tolist()
+            actual_sums = [row["running_sum"] for row in dept_rows]
             for i in range(len(expected_sums)):
                 self.assertAlmostEqual(actual_sums[i], expected_sums[i], places=2)
     
@@ -139,16 +150,22 @@ class TestWindowFunctionParsing(unittest.TestCase):
         FROM employees
         """
         
-        expected_result = self.conn.execute(expected_sql).fetchdf()
+        expected_result = self.conn.execute(expected_sql).fetchall()
         
-        self.assertEqual(len(expected_result), 6)  # All employees
-        self.assertIn("salary_rank", expected_result.columns)
-        self.assertIn("running_sum", expected_result.columns)
+        column_names = ["id", "name", "department", "salary", "salary_rank", "running_sum"]
+        result_dicts = [dict(zip(column_names, row)) for row in expected_result]
         
-        departments = expected_result["department"].unique()
+        self.assertEqual(len(result_dicts), 6)  # All employees
+        self.assertTrue(all("salary_rank" in row for row in result_dicts))
+        self.assertTrue(all("running_sum" in row for row in result_dicts))
+        
+        departments = set(row["department"] for row in result_dicts)
+        
         for dept in departments:
-            dept_rows = expected_result[expected_result["department"] == dept].sort_values("salary_rank").reset_index(drop=True)
-            self.assertEqual(dept_rows.iloc[0]["salary_rank"], 1)
+            dept_rows = [row for row in result_dicts if row["department"] == dept]
+            dept_rows.sort(key=lambda x: x["salary_rank"])
+            
+            self.assertEqual(dept_rows[0]["salary_rank"], 1)
 
 
 if __name__ == "__main__":

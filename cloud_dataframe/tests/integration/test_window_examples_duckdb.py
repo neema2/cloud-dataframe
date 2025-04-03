@@ -5,9 +5,8 @@ This module contains tests for using frame specifications with window functions
 using the cloud-dataframe library with DuckDB, demonstrating real-world examples.
 """
 import unittest
-import pandas as pd
 import duckdb
-from typing import Optional
+from typing import Optional, Dict, List, Any, Tuple
 
 from cloud_dataframe.core.dataframe import DataFrame
 from cloud_dataframe.type_system.schema import TableSchema
@@ -25,19 +24,18 @@ class TestWindowExamplesDuckDB(unittest.TestCase):
         # Create a DuckDB connection
         self.conn = duckdb.connect(":memory:")
         
-        # Create sample data
-        sales_data = pd.DataFrame({
-            "product_id": [1, 2, 3, 1, 2, 3, 1, 2, 3],
-            "date": ["2023-01-01", "2023-01-01", "2023-01-01", 
-                    "2023-01-02", "2023-01-02", "2023-01-02",
-                    "2023-01-03", "2023-01-03", "2023-01-03"],
-            "region": ["East", "East", "West", "East", "West", "West", "East", "West", "East"],
-            "sales": [100, 150, 200, 120, 160, 210, 130, 170, 220]
-        })
-        
-        # Register the data in DuckDB
-        self.conn.register("sales_data", sales_data)
-        self.conn.execute("CREATE TABLE sales AS SELECT * FROM sales_data")
+        self.conn.execute("""
+            CREATE TABLE sales AS
+            SELECT 1 AS product_id, '2023-01-01' AS date, 'East' AS region, 100 AS sales UNION ALL
+            SELECT 2, '2023-01-01', 'East', 150 UNION ALL
+            SELECT 3, '2023-01-01', 'West', 200 UNION ALL
+            SELECT 1, '2023-01-02', 'East', 120 UNION ALL
+            SELECT 2, '2023-01-02', 'West', 160 UNION ALL
+            SELECT 3, '2023-01-02', 'West', 210 UNION ALL
+            SELECT 1, '2023-01-03', 'East', 130 UNION ALL
+            SELECT 2, '2023-01-03', 'West', 170 UNION ALL
+            SELECT 3, '2023-01-03', 'East', 220
+        """)
         
         # Create schema for the sales table
         self.schema = TableSchema(
@@ -75,22 +73,27 @@ class TestWindowExamplesDuckDB(unittest.TestCase):
         self.assertEqual(sql.strip(), expected_sql.strip())
         
         # Execute query
-        result = self.conn.execute(sql).fetchdf()
+        result = self.conn.execute(sql).fetchall()
+        
+        column_names = ["product_id", "date", "sales", "running_total"]
+        result_dicts = [dict(zip(column_names, row)) for row in result]
         
         # Verify result
-        self.assertEqual(len(result), 9)  # All sales records
+        self.assertEqual(len(result_dicts), 9)  # All sales records
         
         # Check running totals for product_id=1
-        product1_rows = result[result["product_id"] == 1].reset_index(drop=True)
-        self.assertEqual(product1_rows.loc[0, "running_total"], 100)
-        self.assertEqual(product1_rows.loc[1, "running_total"], 220)
-        self.assertEqual(product1_rows.loc[2, "running_total"], 350)
+        product1_rows = [row for row in result_dicts if row["product_id"] == 1]
+        product1_rows.sort(key=lambda x: x["date"])
+        self.assertEqual(product1_rows[0]["running_total"], 100)
+        self.assertEqual(product1_rows[1]["running_total"], 220)
+        self.assertEqual(product1_rows[2]["running_total"], 350)
         
         # Check running totals for product_id=2
-        product2_rows = result[result["product_id"] == 2].reset_index(drop=True)
-        self.assertEqual(product2_rows.loc[0, "running_total"], 150)
-        self.assertEqual(product2_rows.loc[1, "running_total"], 310)
-        self.assertEqual(product2_rows.loc[2, "running_total"], 480)
+        product2_rows = [row for row in result_dicts if row["product_id"] == 2]
+        product2_rows.sort(key=lambda x: x["date"])
+        self.assertEqual(product2_rows[0]["running_total"], 150)
+        self.assertEqual(product2_rows[1]["running_total"], 310)
+        self.assertEqual(product2_rows[2]["running_total"], 480)
     
     def test_moving_average_with_preceding_following(self):
         """Test moving average with preceding and following rows."""
@@ -110,16 +113,20 @@ class TestWindowExamplesDuckDB(unittest.TestCase):
         self.assertEqual(sql.strip(), expected_sql.strip())
         
         # Execute query
-        result = self.conn.execute(sql).fetchdf()
+        result = self.conn.execute(sql).fetchall()
+        
+        column_names = ["product_id", "date", "sales", "moving_avg"]
+        result_dicts = [dict(zip(column_names, row)) for row in result]
         
         # Verify result
-        self.assertEqual(len(result), 9)  # All sales records
+        self.assertEqual(len(result_dicts), 9)  # All sales records
         
         # Check moving averages for product_id=1
-        product1_rows = result[result["product_id"] == 1].reset_index(drop=True)
-        self.assertAlmostEqual(product1_rows.loc[0, "moving_avg"], 110.0)  # Avg of [100, 120]
-        self.assertAlmostEqual(product1_rows.loc[1, "moving_avg"], 116.666667, places=5)  # Avg of [100, 120, 130]
-        self.assertAlmostEqual(product1_rows.loc[2, "moving_avg"], 125.0)  # Avg of [120, 130]
+        product1_rows = [row for row in result_dicts if row["product_id"] == 1]
+        product1_rows.sort(key=lambda x: x["date"])
+        self.assertAlmostEqual(product1_rows[0]["moving_avg"], 110.0)  # Avg of [100, 120]
+        self.assertAlmostEqual(product1_rows[1]["moving_avg"], 116.666667, places=5)  # Avg of [100, 120, 130]
+        self.assertAlmostEqual(product1_rows[2]["moving_avg"], 125.0)  # Avg of [120, 130]
     
     def test_complex_expression_in_lambda(self):
         """Test complex expression in lambda function."""
@@ -139,20 +146,25 @@ class TestWindowExamplesDuckDB(unittest.TestCase):
         self.assertEqual(sql.strip(), expected_sql.strip())
         
         # Execute query
-        result = self.conn.execute(sql).fetchdf()
+        result = self.conn.execute(sql).fetchall()
+        
+        column_names = ["product_id", "region", "sales", "adjusted_total"]
+        result_dicts = [dict(zip(column_names, row)) for row in result]
         
         # Verify result
-        self.assertEqual(len(result), 9)  # All sales records
+        self.assertEqual(len(result_dicts), 9)  # All sales records
         
         # Check adjusted totals for East region
-        east_rows = result[result["region"] == "East"].reset_index(drop=True)
+        east_rows = [row for row in result_dicts if row["region"] == "East"]
+        east_rows.sort(key=lambda x: (x["product_id"]))
         # Sum of (100+10, 120+10, 130+10, 150+10, 220+10) = 770
-        self.assertEqual(east_rows.loc[0, "adjusted_total"], 770.0)
+        self.assertEqual(east_rows[0]["adjusted_total"], 770.0)
         
         # Check adjusted totals for West region
-        west_rows = result[result["region"] == "West"].reset_index(drop=True)
+        west_rows = [row for row in result_dicts if row["region"] == "West"]
+        west_rows.sort(key=lambda x: (x["product_id"]))
         # Sum of (160+10, 170+10, 200+10, 210+10) = 780
-        self.assertEqual(west_rows.loc[0, "adjusted_total"], 780.0)
+        self.assertEqual(west_rows[0]["adjusted_total"], 780.0)
 
 
 if __name__ == "__main__":

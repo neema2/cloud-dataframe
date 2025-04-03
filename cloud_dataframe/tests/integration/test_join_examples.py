@@ -5,9 +5,8 @@ This module contains tests for join operations using lambda expressions
 with the cloud-dataframe library.
 """
 import unittest
-import pandas as pd
 import duckdb
-from typing import Optional, Dict
+from typing import Optional, Dict, List, Any, Tuple
 
 from cloud_dataframe.core.dataframe import DataFrame
 from cloud_dataframe.type_system.schema import TableSchema
@@ -22,25 +21,23 @@ class TestJoinExamples(unittest.TestCase):
         # Create a DuckDB connection
         self.conn = duckdb.connect(":memory:")
         
-        # Create test data for employees
-        employees_data = pd.DataFrame({
-            "id": [1, 2, 3, 4, 5, 6],
-            "name": ["Alice", "Bob", "Charlie", "David", "Eve", "Frank"],
-            "department_id": [1, 1, 2, 2, 3, 3],
-            "salary": [80000.0, 90000.0, 70000.0, 75000.0, 65000.0, 60000.0],
-        })
+        self.conn.execute("""
+            CREATE TABLE employees AS
+            SELECT 1 AS id, 'Alice' AS name, 1 AS department_id, 80000.0 AS salary UNION ALL
+            SELECT 2, 'Bob', 1, 90000.0 UNION ALL
+            SELECT 3, 'Charlie', 2, 70000.0 UNION ALL
+            SELECT 4, 'David', 2, 75000.0 UNION ALL
+            SELECT 5, 'Eve', 3, 65000.0 UNION ALL
+            SELECT 6, 'Frank', 3, 60000.0
+        """)
         
-        # Create test data for departments
-        departments_data = pd.DataFrame({
-            "id": [1, 2, 3, 4],
-            "name": ["Engineering", "Sales", "Marketing", "HR"],
-            "location": ["New York", "San Francisco", "Chicago", "Boston"],
-            "budget": [1000000.0, 800000.0, 600000.0, 400000.0],
-        })
-        
-        # Create the tables in DuckDB
-        self.conn.register("employees", employees_data)
-        self.conn.register("departments", departments_data)
+        self.conn.execute("""
+            CREATE TABLE departments AS
+            SELECT 1 AS id, 'Engineering' AS name, 'New York' AS location, 1000000.0 AS budget UNION ALL
+            SELECT 2, 'Sales', 'San Francisco', 800000.0 UNION ALL
+            SELECT 3, 'Marketing', 'Chicago', 600000.0 UNION ALL
+            SELECT 4, 'HR', 'Boston', 400000.0
+        """)
         
         # Create schemas for the tables
         self.employee_schema = TableSchema(
@@ -101,12 +98,15 @@ class TestJoinExamples(unittest.TestCase):
         FROM employees e
         INNER JOIN departments d ON e.department_id = d.id
         """
-        result = self.conn.execute(direct_sql).fetchdf()
+        result = self.conn.execute(direct_sql).fetchall()
+        
+        column_names = ["employee_id", "employee_name", "department_name", "department_location", "employee_salary"]
+        result_dicts = [dict(zip(column_names, row)) for row in result]
         
         # Verify result
-        self.assertEqual(len(result), 6)  # All employees should match
-        self.assertIn("department_name", result.columns)
-        self.assertIn("department_location", result.columns)
+        self.assertEqual(len(result_dicts), 6)  # All employees should match
+        self.assertTrue(all("department_name" in row for row in result_dicts))
+        self.assertTrue(all("department_location" in row for row in result_dicts))
     
     def test_left_join(self):
         """Test left join with lambda expressions."""
@@ -131,10 +131,13 @@ class TestJoinExamples(unittest.TestCase):
         
         print(f"Generated SQL: {sql}")
         
-        result = self.conn.execute(sql).fetchdf()
+        result = self.conn.execute(sql).fetchall()
+        
+        column_names = ["id", "name", "department_name", "location", "salary"]
+        result_dicts = [dict(zip(column_names, row)) for row in result]
         
         # Verify result
-        self.assertEqual(len(result), 6)  # All employees should be included
+        self.assertEqual(len(result_dicts), 6)  # All employees should be included
     
     def test_join_with_aggregation(self):
         """Test join with aggregation."""
@@ -162,14 +165,17 @@ class TestJoinExamples(unittest.TestCase):
         
         print(f"Generated SQL: {sql}")
         
-        result = self.conn.execute(sql).fetchdf()
+        result = self.conn.execute(sql).fetchall()
+        
+        column_names = ["department_name", "employee_count", "total_salary", "avg_salary"]
+        result_dicts = [dict(zip(column_names, row)) for row in result]
         
         # Verify result
-        self.assertEqual(len(result), 3)  # Three departments with employees
-        self.assertIn("department_name", result.columns)
-        self.assertIn("employee_count", result.columns)
-        self.assertIn("total_salary", result.columns)
-        self.assertIn("avg_salary", result.columns)
+        self.assertEqual(len(result_dicts), 3)  # Three departments with employees
+        self.assertTrue(all("department_name" in row for row in result_dicts))
+        self.assertTrue(all("employee_count" in row for row in result_dicts))
+        self.assertTrue(all("total_salary" in row for row in result_dicts))
+        self.assertTrue(all("avg_salary" in row for row in result_dicts))
 
 
 if __name__ == "__main__":
