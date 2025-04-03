@@ -95,7 +95,7 @@ def main():
         sql_code = selected_df.to_sql(dialect='duckdb')
         pure_code = selected_df.to_sql(dialect='pure_relation')
         
-        expected_pure = "$employees->select(~[id, name, salary])->rename('id', 'id')->rename('name', 'name')->rename('salary', 'salary')"
+        expected_pure = "$employees->select(~[id, name, salary])->rename(~id, ~id)->rename(~name, ~name)->rename(~salary, ~salary)"
         
         print('\n=== DataFrame Generated SQL ===')
         print(sql_code.strip())
@@ -125,7 +125,7 @@ def main():
         sql_code2 = selected_df2.to_sql(dialect='duckdb')
         pure_code2 = selected_df2.to_sql(dialect='pure_relation')
         
-        expected_pure2 = "$employees->select(~[employee_id, employee_name, employee_salary])->rename('id', 'employee_id')->rename('name', 'employee_name')->rename('salary', 'employee_salary')"
+        expected_pure2 = "$employees->select(~[employee_id, employee_name, employee_salary])->rename(~id, ~employee_id)->rename(~name, ~employee_name)->rename(~salary, ~employee_salary)"
         
         print('\n=== DataFrame Generated SQL ===')
         print(sql_code2.strip())

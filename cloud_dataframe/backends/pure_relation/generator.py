@@ -190,7 +190,7 @@ def _apply_select(relation_code: str, columns: List[Column]) -> str:
     result = f"{relation_code}->select(~[{cols_code}])"
     
     for old_col, new_col in rename_operations:
-        result = f"{result}->rename('{old_col}', '{new_col}')"
+        result = f"{result}->rename(~{old_col}, ~{new_col})"
     
     return result
 
