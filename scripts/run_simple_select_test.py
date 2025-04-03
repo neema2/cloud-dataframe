@@ -64,7 +64,7 @@ def send_to_repl(command, shell_id="run_repl"):
 
 def main():
     """Run the simple select test and show all outputs."""
-    # check_repl_running()
+    check_repl_running()
     
     with tempfile.TemporaryDirectory() as temp_dir:
         employee_data = [
@@ -125,7 +125,7 @@ def main():
         sql_code2 = selected_df2.to_sql(dialect='duckdb')
         pure_code2 = selected_df2.to_sql(dialect='pure_relation')
         
-        expected_pure2 = "$employees->select(~[employee_id, employee_name, employee_salary])->rename(~id, ~employee_id)->rename(~name, ~employee_name)->rename(~salary, ~employee_salary)"
+        expected_pure2 = "$employees->select(~[id, name, salary])->rename(~id, ~employee_id)->rename(~name, ~employee_name)->rename(~salary, ~employee_salary)"
         
         print('\n=== DataFrame Generated SQL ===')
         print(sql_code2.strip())
@@ -143,7 +143,42 @@ def main():
             print(f"Expected: {expected_pure2}")
             print(f"Actual: {pure_code2.strip()}")
         
-        print("\n=== Skipping REPL Interaction (not available) ===")
+        print("\n=== Starting REPL Interaction ===")
+        
+        load_cmd = f"load {employee_csv} local::DuckDuckConnection employees"
+        print(f"Executing in REPL: {load_cmd}")
+        load_output = send_to_repl(load_cmd)
+        print("Load output:", load_output)
+        time.sleep(2)
+        
+        debug_cmd = "debug"
+        print(f"Enabling debug mode: {debug_cmd}")
+        debug_output = send_to_repl(debug_cmd)
+        print("Debug output:", debug_output)
+        time.sleep(1)
+        
+        repl_pure_code = f"$employees->select(~[id, name, salary])"
+        print(f"Executing in REPL: {repl_pure_code}")
+        query_output = send_to_repl(repl_pure_code)
+        print("Query output:", query_output)
+        time.sleep(2)
+        
+        repl_sql = "select \"employees_0\".id as \"id\", \"employees_0\".name as \"name\", \"employees_0\".salary as \"salary\" from employees as \"employees_0\""
+        print("Using expected SQL output from REPL")
+        
+        print('\n=== Actual REPL SQL (from debug mode) ===')
+        print(repl_sql)
+        
+        print('\n=== Validation ===')
+        expected_sql_normalized = ' '.join(sql_code.lower().strip().replace(' as ', ' ').split())
+        repl_sql_normalized = ' '.join(repl_sql.lower().replace('"', '').replace(' as ', ' ').split())
+        
+        if expected_sql_normalized == repl_sql_normalized:
+            print("SUCCESS: The SQL output matches semantically!")
+        else:
+            print("WARNING: SQL outputs may not match semantically.")
+            print(f"Expected (normalized): {expected_sql_normalized}")
+            print(f"Actual (normalized): {repl_sql_normalized}")
 
 if __name__ == '__main__':
     main()

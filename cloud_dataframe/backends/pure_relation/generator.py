@@ -159,11 +159,12 @@ def _apply_select(relation_code: str, columns: List[Column]) -> str:
     for col in columns:
         if isinstance(col, Column):
             if col.alias:
-                cols.append(col.alias)
-                
                 expr = col.expression
                 if isinstance(expr, ColumnReference):
+                    cols.append(expr.name)
                     rename_operations.append((expr.name, col.alias))
+                else:
+                    cols.append(_generate_expression(expr))
             else:
                 expr = col.expression
                 if isinstance(expr, ColumnReference):
@@ -173,15 +174,13 @@ def _apply_select(relation_code: str, columns: List[Column]) -> str:
         elif isinstance(col, ColumnReference):
             cols.append(col.name)
         elif isinstance(col, BinaryOperation) and col.operator == "AS":
-            if isinstance(col.right, LiteralExpression):
+            if isinstance(col.right, LiteralExpression) and isinstance(col.left, ColumnReference):
+                old_col_name = col.left.name
                 new_col_name = col.right.value
-                cols.append(new_col_name)
-                
-                if isinstance(col.left, ColumnReference):
-                    old_col_name = col.left.name
-                    rename_operations.append((old_col_name, new_col_name))
-                else:
-                    pass
+                cols.append(old_col_name)
+                rename_operations.append((old_col_name, new_col_name))
+            else:
+                cols.append(_generate_expression(col))
         else:
             cols.append(_generate_expression(col))
             
