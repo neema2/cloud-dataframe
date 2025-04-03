@@ -57,44 +57,101 @@ def start_repl():
             line = repl_process.stdout.readline()
             if line:
                 repl_output_queue.put(line)
-                if "REPL ready" in line:
+                print(f"REPL output: {line.strip()}")
+                if "REPL ready" in line or "Press 'Enter'" in line or "legend" in line.lower():
                     repl_ready.set()
     
     output_thread = threading.Thread(target=read_output, daemon=True)
     output_thread.start()
     
-    if not repl_ready.wait(timeout=10):
-        print("WARNING: REPL startup may not be complete yet.")
+    print("Waiting for REPL to be ready...")
+    wait_start = time.time()
+    max_wait = 30  # seconds
+    
+    if not repl_ready.wait(timeout=max_wait):
+        print("WARNING: REPL startup may not be complete yet. Sending test command...")
+        try:
+            repl_process.stdin.write("\n")
+            repl_process.stdin.flush()
+            time.sleep(5)
+            if not repl_ready.is_set():
+                print("WARNING: REPL still not ready after additional wait time.")
+            else:
+                print("REPL is now ready to accept commands.")
+        except Exception as e:
+            print(f"Error checking REPL readiness: {e}")
     else:
         print("REPL is ready to accept commands.")
+    
+    try:
+        print("Sending test command to verify REPL is responsive...")
+        repl_process.stdin.write("help\n")
+        repl_process.stdin.flush()
+        
+        verification_timeout = time.time() + 10
+        while time.time() < verification_timeout:
+            try:
+                output = repl_output_queue.get(timeout=0.5)
+                if output and ("Available commands" in output or "help" in output):
+                    print("REPL verified as responsive!")
+                    break
+            except queue.Empty:
+                continue
+        
+        time.sleep(2)
+    except Exception as e:
+        print(f"Error sending verification command: {e}")
     
     return repl_process
 
 def send_to_repl(command):
     """Send a command to the running REPL process."""
-    global repl_process
+    global repl_process, repl_ready
     
     if repl_process is None or repl_process.poll() is not None:
         print("Starting REPL...")
         start_repl()
     
+    if not repl_ready.is_set():
+        print("Waiting for REPL to be ready before sending command...")
+        if not repl_ready.wait(timeout=30):
+            print("WARNING: REPL may not be fully ready, but attempting to send command anyway.")
+    
     print(f"Sending to REPL: {command}")
     
     try:
-        repl_process.stdin.write(command + "\n")
-        repl_process.stdin.flush()
-        
-        time.sleep(2)
-        
-        output = []
         try:
             while True:
-                output.append(repl_output_queue.get_nowait())
+                repl_output_queue.get_nowait()
         except queue.Empty:
             pass
         
+        repl_process.stdin.write(command + "\n")
+        repl_process.stdin.flush()
+        
+        print("Waiting for REPL response...")
+        wait_start = time.time()
+        max_wait = 10  # seconds
+        
+        time.sleep(1)
+        
+        output = []
+        while time.time() - wait_start < max_wait:
+            try:
+                line = repl_output_queue.get(timeout=0.5)
+                output.append(line)
+                print(f"Received: {line.strip()}")
+                wait_start = time.time()
+            except queue.Empty:
+                if output and time.time() - wait_start > 1:
+                    break
+                continue
+        
         result = "".join(output)
-        return result if result else "Command sent to REPL (no output)"
+        if not result:
+            print("No output received from REPL within timeout period.")
+            return "Command sent to REPL (no output within timeout period)"
+        return result
     
     except Exception as e:
         print(f"Error sending command to REPL: {e}")
