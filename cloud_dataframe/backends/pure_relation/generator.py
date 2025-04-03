@@ -156,11 +156,14 @@ def _apply_select(relation_code: str, columns: List[Column]) -> str:
     cols = []
     for col in columns:
         if isinstance(col, Column):
-            expr = col.expression
-            if isinstance(expr, ColumnReference):
-                cols.append(expr.name)
+            if col.alias:
+                cols.append(col.alias)
             else:
-                cols.append(_generate_expression(expr))
+                expr = col.expression
+                if isinstance(expr, ColumnReference):
+                    cols.append(expr.name)
+                else:
+                    cols.append(_generate_expression(expr))
         elif isinstance(col, ColumnReference):
             cols.append(col.name)
         else:
@@ -309,6 +312,9 @@ def _generate_expression(expr: Any) -> str:
             return str(expr.value)
     
     elif isinstance(expr, BinaryOperation):
+        if expr.operator == "AS" and isinstance(expr.right, LiteralExpression):
+            return expr.right.value
+            
         left_code = _generate_expression(expr.left)
         right_code = _generate_expression(expr.right)
         

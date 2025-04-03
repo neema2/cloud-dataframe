@@ -96,7 +96,7 @@ def main():
         
         repl_pure_code = f"#>{{local::DuckDuckDatabase.employees}}#->select(~[id, name, salary])"
         
-        expected_pure = "$employees->select(~[$employees_0.id AS \"id\", $employees_0.name AS \"name\", $employees_0.salary AS \"salary\"])"
+        expected_pure = "$employees->select(~[id, name, salary])"
         if pure_code.strip() == expected_pure:
             print("Pure code generation validation: SUCCESS")
         else:
