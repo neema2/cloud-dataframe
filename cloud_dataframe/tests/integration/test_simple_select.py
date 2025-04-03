@@ -110,7 +110,7 @@ class TestSimpleSelect(unittest.TestCase):
                 
         if not repl_sql:
             print("Could not extract SQL from output, using expected SQL:")
-            repl_sql = sql_code.strip()
+            repl_sql = "FAILED"
             print('\n=== Using Expected SQL ===')
         else:
             print('\n=== Actual REPL SQL (from debug mode) ===')
@@ -169,7 +169,7 @@ class TestSimpleSelect(unittest.TestCase):
                 
         if not repl_sql:
             print("Could not extract SQL from output, using expected SQL:")
-            repl_sql = sql_code.strip()
+            repl_sql = "FAILED"
             print('\n=== Using Expected SQL ===')
         else:
             print('\n=== Actual REPL SQL (from debug mode) ===')
