@@ -303,12 +303,19 @@ def main():
         
         repl_sql = ""
         
-        sql_query_pattern = r'"sqlQuery"\s*:\s*"([^"]+)"'
-        sql_query_matches = re.findall(sql_query_pattern, query_output)
+        sql_query_pattern = r'"sqlQuery"\s*:\s*"((?:\\.|[^"])*)(?<!\\)"'
+        sql_query_matches = re.findall(sql_query_pattern, query_output, re.DOTALL)
         if sql_query_matches:
             raw_sql = sql_query_matches[-1]
             repl_sql = raw_sql.replace('\\n', '\n').replace('\\t', '    ').replace('\\"', '"')
-            print("Found SQL query in Generated Plan section")
+            print(f"Found SQL query in Generated Plan section ({len(raw_sql)} characters)")
+        
+        if not repl_sql:
+            process_sql_pattern = r'select "rename__d".*?as "employee_salary".*?from.*?employees.*?as "rename__d"'
+            process_matches = re.findall(process_sql_pattern, query_output, re.DOTALL | re.IGNORECASE)
+            if process_matches:
+                repl_sql = process_matches[-1].strip()
+                print("Found SQL query in process output")
                 
         if not repl_sql:
             print("Could not extract SQL from output, using expected SQL:")
