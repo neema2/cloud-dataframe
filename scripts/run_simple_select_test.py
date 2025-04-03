@@ -214,7 +214,8 @@ def main():
             print(f"Actual: {pure_code.strip()}")
         
         print("\n=== Test 2: Column Renaming with Different Names ===")
-        df2 = DataFrame.from_('employees', alias='employees_0')
+        table_name = 'employees'
+        df2 = DataFrame.from_(table_name, alias='employees_0')
         
         selected_df2 = df2.select(
             lambda employees_0: (employee_id := employees_0.id),
@@ -256,8 +257,10 @@ def main():
         debug_output = send_to_repl(debug_cmd)
         print("Debug output:")
         print(debug_output)
-        
-        repl_pure_code = f"$employees->select(~[id, name, salary])"
+
+        index = pure_code2.find("->")
+        code2 = pure_code2[index+2:]
+        repl_pure_code = f"#>{local::DuckDuckDatabase.{table_name}}#->{code2}"
         print(f"Executing in REPL: {repl_pure_code}")
         query_output = send_to_repl(repl_pure_code)
         print("Query output:")
