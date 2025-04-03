@@ -260,7 +260,7 @@ def main():
 
         index = pure_code2.find("->")
         code2 = pure_code2[index+2:]
-        repl_pure_code = "select id, name, salary from employees"
+        repl_pure_code = "#>{local::DuckDuckDatabase.employees}->select(~[id, name, salary])"
         print(f"Executing in REPL: {repl_pure_code}")
         query_output = send_to_repl(repl_pure_code)
         print("Query output:")
