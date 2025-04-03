@@ -8,7 +8,8 @@ from typing import Any, Dict, List, Optional, Union, cast
 from ...core.dataframe import (
     DataFrame, TableReference, SubquerySource, JoinOperation, 
     JoinType, OrderByClause, Sort, FilterCondition,
-    BinaryOperation, UnaryOperation, CommonTableExpression
+    BinaryOperation, UnaryOperation, CommonTableExpression,
+    SetOperation, SetOperationType
 )
 from ...type_system.column import (
     Column, ColumnReference, Expression, LiteralExpression, FunctionExpression,
@@ -561,6 +562,16 @@ def _generate_source(source: Any) -> str:
         else:
             condition_sql = _generate_expression(source.condition)
             return f"{left_sql} {join_type_sql} JOIN {right_sql} ON {condition_sql}"
+    
+    elif isinstance(source, SetOperation):
+        left_df = DataFrame().with_source(source.left)
+        right_df = DataFrame().with_source(source.right)
+        
+        left_sql = generate_sql(left_df)
+        right_sql = generate_sql(right_df)
+        set_op_type_sql = source.set_op_type.value
+        
+        return f"({left_sql}) {set_op_type_sql} ({right_sql})"
     
     else:
         # For other types of sources, convert to string

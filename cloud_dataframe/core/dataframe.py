@@ -26,6 +26,12 @@ class JoinType(Enum):
     CROSS = "CROSS"
 
 
+class SetOperationType(Enum):
+    """Set operation types supported by the DataFrame DSL."""
+    UNION = "UNION"
+    UNION_ALL = "UNION ALL"
+
+
 class Sort(Enum):
     """Sort directions for ORDER BY clauses."""
     ASC = "ASC"
@@ -98,6 +104,14 @@ class JoinOperation(DataSource):
     condition: FilterCondition
     left_alias: Optional[str] = None
     right_alias: Optional[str] = None
+
+
+@dataclass
+class SetOperation(DataSource):
+    """Set operation between two data sources."""
+    left: DataSource
+    right: DataSource
+    set_op_type: SetOperationType
 
 
 @dataclass
@@ -784,6 +798,90 @@ class DataFrame:
         # For CROSS JOIN, we use a dummy condition that's always true
         # We use a lambda function that always returns True to satisfy the type checker
         return self.join(right, lambda x, y: True, JoinType.CROSS)
+        
+    def union(self, right: Union['DataFrame', TableReference]) -> 'DataFrame':
+        """
+        Combine the rows of this DataFrame with another DataFrame or table, removing duplicates.
+        
+        This follows set semantics, i.e., only unique rows will be included in the result.
+        The DataFrames must have the same number of columns.
+        
+        Args:
+            right: The DataFrame or table to union with
+            
+        Returns:
+            A new DataFrame representing the union
+        """
+        if self.source is None:
+            raise ValueError("Cannot union a DataFrame without a source")
+        
+        # Get the right source
+        if isinstance(right, DataFrame):
+            if isinstance(right.source, TableReference):
+                right_source = right.source
+            else:
+                # Otherwise, wrap it in a SubquerySource
+                right_source = SubquerySource(
+                    dataframe=right,
+                    alias=f"subquery_{len(self.ctes)}"
+                )
+        elif isinstance(right, TableReference):
+            right_source = right
+        else:
+            raise TypeError("Right side of union must be a DataFrame or TableReference")
+        
+        result = DataFrame()
+        result.source = SetOperation(
+            left=self.source,
+            right=right_source,
+            set_op_type=SetOperationType.UNION
+        )
+        
+        result.columns = self.columns.copy()
+        
+        return result
+    
+    def union_all(self, right: Union['DataFrame', TableReference]) -> 'DataFrame':
+        """
+        Combine the rows of this DataFrame with another DataFrame or table, keeping all rows including duplicates.
+        
+        This follows bag semantics, i.e., all rows from both DataFrames will be included.
+        The DataFrames must have the same number of columns.
+        
+        Args:
+            right: The DataFrame or table to union with
+            
+        Returns:
+            A new DataFrame representing the union
+        """
+        if self.source is None:
+            raise ValueError("Cannot union a DataFrame without a source")
+            
+        # Get the right source
+        if isinstance(right, DataFrame):
+            if isinstance(right.source, TableReference):
+                right_source = right.source
+            else:
+                # Otherwise, wrap it in a SubquerySource
+                right_source = SubquerySource(
+                    dataframe=right,
+                    alias=f"subquery_{len(self.ctes)}"
+                )
+        elif isinstance(right, TableReference):
+            right_source = right
+        else:
+            raise TypeError("Right side of union must be a DataFrame or TableReference")
+        
+        result = DataFrame()
+        result.source = SetOperation(
+            left=self.source,
+            right=right_source,
+            set_op_type=SetOperationType.UNION_ALL
+        )
+        
+        result.columns = self.columns.copy()
+        
+        return result
     
     def _lambda_to_join_condition(self, lambda_func: Callable[[Any, Any], bool]) -> FilterCondition:
         """
@@ -872,6 +970,11 @@ class DataFrame:
                 sample_data[field_name] = None
         
         return table_class(**sample_data)
+    
+    def with_source(self, source: DataSource) -> 'DataFrame':
+        """Set the source of this DataFrame without modifying other properties."""
+        self.source = source
+        return self
     
     def to_sql(self, dialect: str = "duckdb") -> str:
         """
